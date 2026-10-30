@@ -6,6 +6,12 @@
 	import DayPanel from '../lib/components/DayPanel.svelte';
 	import { addDays, localToday, yearOf, type DateKey } from '../lib/calendar';
 	import {
+		DAY_EMOJIS_STORAGE_KEY,
+		normalizeEmoji,
+		parseDayEmojis,
+		type DayEmojis
+	} from '../lib/day-emojis';
+	import {
 		parseSavedView,
 		VIEW_STORAGE_KEY,
 		ZOOM_LEVELS,
@@ -20,6 +26,8 @@
 	let restored = $state(false);
 	let mode = $state<ViewMode>('vertical');
 	let zoom = $state<ZoomLevel>(100);
+	let emojis = $state<DayEmojis>({});
+	let emojiSaveError = $state('');
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -68,6 +76,15 @@
 			browserToday = localToday();
 		};
 		refreshToday();
+		try {
+			emojis = parseDayEmojis(localStorage.getItem(DAY_EMOJIS_STORAGE_KEY));
+		} catch {
+			emojiSaveError = 'Day emoji storage is unavailable in this browser.';
+		}
+		const syncEmojis = (event: StorageEvent) => {
+			if (event.key === DAY_EMOJIS_STORAGE_KEY) emojis = parseDayEmojis(event.newValue);
+		};
+		window.addEventListener('storage', syncEmojis);
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -103,6 +120,7 @@
 			window.clearInterval(timer);
 			window.removeEventListener('focus', refreshToday);
 			window.removeEventListener('pagehide', saveView);
+			window.removeEventListener('storage', syncEmojis);
 		};
 	});
 
@@ -198,7 +216,7 @@
 				[4, 4],
 				[-4, -4]
 			]) {
-				const candidate = document.elementFromPoint(x + dx, y + dy);
+				const candidate = document.elementFromPoint(x + dx, y + dy)?.closest('.day');
 				if (candidate?.classList.contains('day') && viewport.contains(candidate)) {
 					anchor = candidate;
 					break;
@@ -220,6 +238,21 @@
 		return setZoom(
 			ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length - 1, zoomIndex + direction))]
 		);
+	}
+
+	function setEmoji(value: string) {
+		const emoji = normalizeEmoji(value);
+		if (emoji === null) return;
+		const next = { ...emojis };
+		if (emoji) next[selected] = emoji;
+		else delete next[selected];
+		try {
+			localStorage.setItem(DAY_EMOJIS_STORAGE_KEY, JSON.stringify({ version: 1, days: next }));
+			emojis = next;
+			emojiSaveError = '';
+		} catch {
+			emojiSaveError = 'Could not save the emoji in this browser.';
+		}
 	}
 </script>
 
@@ -312,6 +345,7 @@
 				{selected}
 				{mode}
 				{cellSize}
+				{emojis}
 				onSelect={(key) => (selection = key)}
 				onNavigate={navigateDay}
 			/>
@@ -322,6 +356,9 @@
 				{today}
 				{firstYear}
 				{lastYear}
+				emoji={emojis[selected] ?? ''}
+				onEmojiChange={setEmoji}
+				saveError={emojiSaveError}
 				onNavigate={(key, offset) => navigateDay(key, offset, false)}
 			/>
 		{/if}

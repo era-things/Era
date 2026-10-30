@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { daysBetween, daysInRange, weekdayOffset, yearOf, type DateKey } from '../calendar';
 	import type { ViewMode } from '../view-state';
+	import type { DayEmojis } from '../day-emojis';
 	import DaySquare from './DaySquare.svelte';
 
 	let {
@@ -10,6 +11,7 @@
 		selected,
 		mode,
 		cellSize,
+		emojis,
 		onSelect,
 		onNavigate
 	}: {
@@ -19,6 +21,7 @@
 		selected: DateKey;
 		mode: ViewMode;
 		cellSize: number;
+		emojis: DayEmojis;
 		onSelect: (key: DateKey) => void;
 		onNavigate: (key: DateKey, offset: number) => void;
 	} = $props();
@@ -79,6 +82,7 @@
 					{day}
 					{today}
 					{selected}
+					emoji={emojis[day.key] ?? ''}
 					{onSelect}
 					{onNavigate}
 					horizontalStep={7}
@@ -112,6 +116,7 @@
 					{day}
 					{today}
 					{selected}
+					emoji={emojis[day.key] ?? ''}
 					{onSelect}
 					{onNavigate}
 					horizontalStep={1}

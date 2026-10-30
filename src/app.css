@@ -141,24 +141,47 @@ h1 {
 	line-height: 1.5;
 	margin: 0;
 }
-.panel-date p {
+.day-panel-heading {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+.panel-date {
+	min-width: 0;
+	flex: 1 1 140px;
+}
+.panel-relative {
 	font-size: 12px;
 	color: var(--muted);
-	margin: 8px 0 20px;
+	margin-left: 4px;
+	line-height: 1.4;
 }
 .day-navigation {
 	display: flex;
-	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
 }
 .day-navigation button {
-	background: transparent;
-	border: 1px solid var(--line);
-	border-radius: 3px;
-	width: 32px;
-	height: 32px;
+	display: grid;
+	place-items: center;
+	padding: 0;
+	background: #e9ede6;
+	color: var(--muted);
+	border: 1px solid transparent;
+	border-radius: 5px;
+	width: 28px;
+	height: 28px;
 }
 .day-navigation button:hover:not(:disabled) {
-	background: #e5eae2;
+	background: #dfe7da;
+	border-color: var(--line);
+	color: var(--accent);
+}
+.day-navigation button:active:not(:disabled) {
+	background: #d3dfcf;
 }
 .horizontal-timeline {
 	display: grid;
@@ -246,6 +269,10 @@ h1 {
 	color: var(--accent);
 }
 .day {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	place-items: center;
+	overflow: hidden;
 	width: var(--cell);
 	height: var(--cell);
 	padding: 0;
@@ -260,7 +287,7 @@ h1 {
 .day.today {
 	background: var(--accent);
 }
-.day.today::after {
+.day.today:not(.has-emoji)::after {
 	content: '';
 	position: absolute;
 	inset: calc(var(--cell) / 3);
@@ -280,6 +307,18 @@ h1 {
 .day:hover {
 	box-shadow: inset 0 0 0 1px var(--ink);
 }
+.day-emoji {
+	font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+	font-size: calc(var(--cell) * 0.75);
+	line-height: 1;
+	pointer-events: none;
+}
+.emoji-error {
+	font-size: 11px;
+	line-height: 1.4;
+	color: #a02d2d;
+	margin: 8px 0;
+}
 @media (max-width: 560px) {
 	.view-workspace.with-day-panel {
 		grid-template-columns: minmax(0, 1fr) minmax(112px, 30%);
@@ -290,8 +329,10 @@ h1 {
 	.day-panel h2 {
 		font-size: 13px;
 	}
-	.panel-date p {
+	.panel-relative {
 		font-size: 11px;
+		flex-basis: 100%;
+		margin-left: 0;
 	}
 	.day-navigation {
 		gap: 6px;

@@ -54,6 +54,17 @@ for reverse-proxy and deployment configuration.
 - Switching view modes retains the selected date and brings it into view.
 - Grid view reserves a narrower right-hand panel for the selected date, with
   previous/next-day controls. The grid scrolls independently of the panel.
+- An emoji button at the top of the day panel opens the full picker with search,
+  categories, skin tones, its built-in history, and Clear. The button shows the
+  day's assigned emoji, or a picker icon when empty. Assignments start empty,
+  appear in both views, scale with zoom, and are saved in this browser.
+- The full picker uses [emoji-picker-element](https://github.com/nolanlawson/emoji-picker-element),
+  initialized in the background when the day panel mounts and kept mounted for
+  fast reopening. The closed dialog stays laid out with `visibility: hidden` so
+  opening it does not trigger the initial emoji grid layout. Its emoji data is
+  bundled and served by this app.
+  Its bottom Favorites row is ordered by usage count, not recency, and refreshed
+  after each selection; history remains in the library's browser database.
 - Keyboard movement scrolls only when needed. Range changes preserve the viewport
   and the selected month/day (February 29 becomes February 28 in a non-leap year).
 - Fixed toolbar and date readout; the grid scrolls on both axes on narrow screens.
@@ -76,7 +87,9 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DaySquare.svelte`: day appearance, selection, and keyboard input.
 - `src/lib/components/DayDetail.svelte`: compact selected-day readout.
 - `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
+- `src/lib/components/EmojiSelector.svelte`: reusable emoji button and full picker dialog.
 - `src/lib/view-state.ts`: validation of saved browser view state.
+- `src/lib/day-emojis.ts`: emoji validation and browser-local day assignments.
 - `src/app.css`: shared visual styles.
 - `tests/calendar.test.ts`: leap-year, date-boundary, and timezone-safe arithmetic checks.
 

@@ -4,6 +4,7 @@
 		day,
 		today,
 		selected,
+		emoji = '',
 		horizontalStep,
 		verticalStep,
 		onSelect,
@@ -12,6 +13,7 @@
 		day: CalendarDay;
 		today: DateKey;
 		selected: DateKey;
+		emoji?: string;
 		horizontalStep: number;
 		verticalStep: number;
 		onSelect: (key: DateKey) => void;
@@ -41,14 +43,23 @@
 	id={'day-' + day.key}
 	class={[
 		'day',
-		{ past: day.key < today, today: day.key === today, selected: day.key === selected }
+		{
+			past: day.key < today,
+			today: day.key === today,
+			selected: day.key === selected,
+			'has-emoji': Boolean(emoji)
+		}
 	]}
 	style:--year-color={colors[yearOf(day.key) % colors.length]}
-	aria-label={formatDate(day.key) + ' · ' + relativeDay(day.key, today)}
+	aria-label={formatDate(day.key) +
+		' · ' +
+		relativeDay(day.key, today) +
+		(emoji ? ' · ' + emoji : '')}
 	aria-pressed={day.key === selected}
 	aria-current={day.key === today ? 'date' : undefined}
 	title={formatDate(day.key)}
 	tabindex={day.key === selected ? 0 : -1}
 	onclick={() => onSelect(day.key)}
 	onkeydown={navigate}
-></button>
+	>{#if emoji}<span class="day-emoji" aria-hidden="true">{emoji}</span>{/if}</button
+>
