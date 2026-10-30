@@ -4,6 +4,24 @@
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
 	import DayPanel from '../lib/components/DayPanel.svelte';
+	import MeasuresManager from '../lib/components/MeasuresManager.svelte';
+	import RemindersManager from '../lib/components/RemindersManager.svelte';
+	import {
+		REMINDERS_STORAGE_KEY,
+		parseReminders,
+		reminderOccursOn,
+		type Reminder
+	} from '../lib/reminders';
+	import {
+		MEASURES_STORAGE_KEY,
+		emptyMeasures,
+		parseMeasures,
+		removeMeasure,
+		validMeasureValue,
+		type Measure,
+		type MeasureValue,
+		type MeasuresState
+	} from '../lib/measures';
 	import { addDays, localToday, yearOf, type DateKey } from '../lib/calendar';
 	import {
 		DAY_EMOJIS_STORAGE_KEY,
@@ -28,6 +46,14 @@
 	let zoom = $state<ZoomLevel>(100);
 	let emojis = $state<DayEmojis>({});
 	let emojiSaveError = $state('');
+	let section = $state<'calendar' | 'measures' | 'reminders'>('calendar');
+	let measures = $state<MeasuresState>(emptyMeasures());
+	let measureSaveError = $state('');
+	let reminders = $state<Reminder[]>([]);
+	let reminderSaveError = $state('');
+	const dayReminders = $derived(
+		reminders.filter((reminder) => reminderOccursOn(reminder, selected))
+	);
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -38,7 +64,7 @@
 	const selected = $derived(selection ?? today);
 
 	function saveView() {
-		if (!restored || !viewport) return;
+		if (!restored || !viewport || section !== 'calendar') return;
 		try {
 			localStorage.setItem(
 				VIEW_STORAGE_KEY,
@@ -84,7 +110,25 @@
 		const syncEmojis = (event: StorageEvent) => {
 			if (event.key === DAY_EMOJIS_STORAGE_KEY) emojis = parseDayEmojis(event.newValue);
 		};
+		try {
+			measures = parseMeasures(localStorage.getItem(MEASURES_STORAGE_KEY));
+		} catch {
+			measureSaveError = 'Measure storage is unavailable in this browser.';
+		}
+		const syncMeasures = (event: StorageEvent) => {
+			if (event.key === MEASURES_STORAGE_KEY) measures = parseMeasures(event.newValue);
+		};
+		window.addEventListener('storage', syncMeasures);
 		window.addEventListener('storage', syncEmojis);
+		try {
+			reminders = parseReminders(localStorage.getItem(REMINDERS_STORAGE_KEY));
+		} catch {
+			reminderSaveError = 'Reminder storage is unavailable in this browser.';
+		}
+		const syncReminders = (event: StorageEvent) => {
+			if (event.key === REMINDERS_STORAGE_KEY) reminders = parseReminders(event.newValue);
+		};
+		window.addEventListener('storage', syncReminders);
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -121,6 +165,8 @@
 			window.removeEventListener('focus', refreshToday);
 			window.removeEventListener('pagehide', saveView);
 			window.removeEventListener('storage', syncEmojis);
+			window.removeEventListener('storage', syncMeasures);
+			window.removeEventListener('storage', syncReminders);
 		};
 	});
 
@@ -167,7 +213,9 @@
 	}
 
 	async function changeMode(next: ViewMode) {
-		if (mode === next) return;
+		const wasCalendar = section === 'calendar';
+		section = 'calendar';
+		if (mode === next && wasCalendar) return;
 		clearTimeout(saveTimer);
 		mode = next;
 		await tick();
@@ -180,16 +228,90 @@
 	async function navigateTabs(event: KeyboardEvent) {
 		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
+		const tabs = ['horizontal', 'vertical', 'measures', 'reminders'] as const;
+		const index = tabs.indexOf(section === 'calendar' ? mode : section);
 		const next =
 			event.key === 'Home'
-				? 'horizontal'
+				? tabs[0]
 				: event.key === 'End'
-					? 'vertical'
-					: mode === 'horizontal'
-						? 'vertical'
-						: 'horizontal';
-		await changeMode(next);
+					? tabs[tabs.length - 1]
+					: tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+		if (next === 'measures') showMeasures();
+		else if (next === 'reminders') showReminders();
+		else await changeMode(next);
+		await tick();
 		document.getElementById('tab-' + next)?.focus();
+	}
+
+	function showMeasures() {
+		saveView();
+		section = 'measures';
+	}
+
+	function showReminders() {
+		saveView();
+		section = 'reminders';
+	}
+
+	function persistReminders(next: Reminder[]): boolean {
+		try {
+			localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify({ version: 1, reminders: next }));
+			reminders = next;
+			reminderSaveError = '';
+			return true;
+		} catch {
+			reminderSaveError = 'Could not save reminders in this browser.';
+			return false;
+		}
+	}
+
+	function saveReminder(reminder: Reminder): boolean {
+		return persistReminders(
+			reminders.some((r) => r.id === reminder.id)
+				? reminders.map((r) => (r.id === reminder.id ? reminder : r))
+				: [...reminders, reminder]
+		);
+	}
+
+	function persistMeasures(next: MeasuresState): boolean {
+		try {
+			localStorage.setItem(MEASURES_STORAGE_KEY, JSON.stringify({ version: 1, ...next }));
+			measures = next;
+			measureSaveError = '';
+			return true;
+		} catch {
+			measureSaveError = 'Could not save measures in this browser.';
+			return false;
+		}
+	}
+
+	function saveMeasure(measure: Measure): boolean {
+		const previous = measures.definitions.find((m) => m.id === measure.id);
+		if (previous && previous.type !== measure.type) return false;
+		return persistMeasures({
+			...measures,
+			definitions: previous
+				? measures.definitions.map((m) => (m.id === measure.id ? measure : m))
+				: [...measures.definitions, measure]
+		});
+	}
+
+	function setMeasureValue(id: string, value: MeasureValue) {
+		const definition = measures.definitions.find((m) => m.id === id);
+		if (!definition || !validMeasureValue(definition.type, value)) return;
+		persistMeasures({
+			...measures,
+			days: { ...measures.days, [selected]: { ...measures.days[selected], [id]: value } }
+		});
+	}
+
+	function removeDayMeasure(id: string) {
+		const days = { ...measures.days };
+		const values = { ...days[selected] };
+		delete values[id];
+		if (Object.keys(values).length) days[selected] = values;
+		else delete days[selected];
+		persistMeasures({ ...measures, days });
 	}
 
 	async function setZoom(next: ZoomLevel) {
@@ -264,7 +386,7 @@
 <main class="app" aria-label="Era timeline" style:--cell={cellSize + 'px'}>
 	<header class="toolbar">
 		<h1>Era</h1>
-		<nav class="range-controls" aria-label="Timeline range">
+		<nav class="range-controls" aria-label="Timeline range" hidden={section !== 'calendar'}>
 			<button
 				type="button"
 				aria-label="Previous ten years"
@@ -281,15 +403,15 @@
 				onclick={() => changeRange(1)}>→</button
 			>
 		</nav>
-		<div class="view-tabs" role="tablist" aria-label="Timeline view">
+		<div class="view-tabs" role="tablist" aria-label="View">
 			<button
 				type="button"
 				role="tab"
 				id="tab-horizontal"
 				onkeydown={navigateTabs}
-				aria-selected={mode === 'horizontal'}
+				aria-selected={section === 'calendar' && mode === 'horizontal'}
 				aria-controls="timeline-panel"
-				tabindex={mode === 'horizontal' ? 0 : -1}
+				tabindex={section === 'calendar' && mode === 'horizontal' ? 0 : -1}
 				onclick={() => changeMode('horizontal')}>Weekdays</button
 			>
 			<button
@@ -297,13 +419,38 @@
 				role="tab"
 				id="tab-vertical"
 				onkeydown={navigateTabs}
-				aria-selected={mode === 'vertical'}
+				aria-selected={section === 'calendar' && mode === 'vertical'}
 				aria-controls="timeline-panel"
-				tabindex={mode === 'vertical' ? 0 : -1}
+				tabindex={section === 'calendar' && mode === 'vertical' ? 0 : -1}
 				onclick={() => changeMode('vertical')}>Grid</button
 			>
+			<button
+				type="button"
+				role="tab"
+				id="tab-measures"
+				onkeydown={navigateTabs}
+				aria-selected={section === 'measures'}
+				aria-controls="measures-panel"
+				tabindex={section === 'measures' ? 0 : -1}
+				onclick={showMeasures}>Measures</button
+			>
+			<button
+				type="button"
+				role="tab"
+				id="tab-reminders"
+				onkeydown={navigateTabs}
+				aria-selected={section === 'reminders'}
+				aria-controls="reminders-panel"
+				tabindex={section === 'reminders' ? 0 : -1}
+				onclick={showReminders}>Reminders</button
+			>
 		</div>
-		<div class="zoom-controls" role="group" aria-label="Timeline zoom">
+		<div
+			class="zoom-controls"
+			role="group"
+			aria-label="Timeline zoom"
+			hidden={section !== 'calendar'}
+		>
 			<button
 				type="button"
 				aria-label="Zoom out"
@@ -326,41 +473,71 @@
 				onclick={() => adjustZoom(1)}>+</button
 			>
 		</div>
-		<button class="today-button" type="button" onclick={goToToday}>Today</button>
-	</header>
-	{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
-	<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
-		<div
-			class={['timeline-scroll', mode]}
-			id="timeline-panel"
-			bind:this={viewport}
-			onscroll={scheduleSave}
-			role="tabpanel"
-			aria-labelledby={'tab-' + mode}
+		<button class="today-button" type="button" onclick={goToToday} hidden={section !== 'calendar'}
+			>Today</button
 		>
-			<TimelineGrid
-				{firstYear}
-				{lastYear}
-				{today}
-				{selected}
-				{mode}
-				{cellSize}
-				{emojis}
-				onSelect={(key) => (selection = key)}
-				onNavigate={navigateDay}
-			/>
+	</header>
+	{#if measureSaveError}<p class="measure-save-error" role="alert">{measureSaveError}</p>{/if}
+	{#if reminderSaveError}<p class="measure-save-error" role="alert">{reminderSaveError}</p>{/if}
+	<div class="calendar-content" hidden={section !== 'calendar'}>
+		{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
+		<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
+			<div
+				class={['timeline-scroll', mode]}
+				id="timeline-panel"
+				bind:this={viewport}
+				onscroll={scheduleSave}
+				role="tabpanel"
+				aria-labelledby={'tab-' + mode}
+			>
+				<TimelineGrid
+					{firstYear}
+					{lastYear}
+					{today}
+					{selected}
+					{mode}
+					{cellSize}
+					{emojis}
+					onSelect={(key) => (selection = key)}
+					onNavigate={navigateDay}
+				/>
+			</div>
+			{#if mode === 'vertical'}
+				<DayPanel
+					{selected}
+					{today}
+					{firstYear}
+					{lastYear}
+					emoji={emojis[selected] ?? ''}
+					onEmojiChange={setEmoji}
+					saveError={emojiSaveError}
+					onNavigate={(key, offset) => navigateDay(key, offset, false)}
+					measures={measures.definitions}
+					measureValues={measures.days[selected] ?? {}}
+					onAddMeasure={(measure) =>
+						setMeasureValue(measure.id, measure.type === 'uint' ? 0 : false)}
+					onMeasureChange={setMeasureValue}
+					onRemoveMeasure={removeDayMeasure}
+					onManageMeasures={showMeasures}
+					reminders={dayReminders}
+					onManageReminders={showReminders}
+				/>
+			{/if}
 		</div>
-		{#if mode === 'vertical'}
-			<DayPanel
-				{selected}
-				{today}
-				{firstYear}
-				{lastYear}
-				emoji={emojis[selected] ?? ''}
-				onEmojiChange={setEmoji}
-				saveError={emojiSaveError}
-				onNavigate={(key, offset) => navigateDay(key, offset, false)}
-			/>
-		{/if}
 	</div>
+	{#if section === 'measures'}
+		<MeasuresManager
+			measures={measures.definitions}
+			onsave={saveMeasure}
+			ondelete={(id) => persistMeasures(removeMeasure(measures, id))}
+		/>
+	{/if}
+	{#if section === 'reminders'}
+		<RemindersManager
+			{reminders}
+			{selected}
+			onsave={saveReminder}
+			ondelete={(id) => persistReminders(reminders.filter((r) => r.id !== id))}
+		/>
+	{/if}
 </main>

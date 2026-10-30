@@ -54,6 +54,21 @@ for reverse-proxy and deployment configuration.
 - Switching view modes retains the selected date and brings it into view.
 - Grid view reserves a narrower right-hand panel for the selected date, with
   previous/next-day controls. The grid scrolls independently of the panel.
+- The Measures tab manages global definitions with a name, unsigned-integer or
+  boolean type, and one of six faint-to-bright color palettes. Names and palettes
+  can be edited; types stay fixed after creation. Deleting a definition also
+  removes its day values, after an inline confirmation.
+- Use the day panel's Measures (+) button to attach definitions. Each appears in
+  a pale-colored card with a number input or boolean checkbox. Newly added values
+  default to 0 for numbers and false for booleans. Numbers may be
+  blank or non-negative safe integers; zero, false, and absence stay distinct.
+  Values save immediately in browser-local storage and are independent per day.
+- The Reminders tab creates, edits, and deletes reminders with text, a starting
+  date, and a daily, weekly, monthly, yearly, or one-time period. The day panel
+  lists reminders due on its selected date in a separate section. Dates before
+  the start are excluded; monthly and yearly repeats use the last day of shorter
+  months when needed, while preserving the original starting day for later repeats.
+  Reminders are saved in browser-local storage.
 - An emoji button at the top of the day panel opens the full picker with search,
   categories, skin tones, its built-in history, and Clear. The button shows the
   day's assigned emoji, or a picker icon when empty. Assignments start empty,
@@ -88,6 +103,12 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayDetail.svelte`: compact selected-day readout.
 - `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
 - `src/lib/components/EmojiSelector.svelte`: reusable emoji button and full picker dialog.
+- `src/lib/components/MeasuresManager.svelte`: global measure creation and management.
+- `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
+- `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
+- `src/lib/components/RemindersManager.svelte`: reminder creation and management.
+- `src/lib/components/DayReminders.svelte`: reminders due on the selected day.
+- `src/lib/reminders.ts`: recurrence rules and saved-reminder validation.
 - `src/lib/view-state.ts`: validation of saved browser view state.
 - `src/lib/day-emojis.ts`: emoji validation and browser-local day assignments.
 - `src/app.css`: shared visual styles.

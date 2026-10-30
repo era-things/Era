@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { formatDate, relativeDay, type DateKey } from '../calendar';
 	import EmojiSelector from './EmojiSelector.svelte';
+	import DayMeasures from './DayMeasures.svelte';
+	import type { Measure, MeasureValue } from '../measures';
+	import DayReminders from './DayReminders.svelte';
+	import type { Reminder } from '../reminders';
 	let {
 		selected,
 		today,
@@ -9,7 +13,15 @@
 		onNavigate,
 		emoji,
 		onEmojiChange,
-		saveError
+		saveError,
+		measures,
+		measureValues,
+		onAddMeasure,
+		onMeasureChange,
+		onRemoveMeasure,
+		onManageMeasures,
+		reminders,
+		onManageReminders
 	}: {
 		selected: DateKey;
 		today: DateKey;
@@ -19,6 +31,14 @@
 		emoji: string;
 		onEmojiChange: (emoji: string) => void;
 		saveError: string;
+		measures: Measure[];
+		measureValues: Record<string, MeasureValue>;
+		onAddMeasure: (measure: Measure) => void;
+		onMeasureChange: (id: string, value: MeasureValue) => void;
+		onRemoveMeasure: (id: string) => void;
+		onManageMeasures: () => void;
+		reminders: Reminder[];
+		onManageReminders: () => void;
 	} = $props();
 </script>
 
@@ -71,4 +91,15 @@
 		<span class="panel-relative" aria-live="polite">{relativeDay(selected, today)}</span>
 	</nav>
 	{#if saveError}<p class="emoji-error" role="alert">{saveError}</p>{/if}
+	{#key selected}
+		<DayMeasures
+			{measures}
+			values={measureValues}
+			onadd={onAddMeasure}
+			onchange={onMeasureChange}
+			onremove={onRemoveMeasure}
+			onmanage={onManageMeasures}
+		/>
+	{/key}
+	<DayReminders {reminders} onmanage={onManageReminders} />
 </aside>
