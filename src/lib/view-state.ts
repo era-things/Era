@@ -4,9 +4,13 @@ export const VIEW_STORAGE_KEY = 'era:timeline-view:v3';
 
 export type ViewMode = 'horizontal' | 'vertical';
 
+export const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200] as const;
+export type ZoomLevel = (typeof ZOOM_LEVELS)[number];
+
 export interface SavedView {
 	version: 3;
 	mode: ViewMode;
+	zoom: ZoomLevel;
 	firstYear: number;
 	selected: DateKey;
 	scrollTop: number;
@@ -38,7 +42,9 @@ export function parseSavedView(raw: string | null): SavedView | null {
 			)
 		)
 			return null;
-		return view as SavedView;
+		const zoom = view.zoom === undefined ? 100 : view.zoom;
+		if (!ZOOM_LEVELS.some((level) => level === zoom)) return null;
+		return { ...view, zoom } as SavedView;
 	} catch {
 		return null;
 	}

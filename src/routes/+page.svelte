@@ -3,8 +3,15 @@
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
+	import DayPanel from '../lib/components/DayPanel.svelte';
 	import { addDays, localToday, yearOf, type DateKey } from '../lib/calendar';
-	import { parseSavedView, VIEW_STORAGE_KEY, type ViewMode } from '../lib/view-state';
+	import {
+		parseSavedView,
+		VIEW_STORAGE_KEY,
+		ZOOM_LEVELS,
+		type ViewMode,
+		type ZoomLevel
+	} from '../lib/view-state';
 
 	let { data }: { data: PageData } = $props();
 	let browserToday = $state<DateKey | null>(null);
@@ -12,6 +19,9 @@
 	let selection = $state<DateKey | null>(null);
 	let restored = $state(false);
 	let mode = $state<ViewMode>('vertical');
+	let zoom = $state<ZoomLevel>(100);
+	const cellSize = $derived((24 * zoom) / 100);
+	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
 	let saveTimer: ReturnType<typeof setTimeout> | undefined;
 	const today = $derived(browserToday ?? data.today);
@@ -27,6 +37,7 @@
 				JSON.stringify({
 					version: 3,
 					mode,
+					zoom,
 					firstYear,
 					selected,
 					scrollTop: viewport.scrollTop,
@@ -47,6 +58,7 @@
 		firstYear;
 		selected;
 		mode;
+		zoom;
 		if (restored) saveView();
 	});
 
@@ -66,6 +78,7 @@
 			rangeStart = saved.firstYear;
 			selection = saved.selected;
 			mode = saved.mode;
+			zoom = saved.zoom;
 		}
 		const initialView = saved;
 		void tick().then(() => {
@@ -109,10 +122,10 @@
 		saveView();
 	}
 
-	async function focusDay(key: DateKey, center = false) {
+	async function focusDay(key: DateKey, center = false, focus = true) {
 		await tick();
 		const element = document.getElementById('day-' + key);
-		element?.focus({ preventScroll: true });
+		if (focus) element?.focus({ preventScroll: true });
 		// Nearest leaves the viewport untouched while the destination is visible.
 		element?.scrollIntoView({
 			block: center ? 'center' : 'nearest',
@@ -128,11 +141,11 @@
 		await focusDay(today, true);
 	}
 
-	async function navigateDay(key: DateKey, offset: number) {
+	async function navigateDay(key: DateKey, offset: number, focus = true) {
 		const next = addDays(key, offset);
 		if (yearOf(next) < firstYear || yearOf(next) > lastYear) return;
 		selection = next;
-		await focusDay(next);
+		await focusDay(next, false, focus);
 	}
 
 	async function changeMode(next: ViewMode) {
@@ -160,6 +173,54 @@
 		await changeMode(next);
 		document.getElementById('tab-' + next)?.focus();
 	}
+
+	async function setZoom(next: ZoomLevel) {
+		if (zoom === next) return;
+		clearTimeout(saveTimer);
+		const bounds = viewport.getBoundingClientRect();
+		const grid = viewport
+			.querySelector('.vertical-days, .horizontal-days')
+			?.getBoundingClientRect();
+		let anchor: Element | null = null;
+		if (grid) {
+			const x = Math.max(
+				grid.left + 6,
+				Math.min(bounds.left + viewport.clientWidth / 2, grid.right - 6)
+			);
+			const y = Math.max(
+				grid.top + 6,
+				Math.min(bounds.top + viewport.clientHeight / 2, grid.bottom - 6)
+			);
+			for (const [dx, dy] of [
+				[0, 0],
+				[4, 0],
+				[0, 4],
+				[4, 4],
+				[-4, -4]
+			]) {
+				const candidate = document.elementFromPoint(x + dx, y + dy);
+				if (candidate?.classList.contains('day') && viewport.contains(candidate)) {
+					anchor = candidate;
+					break;
+				}
+			}
+		}
+		const before = anchor?.getBoundingClientRect();
+		zoom = next;
+		await tick();
+		if (anchor && before) {
+			const after = anchor.getBoundingClientRect();
+			viewport.scrollTop += after.top - before.top;
+			viewport.scrollLeft += after.left - before.left;
+		}
+		saveView();
+	}
+
+	function adjustZoom(direction: number) {
+		return setZoom(
+			ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length - 1, zoomIndex + direction))]
+		);
+	}
 </script>
 
 <svelte:head>
@@ -167,7 +228,7 @@
 	<meta name="description" content="Personal day timeline." />
 </svelte:head>
 
-<main class="app" aria-label="Era timeline">
+<main class="app" aria-label="Era timeline" style:--cell={cellSize + 'px'}>
 	<header class="toolbar">
 		<h1>Era</h1>
 		<nav class="range-controls" aria-label="Timeline range">
@@ -209,25 +270,60 @@
 				onclick={() => changeMode('vertical')}>Grid</button
 			>
 		</div>
+		<div class="zoom-controls" role="group" aria-label="Timeline zoom">
+			<button
+				type="button"
+				aria-label="Zoom out"
+				title="Zoom out"
+				disabled={zoomIndex === 0}
+				onclick={() => adjustZoom(-1)}>−</button
+			>
+			<button
+				type="button"
+				class="zoom-readout"
+				aria-label="Reset zoom to 100%"
+				title="Reset zoom to 100%"
+				onclick={() => setZoom(100)}>{zoom}%</button
+			>
+			<button
+				type="button"
+				aria-label="Zoom in"
+				title="Zoom in"
+				disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+				onclick={() => adjustZoom(1)}>+</button
+			>
+		</div>
 		<button class="today-button" type="button" onclick={goToToday}>Today</button>
 	</header>
-	<DayDetail {selected} {today} />
-	<div
-		class={['timeline-scroll', mode]}
-		id="timeline-panel"
-		bind:this={viewport}
-		onscroll={scheduleSave}
-		role="tabpanel"
-		aria-labelledby={'tab-' + mode}
-	>
-		<TimelineGrid
-			{firstYear}
-			{lastYear}
-			{today}
-			{selected}
-			{mode}
-			onSelect={(key) => (selection = key)}
-			onNavigate={navigateDay}
-		/>
+	{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
+	<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
+		<div
+			class={['timeline-scroll', mode]}
+			id="timeline-panel"
+			bind:this={viewport}
+			onscroll={scheduleSave}
+			role="tabpanel"
+			aria-labelledby={'tab-' + mode}
+		>
+			<TimelineGrid
+				{firstYear}
+				{lastYear}
+				{today}
+				{selected}
+				{mode}
+				{cellSize}
+				onSelect={(key) => (selection = key)}
+				onNavigate={navigateDay}
+			/>
+		</div>
+		{#if mode === 'vertical'}
+			<DayPanel
+				{selected}
+				{today}
+				{firstYear}
+				{lastYear}
+				onNavigate={(key, offset) => navigateDay(key, offset, false)}
+			/>
+		{/if}
 	</div>
 </main>

@@ -41,7 +41,9 @@ for reverse-proxy and deployment configuration.
 - Two view tabs: Weekdays is a continuous horizontal timeline with Monday-first
   week columns; Grid is a vertical rectangle of consecutive dates that wraps to
   the available width, without weekday alignment or blank calendar cells.
-- Fixed 24px squares, year colors, faded past days, and a distinct marker for today.
+- Squares default to 24px, with toolbar zoom controls from 50% to 200% in both
+  views. Click the percentage to reset to 100%. Zoom is remembered on return.
+- Year colors, faded past days, and a distinct marker for today.
 - Click to select a day and see its date in a compact readout.
 - Browse the previous or next ten years; return to today.
 - Keyboard navigation follows each view's layout: arrows move to adjacent rows
@@ -50,6 +52,8 @@ for reverse-proxy and deployment configuration.
 - Open near today on a fresh visit; remember the range, selected day, and scroll
   position and view mode on return using browser-local storage.
 - Switching view modes retains the selected date and brings it into view.
+- Grid view reserves a narrower right-hand panel for the selected date, with
+  previous/next-day controls. The grid scrolls independently of the panel.
 - Keyboard movement scrolls only when needed. Range changes preserve the viewport
   and the selected month/day (February 29 becomes February 28 in a non-leap year).
 - Fixed toolbar and date readout; the grid scrolls on both axes on narrow screens.
@@ -71,6 +75,7 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/TimelineGrid.svelte`: continuous horizontal and vertical layouts.
 - `src/lib/components/DaySquare.svelte`: day appearance, selection, and keyboard input.
 - `src/lib/components/DayDetail.svelte`: compact selected-day readout.
+- `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
 - `src/lib/view-state.ts`: validation of saved browser view state.
 - `src/app.css`: shared visual styles.
 - `tests/calendar.test.ts`: leap-year, date-boundary, and timezone-safe arithmetic checks.

@@ -9,6 +9,7 @@
 		today,
 		selected,
 		mode,
+		cellSize,
 		onSelect,
 		onNavigate
 	}: {
@@ -17,6 +18,7 @@
 		today: DateKey;
 		selected: DateKey;
 		mode: ViewMode;
+		cellSize: number;
 		onSelect: (key: DateKey) => void;
 		onNavigate: (key: DateKey, offset: number) => void;
 	} = $props();
@@ -34,6 +36,7 @@
 	const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 	$effect(() => {
+		cellSize;
 		if (!verticalGrid) return;
 		const grid = verticalGrid;
 		const updateColumns = () => {
