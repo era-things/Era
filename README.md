@@ -1,38 +1,81 @@
-# create-svelte
+# Era
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+A broad view of time, one square per day. Rebuilt from scratch with Svelte 5,
+SvelteKit 3, TypeScript, and a standalone Node server.
 
-## Creating a project
+## Development
 
-If you're seeing this, you've probably already done this step. Congrats!
+Requires Node.js 22.18 or newer (a currently supported Node LTS is recommended).
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
+```sh
+npm ci
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+Open the local URL printed by Vite.
 
-To create a production version of your app:
+## Checks
 
-```bash
+```sh
+npm run check
+npm test
+npm run format:check
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
+## Production
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+```sh
+npm run build
+npm start
+```
+
+The Node adapter writes to `build/` and serves HTTP on port 3000 by default.
+Set `HOST` and `PORT` in your deployment environment as needed. See the
+[official Node adapter documentation](https://svelte.dev/docs/kit/adapter-node)
+for reverse-proxy and deployment configuration.
+
+## Initial scope
+
+- Ten-year overview centered around the current year (five before, four after).
+- Two view tabs: Weekdays is a continuous horizontal timeline with Monday-first
+  week columns; Grid is a vertical rectangle of consecutive dates that wraps to
+  the available width, without weekday alignment or blank calendar cells.
+- Fixed 24px squares, year colors, faded past days, and a distinct marker for today.
+- Click to select a day and see its date in a compact readout.
+- Browse the previous or next ten years; return to today.
+- Keyboard navigation follows each view's layout: arrows move to adjacent rows
+  or columns, Home/End reach the beginning/end of that year. Arrow keys also switch
+  between focused view tabs.
+- Open near today on a fresh visit; remember the range, selected day, and scroll
+  position and view mode on return using browser-local storage.
+- Switching view modes retains the selected date and brings it into view.
+- Keyboard movement scrolls only when needed. Range changes preserve the viewport
+  and the selected month/day (February 29 becomes February 28 in a non-leap year).
+- Fixed toolbar and date readout; the grid scrolls on both axes on narrow screens.
+
+This is a regular fullstack SvelteKit application. `+page.server.ts` provides the
+initial date and the overview is server-rendered; Svelte 5 runes handle browser
+interaction. The Node adapter builds a runnable server, rather than a static
+export or browser extension. No database is needed for this first slice.
+
+Calendar arithmetic uses date-only keys and UTC to avoid daylight saving errors.
+The server initially seeds today in UTC. After hydration the browser uses its
+local calendar date, refreshing every minute and on window focus.
+
+## Project map
+
+- `src/routes/+page.server.ts`: initial server data.
+- `src/routes/+page.svelte`: overview state, range controls, selection.
+- `src/lib/calendar.ts`: date-only calendar operations.
+- `src/lib/components/TimelineGrid.svelte`: continuous horizontal and vertical layouts.
+- `src/lib/components/DaySquare.svelte`: day appearance, selection, and keyboard input.
+- `src/lib/components/DayDetail.svelte`: compact selected-day readout.
+- `src/lib/view-state.ts`: validation of saved browser view state.
+- `src/app.css`: shared visual styles.
+- `tests/calendar.test.ts`: leap-year, date-boundary, and timezone-safe arithmetic checks.
+
+The [original project overview](docs/original-project.md) records the previous
+implementation and useful historical commits. The old application remains in
+Git history. Tags, tasks, an agenda, accounts, and server-side data persistence
+are outside this first rebuild.

@@ -1,112 +1,256 @@
-@import '@fontsource/fira-mono';
-@import "tailwindcss";
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
-	--font-body: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-	--font-mono: 'Fira Mono', monospace;
-	--color-bg-0: rgb(202, 216, 228);
-	--color-bg-1: hsl(209, 36%, 86%);
-	--color-bg-2: hsl(224, 44%, 95%);
-	--color-theme-1: #ff3e00;
-	--color-theme-2: #4075a6;
-	--color-text: rgba(0, 0, 0, 0.7);
-	--column-width: 42rem;
-	--column-margin-top: 4rem;
-	font-family: var(--font-body);
-	color: var(--color-text);
+	font-family:
+		'Segoe UI',
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	color: #28352f;
+	background: #f5f6f3;
+	font-synthesis: none;
+	-webkit-font-smoothing: antialiased;
+	--ink: #28352f;
+	--accent: #23695b;
+	--muted: #626e66;
+	--line: #dce1da;
+	--paper: #f5f6f3;
+	--cell: 24px;
+	--gap: 3px;
 }
-
+* {
+	box-sizing: border-box;
+}
 body {
-	min-height: 100vh;
 	margin: 0;
-	background-attachment: fixed;
-	background-color: var(--color-bg-1);
-	background-size: 100vw 100vh;
-	background-image: radial-gradient(
-			50% 50% at 50% 50%,
-			rgba(255, 255, 255, 0.75) 0%,
-			rgba(255, 255, 255, 0) 100%
-		),
-		linear-gradient(180deg, var(--color-bg-0) 0%, var(--color-bg-1) 15%, var(--color-bg-2) 50%);
 }
-
-h1,
-h2,
-p {
-	font-weight: 400;
-}
-
-p {
-	line-height: 1.5;
-}
-
-a {
-	color: var(--color-theme-1);
-	text-decoration: none;
-}
-
-a:hover {
-	text-decoration: underline;
-}
-
-h1 {
-	font-size: 2rem;
-	text-align: center;
-}
-
-h2 {
-	font-size: 1rem;
-}
-
-pre {
-	font-size: 16px;
-	font-family: var(--font-mono);
-	background-color: rgba(255, 255, 255, 0.45);
-	border-radius: 3px;
-	box-shadow: 2px 2px 6px rgb(255 255 255 / 25%);
-	padding: 0.5em;
-	overflow-x: auto;
-	color: var(--color-text);
-}
-
-.text-column {
-	display: flex;
-	max-width: 48rem;
-	flex: 0.6;
-	flex-direction: column;
-	justify-content: center;
-	margin: 0 auto;
-}
-
-input,
 button {
-	font-size: inherit;
-	font-family: inherit;
+	font: inherit;
+	color: inherit;
+	touch-action: manipulation;
+	cursor: pointer;
 }
-
-button:focus:not(:focus-visible) {
-	outline: none;
+button:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
 }
-
-@media (min-width: 720px) {
-	h1 {
-		font-size: 2.4rem;
-	}
+button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
-
-.visually-hidden {
-	border: 0;
-	clip: rect(0 0 0 0);
-	height: auto;
-	margin: 0;
+::selection {
+	background: #d7e8cb;
+}
+.app {
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
-	padding: 0;
+}
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	min-height: 48px;
+	padding: 6px 20px;
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+}
+h1 {
+	font-size: 15px;
+	font-weight: 650;
+	margin: 0;
+}
+.range-controls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.range-label {
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+.toolbar button {
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	min-width: 32px;
+	height: 32px;
+	padding: 0 8px;
+}
+.toolbar button:hover:not(:disabled) {
+	background: #e5eae2;
+}
+.toolbar .today-button {
+	font-size: 12px;
+	border-color: #cad3c8;
+	margin-left: auto;
+}
+.date-readout {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	min-height: 36px;
+	padding: 6px 20px;
+	border-bottom: 1px solid var(--line);
+	font-size: 12px;
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+}
+.date-readout span {
+	color: var(--muted);
+	font-size: 11px;
+}
+.timeline-scroll {
+	overflow: auto;
+	flex: 1;
+	min-height: 0;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+	scroll-padding: 12px 12px 12px 60px;
+}
+.horizontal-timeline {
+	display: grid;
+	grid-template-columns: 36px max-content;
+	grid-template-rows: 28px auto;
+	width: max-content;
+	min-width: 100%;
+	padding: 12px;
+}
+.horizontal-years {
+	grid-column: 2;
+	grid-row: 1;
+	display: grid;
+	column-gap: var(--gap);
+}
+.horizontal-years h2,
+.vertical-years h2 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+.horizontal-years h2 {
+	grid-row: 1;
+	width: max-content;
+}
+.horizontal-years .current-year,
+.vertical-years .current-year {
+	color: var(--accent);
+	font-weight: 750;
+}
+.weekday-labels {
+	grid-column: 1;
+	grid-row: 2;
+	display: grid;
+	grid-template-rows: repeat(7, var(--cell));
+	gap: var(--gap);
+	position: sticky;
+	left: 0;
+	background: var(--paper);
+	z-index: 4;
+	font-size: 9px;
+	line-height: var(--cell);
+	color: var(--muted);
+}
+.horizontal-days {
+	grid-column: 2;
+	grid-row: 2;
+	display: grid;
+	grid-template-rows: repeat(7, var(--cell));
+	grid-auto-flow: column;
+	gap: var(--gap);
+}
+.vertical-timeline {
+	display: grid;
+	grid-template-columns: 48px minmax(0, 1fr);
+	padding: 12px;
+}
+.vertical-years {
+	position: relative;
+}
+.vertical-years h2 {
 	position: absolute;
-	width: 1px;
-	white-space: nowrap;
+	left: 0;
+	line-height: var(--cell);
+}
+.vertical-days {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, var(--cell));
+	grid-auto-rows: var(--cell);
+	gap: var(--gap);
+}
+.view-tabs {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+.toolbar .view-tabs button {
+	font-size: 12px;
+	border-radius: 0;
+	border-bottom: 2px solid transparent;
+}
+.toolbar .view-tabs button[aria-selected='true'] {
+	border-bottom-color: var(--accent);
+	color: var(--accent);
+}
+.day {
+	width: var(--cell);
+	height: var(--cell);
+	padding: 0;
+	border: 0;
+	border-radius: 1px;
+	background: var(--year-color);
+	position: relative;
+}
+.day.past {
+	background: color-mix(in srgb, var(--year-color) 38%, var(--paper));
+}
+.day.today {
+	background: var(--accent);
+}
+.day.today::after {
+	content: '';
+	position: absolute;
+	inset: 8px;
+	background: white;
+	border-radius: 50%;
+}
+.day.selected {
+	outline: 2px solid var(--ink);
+	outline-offset: 1px;
+	z-index: 1;
+}
+.day:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 1px;
+	z-index: 2;
+}
+.day:hover {
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+@media (max-width: 560px) {
+	.toolbar {
+		padding-inline: 12px;
+		gap: 16px;
+		flex-wrap: wrap;
+	}
+	.range-controls {
+		gap: 4px;
+	}
+	.date-readout {
+		padding-inline: 12px;
+		gap: 12px;
+		font-size: 11px;
+	}
+	.date-readout span {
+		margin-left: auto;
+		font-size: 10px;
+	}
+	.view-tabs {
+		order: 4;
+		flex-basis: 100%;
+	}
+	.horizontal-timeline,
+	.vertical-timeline {
+		padding-inline: 8px;
+	}
 }
