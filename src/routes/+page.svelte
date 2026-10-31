@@ -8,6 +8,7 @@
 	import RemindersManager from '../lib/components/RemindersManager.svelte';
 	import {
 		REMINDERS_STORAGE_KEY,
+		createReminder,
 		parseReminders,
 		reminderOccursOn,
 		reminderOverridesEmoji,
@@ -540,16 +541,7 @@
 					reminders={dayReminders}
 					onManageReminders={showReminders}
 					onCompleteReminder={completeReminder}
-					onAddReminder={(text) =>
-						saveReminder({
-							id: crypto.randomUUID(),
-							text,
-							period: 'once',
-							start: selected,
-							overrideEmoji: false,
-							leadDays: 0,
-							completedDates: []
-						})}
+					onAddReminder={(text) => saveReminder(createReminder(text, selected))}
 				/>
 			{/if}
 		</div>

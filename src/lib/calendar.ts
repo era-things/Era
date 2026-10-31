@@ -23,6 +23,13 @@ export function asDate(key: DateKey): Date {
 	return new Date(`${key}T00:00:00Z`);
 }
 
+export function isDateKey(value: unknown): value is DateKey {
+	if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '0001-01-01')
+		return false;
+	const date = asDate(value);
+	return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export function yearOf(key: DateKey): number {
 	return Number(key.slice(0, 4));
 }

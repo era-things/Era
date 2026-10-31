@@ -125,6 +125,7 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
 - `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
 - `src/lib/components/RemindersManager.svelte`: reminder creation and management.
+- `src/lib/components/ReminderEditor.svelte`: saved reminder drawer and deletion controls.
 - `src/lib/components/ReminderForm.svelte`: independent settings form per reminder.
 - `src/lib/components/DatePicker.svelte`: date field and calendar with past/future styling.
 - `src/lib/components/DayReminders.svelte`: reminders due on the selected day.

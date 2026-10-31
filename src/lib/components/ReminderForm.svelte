@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { DateKey } from '../calendar';
+	import { isDateKey, type DateKey } from '../calendar';
 	import DatePicker from './DatePicker.svelte';
 	import {
-		REMINDER_PERIODS,
-		isReminderDate,
+		PERIODIC_PERIODS,
+		createReminder,
+		isReminderLeadDays,
 		type Reminder,
-		type ReminderPeriod
+		type PeriodicPeriod
 	} from '../reminders';
 	let {
 		reminder,
@@ -25,69 +26,67 @@
 		oncancel?: () => void;
 		ondelete?: () => void;
 	} = $props();
-	let text = $state('');
-	let period = $state<ReminderPeriod>('once');
-	let start = $state('');
-	let overrideEmoji = $state(false);
-	let leadMode = $state<'days' | 'always'>('days');
-	let leadDays = $state<number | undefined>(0);
+	let draft = $state({
+		text: '',
+		start: '',
+		overrideEmoji: false,
+		period: 'weekly' as PeriodicPeriod,
+		leadMode: 'days' as 'days' | 'always',
+		leadDays: 0 as number | undefined
+	});
 	let error = $state('');
 	let textInput = $state<HTMLTextAreaElement>();
-
 	function reset() {
-		text = reminder?.text ?? '';
-		period = reminder?.period ?? (kind === 'once' ? 'once' : 'weekly');
-		start = reminder?.start ?? selected;
-		overrideEmoji = reminder?.overrideEmoji ?? false;
-		leadMode = reminder?.leadDays === 'always' ? 'always' : 'days';
-		leadDays = typeof reminder?.leadDays === 'number' ? reminder.leadDays : 0;
+		const source = reminder ?? createReminder('', selected);
+		draft = {
+			text: source.text,
+			start: source.start,
+			overrideEmoji: source.overrideEmoji,
+			period: source.period === 'once' ? 'weekly' : source.period,
+			leadMode: source.leadDays === 'always' ? 'always' : 'days',
+			leadDays: source.leadDays === 'always' ? 0 : source.leadDays
+		};
 		error = '';
 	}
 	$effect(() => reset());
 	onMount(() => {
 		if (!reminder) textInput?.focus();
 	});
+	const period = $derived(kind === 'once' ? 'once' : draft.period);
+	const leadDays = $derived(draft.leadMode === 'always' ? 'always' : (draft.leadDays ?? 0));
 	const dirty = $derived(
 		!reminder ||
-			text !== reminder.text ||
+			draft.text !== reminder.text ||
+			draft.start !== reminder.start ||
 			period !== reminder.period ||
-			start !== reminder.start ||
-			overrideEmoji !== reminder.overrideEmoji ||
-			(leadMode === 'always' ? 'always' : leadDays) !== reminder.leadDays
+			draft.overrideEmoji !== reminder.overrideEmoji ||
+			leadDays !== reminder.leadDays
 	);
-
 	function save(event: SubmitEvent) {
 		event.preventDefault();
-		if (!text.trim()) {
+		if (!draft.text.trim()) {
 			error = 'Enter reminder text.';
 			return;
 		}
-		if (!isReminderDate(start)) {
+		if (!isDateKey(draft.start)) {
 			error = 'Enter a valid starting date.';
 			return;
 		}
 		if (
-			overrideEmoji &&
-			leadMode === 'days' &&
-			(leadDays === undefined || !Number.isSafeInteger(leadDays) || leadDays < 0)
+			!isReminderLeadDays(leadDays) ||
+			(draft.overrideEmoji && draft.leadMode === 'days' && draft.leadDays === undefined)
 		) {
 			error = 'Enter a non-negative whole number of days.';
 			return;
 		}
 		if (
 			onsave({
-				id: reminder?.id ?? crypto.randomUUID(),
-				text: text.trim(),
-				period: kind === 'once' ? 'once' : period,
-				start,
-				overrideEmoji,
-				leadDays:
-					leadMode === 'always'
-						? 'always'
-						: leadDays !== undefined && Number.isSafeInteger(leadDays) && leadDays >= 0
-							? leadDays
-							: 0,
-				completedDates: reminder?.completedDates ?? []
+				...(reminder ?? createReminder(draft.text, draft.start, period)),
+				text: draft.text.trim(),
+				start: draft.start,
+				period,
+				overrideEmoji: draft.overrideEmoji,
+				leadDays
 			})
 		)
 			error = '';
@@ -104,37 +103,36 @@
 >
 	<div class="main-fields" class:one-off={kind === 'once'}>
 		<label
-			>Text<textarea bind:this={textInput} bind:value={text} rows="1" maxlength="500" required
+			>Text<textarea bind:this={textInput} bind:value={draft.text} rows="1" maxlength="500" required
 			></textarea></label
 		>
 		{#if kind === 'periodic'}<label
-				>Period<select bind:value={period}
-					>{#each REMINDER_PERIODS.filter((p) => p.value !== 'once') as p}<option value={p.value}
-							>{p.label}</option
-						>{/each}</select
+				>Period<select bind:value={draft.period}
+					>{#each PERIODIC_PERIODS as p}<option value={p.value}>{p.label}</option>{/each}</select
 				></label
 			>{/if}
-		<DatePicker label="Starting date" bind:value={start} {today} />
+		<DatePicker label="Starting date" bind:value={draft.start} {today} />
 	</div>
 	<div class="form-options">
 		<div class="override-settings">
 			<label class="override-option"
-				><input type="checkbox" bind:checked={overrideEmoji} /><span>Override emoji with ❗</span
+				><input type="checkbox" bind:checked={draft.overrideEmoji} /><span
+					>Override emoji with ❗</span
 				></label
 			>
-			{#if overrideEmoji}
+			{#if draft.overrideEmoji}
 				<div class="lead-settings">
-					<select aria-label="Show override" class="lead-mode" bind:value={leadMode}
+					<select aria-label="Show override" class="lead-mode" bind:value={draft.leadMode}
 						><option value="days">Days before</option><option value="always">Always</option></select
 					>
-					{#if leadMode === 'days'}<input
+					{#if draft.leadMode === 'days'}<input
 							aria-label="Days before"
 							class="lead-days"
 							type="number"
 							min="0"
 							step="1"
 							max={Number.MAX_SAFE_INTEGER}
-							bind:value={leadDays}
+							bind:value={draft.leadDays}
 							required
 						/>{/if}
 				</div>
@@ -188,7 +186,7 @@
 	}
 	.main-fields {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 128px 148px;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 10px;
 	}
 	.main-fields.one-off {
@@ -261,12 +259,7 @@
 		font-size: 12px;
 		color: #a02d2d;
 	}
-	@container (max-width: 560px) {
-		.main-fields {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		}
-		.main-fields:not(.one-off) > label:first-child {
-			grid-column: 1/-1;
-		}
+	.main-fields:not(.one-off) > label:first-child {
+		grid-column: 1/-1;
 	}
 </style>

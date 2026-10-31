@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	parseReminders,
+	createReminder,
 	reminderOccursOn,
 	reminderOverridesEmoji,
 	setReminderCompleted,
@@ -18,9 +19,28 @@ const reminder = (period: ReminderPeriod, start = '2026-10-31'): Reminder => ({
 	leadDays: 0,
 	completedDates: []
 });
+test('new reminders share defaults across quick-add and periodic creation', () => {
+	const once = createReminder('  Remember  ', '2026-11-20');
+	const periodic = createReminder('Repeat', '2026-11-20', 'monthly');
+	assert.deepEqual({ ...once, id: 'test' }, reminder('once', '2026-11-20'));
+	assert.equal(periodic.period, 'monthly');
+	assert.notEqual(once.id, periodic.id);
+	assert.deepEqual(parseReminders(JSON.stringify({ version: 1, reminders: [once, periodic] })), [
+		once,
+		periodic
+	]);
+});
 test('reminders never occur before their start', () => {
 	for (const period of ['weekly', 'monthly', 'yearly', 'once'] as const) {
 		assert.equal(reminderOccursOn(reminder(period), '2026-10-30'), false);
+		assert.equal(
+			reminderOverridesEmoji(
+				{ ...reminder(period), overrideEmoji: true, leadDays: 'always' },
+				'2026-10-30',
+				'2026-11-01'
+			),
+			false
+		);
 		assert.equal(reminderOccursOn(reminder(period), '2026-10-31'), true);
 	}
 	assert.equal(reminderOccursOn(reminder('weekly'), '2026-11-07'), true);
@@ -35,20 +55,6 @@ test('monthly reminders clamp to the month end without shifting later occurrence
 		assert.equal(reminderOccursOn(r, date), false);
 });
 
-test('monthly reminders follow the saved starting date and never precede it', () => {
-	const r = {
-		...reminder('monthly', '2026-11-20'),
-		overrideEmoji: true,
-		leadDays: 'always' as const
-	};
-	for (const day of ['2026-08-20', '2026-09-20', '2026-10-20']) {
-		assert.equal(reminderOccursOn(r, day), false);
-		assert.equal(reminderOverridesEmoji(r, day, '2026-11-01'), false);
-	}
-	assert.equal(reminderOccursOn(r, '2026-11-20'), true);
-	assert.equal(reminderOccursOn(r, '2026-12-20'), true);
-	assert.equal(reminderOccursOn({ ...r, start: '2026-09-20' }, '2026-10-20'), true);
-});
 test('yearly leap-day reminders use February 28 in non-leap years', () => {
 	const r = reminder('yearly', '2024-02-29');
 	assert.equal(reminderOccursOn(r, '2025-02-28'), true);
@@ -68,7 +74,11 @@ test('saved reminders round-trip and invalid entries are discarded', () => {
 					r,
 					{ ...r, id: 'bad-date', start: '2026-02-30' },
 					{ ...r, id: 'bad-period', period: 'hourly' },
-					{ ...r, id: 'blank', text: '  ' }
+					{ ...r, id: 'blank', text: '  ' },
+					{ ...r, id: 'missing-override', overrideEmoji: undefined },
+					{ ...r, id: 'missing-lead', leadDays: undefined },
+					{ ...r, id: 'invalid-lead', leadDays: -1 },
+					{ ...r, id: 'missing-completion', completedDates: undefined }
 				]
 			})
 		),
@@ -77,16 +87,7 @@ test('saved reminders round-trip and invalid entries are discarded', () => {
 	assert.deepEqual(parseReminders('{'), []);
 });
 
-test('legacy reminders get safe defaults without losing their schedule', () => {
-	assert.deepEqual(
-		parseReminders(
-			JSON.stringify({
-				version: 1,
-				reminders: [{ id: 'test', text: 'Remember', period: 'once', start: '2026-10-31' }]
-			})
-		),
-		[reminder('once')]
-	);
+test('completion dates are validated and deduplicated', () => {
 	const r = {
 		...reminder('weekly'),
 		overrideEmoji: true,

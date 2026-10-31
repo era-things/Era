@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
 	addDays,
+	isDateKey,
 	daysBetween,
 	daysInYear,
 	formatDate,
@@ -58,4 +59,19 @@ test('today uses local calendar parts and labels use date-only values', () => {
 	assert.equal(relativeDay('2026-10-29', '2026-10-30'), 'Yesterday');
 	assert.equal(relativeDay('2026-10-31', '2026-10-30'), 'Tomorrow');
 	assert.equal(relativeDay('2026-11-02', '2026-10-30'), 'In 3 days');
+});
+
+test('date keys require a real date in years 0001 through 9999', () => {
+	for (const value of ['0001-01-01', '9999-12-31', '2024-02-29', '2026-11-20'])
+		assert.equal(isDateKey(value), true);
+	for (const value of [
+		null,
+		'',
+		'0000-01-01',
+		'10000-01-01',
+		'2026-02-29',
+		'2026-04-31',
+		'2026-1-01'
+	])
+		assert.equal(isDateKey(value), false);
 });

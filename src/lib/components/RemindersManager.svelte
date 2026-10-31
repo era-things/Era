@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DateKey } from '../calendar';
-	import { REMINDER_PERIODS, type Reminder } from '../reminders';
+	import type { Reminder } from '../reminders';
+	import ReminderEditor from './ReminderEditor.svelte';
 	import ReminderForm from './ReminderForm.svelte';
 	let {
 		reminders,
@@ -20,7 +21,6 @@
 		{ value: 'periodic', label: 'Periodic' }
 	] as const;
 	let creating = $state({ once: false, periodic: false });
-	let deleting = $state<string | null>(null);
 	function create(reminder: Reminder, group: 'once' | 'periodic'): boolean {
 		if (!onsave(reminder)) return false;
 		creating[group] = false;
@@ -52,29 +52,7 @@
 							/>
 						</div>{/if}
 					{#each reminders.filter( (r) => (group.value === 'once' ? r.period === 'once' : r.period !== 'once') ) as reminder (reminder.id)}
-						<details class="reminder-drawer">
-							<summary
-								><span>{reminder.text}</span>{#if group.value === 'periodic'}<span class="period"
-										>{REMINDER_PERIODS.find((p) => p.value === reminder.period)!.label}</span
-									>{/if}</summary
-							>
-							<ReminderForm
-								{reminder}
-								kind={group.value}
-								{selected}
-								{today}
-								{onsave}
-								ondelete={() => (deleting = reminder.id)}
-							/>
-							{#if deleting === reminder.id}<div class="delete-confirm">
-									<span>Delete this reminder?</span><button
-										type="button"
-										onclick={() => {
-											if (ondelete(reminder.id)) deleting = null;
-										}}>Delete reminder</button
-									><button type="button" onclick={() => (deleting = null)}>Cancel</button>
-								</div>{/if}
-						</details>
+						<ReminderEditor {reminder} {selected} {today} {onsave} {ondelete} />
 					{/each}
 				</section>
 			{/each}
@@ -114,12 +92,6 @@
 		gap: 12px;
 		margin-bottom: 10px;
 	}
-	.period {
-		margin-left: auto;
-		flex-shrink: 0;
-		color: var(--muted);
-		font-size: 11px;
-	}
 	button {
 		min-height: 32px;
 		border: 1px solid var(--line);
@@ -131,52 +103,9 @@
 	button:hover:not(:disabled) {
 		background: #e5eae2;
 	}
-	.reminder-drawer,
 	.new-reminder {
-		container-type: inline-size;
 		border: 1px solid var(--line);
 		margin-bottom: 12px;
-	}
-	summary {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 10px 12px;
-		cursor: pointer;
-		font-size: 13px;
-		list-style: none;
-	}
-	summary::-webkit-details-marker {
-		display: none;
-	}
-	summary::before {
-		content: '›';
-		color: var(--muted);
-		font-size: 18px;
-		line-height: 1;
-	}
-	details[open] > summary::before {
-		transform: rotate(90deg);
-	}
-	details[open] > summary {
-		border-bottom: 1px solid var(--line);
-	}
-	summary > span:first-of-type {
-		min-width: 0;
-		overflow-wrap: anywhere;
-	}
-	summary:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
-	}
-	.delete-confirm {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		align-items: center;
-		padding: 12px;
-		font-size: 12px;
-		background: #f5e5e8;
 	}
 	@media (max-width: 720px) {
 		.manager-content {

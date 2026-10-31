@@ -1,13 +1,13 @@
-import { asDate, daysBetween, type DateKey } from './calendar.ts';
+import { asDate, daysBetween, isDateKey, type DateKey } from './calendar.ts';
 
 export const REMINDERS_STORAGE_KEY = 'era:reminders:v1';
-export const REMINDER_PERIODS = [
-	{ value: 'once', label: 'Just once' },
+export const PERIODIC_PERIODS = [
 	{ value: 'weekly', label: 'Weekly' },
 	{ value: 'monthly', label: 'Monthly' },
 	{ value: 'yearly', label: 'Yearly' }
 ] as const;
-export type ReminderPeriod = (typeof REMINDER_PERIODS)[number]['value'];
+export type PeriodicPeriod = (typeof PERIODIC_PERIODS)[number]['value'];
+export type ReminderPeriod = 'once' | PeriodicPeriod;
 export type Reminder = {
 	id: string;
 	text: string;
@@ -17,6 +17,28 @@ export type Reminder = {
 	leadDays: number | 'always';
 	completedDates: DateKey[];
 };
+
+export function createReminder(
+	text: string,
+	start: DateKey,
+	period: ReminderPeriod = 'once'
+): Reminder {
+	return {
+		id: crypto.randomUUID(),
+		text: text.trim(),
+		start,
+		period,
+		overrideEmoji: false,
+		leadDays: 0,
+		completedDates: []
+	};
+}
+
+export function isReminderLeadDays(value: unknown): value is Reminder['leadDays'] {
+	return (
+		value === 'always' || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0)
+	);
+}
 
 export function reminderOverridesEmoji(reminder: Reminder, day: DateKey, today: DateKey): boolean {
 	return (
@@ -37,12 +59,6 @@ export function setReminderCompleted(
 	if (completed) dates.add(day);
 	else dates.delete(day);
 	return { ...reminder, completedDates: [...dates].sort() };
-}
-
-export function isReminderDate(value: unknown): value is DateKey {
-	if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-	const date = asDate(value);
-	return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 /** Each occurrence uses the original start day, clamped for shorter months. */
@@ -72,8 +88,11 @@ export function parseReminders(raw: string | null): Reminder[] {
 				typeof item.text !== 'string' ||
 				!item.text.trim() ||
 				item.text.trim().length > 500 ||
-				!REMINDER_PERIODS.some((p) => p.value === item.period) ||
-				!isReminderDate(item.start)
+				!(item.period === 'once' || PERIODIC_PERIODS.some((p) => p.value === item.period)) ||
+				!isDateKey(item.start) ||
+				typeof item.overrideEmoji !== 'boolean' ||
+				!isReminderLeadDays(item.leadDays) ||
+				!Array.isArray(item.completedDates)
 			)
 				continue;
 			reminders.push({
@@ -81,17 +100,9 @@ export function parseReminders(raw: string | null): Reminder[] {
 				text: item.text.trim(),
 				period: item.period,
 				start: item.start,
-				overrideEmoji: item.overrideEmoji === true,
-				leadDays:
-					item.leadDays === 'always' ||
-					(typeof item.leadDays === 'number' &&
-						Number.isSafeInteger(item.leadDays) &&
-						item.leadDays >= 0)
-						? item.leadDays
-						: 0,
-				completedDates: Array.isArray(item.completedDates)
-					? ([...new Set(item.completedDates.filter(isReminderDate))] as DateKey[])
-					: []
+				overrideEmoji: item.overrideEmoji,
+				leadDays: item.leadDays,
+				completedDates: [...new Set<DateKey>(item.completedDates.filter(isDateKey))]
 			});
 		}
 		return reminders;

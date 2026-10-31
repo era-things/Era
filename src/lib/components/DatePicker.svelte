@@ -6,9 +6,9 @@
 		formatDate,
 		relativeDay,
 		weekdayOffset,
+		isDateKey,
 		type DateKey
 	} from '../calendar';
-	import { isReminderDate } from '../reminders';
 	let {
 		value = $bindable(),
 		today,
@@ -29,11 +29,7 @@
 	});
 	const first = $derived((month || today.slice(0, 7)) + '-01');
 	$effect(() => {
-		input?.setCustomValidity(
-			!value || (isReminderDate(value) && value >= '0001-01-01' && value <= '9999-12-31')
-				? ''
-				: 'Enter a valid date (YYYY-MM-DD).'
-		);
+		input?.setCustomValidity(!value || isDateKey(value) ? '' : 'Enter a valid date (YYYY-MM-DD).');
 	});
 	const cells = $derived.by(() => {
 		const end = asDate(first);
@@ -41,11 +37,11 @@
 		const offset = weekdayOffset(first);
 		return Array.from({ length: Math.ceil((offset + end.getUTCDate()) / 7) * 7 }, (_, i) => {
 			const date = addDays(first, i - offset);
-			return isReminderDate(date) && date >= '0001-01-01' && date <= '9999-12-31' ? date : null;
+			return isDateKey(date) ? date : null;
 		});
 	});
 	function prepare() {
-		focused = isReminderDate(value) ? value : today;
+		focused = isDateKey(value) ? value : today;
 		month = focused.slice(0, 7);
 		const rect = trigger.getBoundingClientRect();
 		left = Math.max(8, Math.min(rect.right - 280, window.innerWidth - 288));
@@ -85,8 +81,7 @@
 		if (offset !== undefined) {
 			event.preventDefault();
 			const next = addDays(date, offset);
-			if (isReminderDate(next) && next >= '0001-01-01' && next <= '9999-12-31')
-				void focusDate(next);
+			if (isDateKey(next)) void focusDate(next);
 		} else if (event.key === 'PageUp' || event.key === 'PageDown') {
 			event.preventDefault();
 			shiftMonth(event.key === 'PageUp' ? -1 : 1);
