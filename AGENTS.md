@@ -17,3 +17,8 @@ Prioritize how quickly an experienced user's eyes can find the information they
 need once they understand the app. Evaluate layout, hierarchy, density, labels,
 and interactions by how well they support that repeated use, rather than by how
 thoroughly they explain themselves on a first visit.
+
+## Compatibility and obsolete code
+
+This is a personal project used by one person. Never add code for backwards
+compatibility. Remove code that is no longer functional ruthlessly.

@@ -64,11 +64,29 @@ for reverse-proxy and deployment configuration.
   blank or non-negative safe integers; zero, false, and absence stay distinct.
   Values save immediately in browser-local storage and are independent per day.
 - The Reminders tab creates, edits, and deletes reminders with text, a starting
-  date, and a daily, weekly, monthly, yearly, or one-time period. The day panel
+  date, and a one-time, weekly, monthly, or yearly period. The day panel
   lists reminders due on its selected date in a separate section. Dates before
   the start are excluded; monthly and yearly repeats use the last day of shorter
   months when needed, while preserving the original starting day for later repeats.
+  One-off and Periodic columns each have a New button that opens an inline form.
+  One-off forms have no period selector; periodic forms offer weekly, monthly,
+  and yearly repeats. Each saved reminder has
+  its own compact drawer, collapsed by default, with independent editable settings.
+  Columns are capped at 480px wide and stack with One-off first on narrow screens.
   Reminders are saved in browser-local storage.
+- The selected day's Reminders section has a + button for quickly adding a
+  one-off reminder by name. Enter adds it and closes the field;
+  Escape closes the field. These items use the same Done/Undo controls and storage.
+- The reminder date picker distinguishes past and future dates and marks today.
+  Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
+  move between days, Page Up/Down changes months, and Escape closes the picker.
+- Reminders can temporarily override their occurrence's day emoji with ❗.
+  Set a non-negative number of days before it is due (0 starts on the due date),
+  or Always to show every occurrence in advance. Overdue occurrences keep their
+  override until completed. The original day emoji remains saved underneath.
+  Done in the day panel completes only that date's occurrence, with Undo to
+  reopen it; future repeats remain active. The original emoji returns when no
+  other active reminder on that date requires an override.
 - An emoji button at the top of the day panel opens the full picker with search,
   categories, skin tones, its built-in history, and Clear. The button shows the
   day's assigned emoji, or a picker icon when empty. Assignments start empty,
@@ -107,6 +125,8 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
 - `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
 - `src/lib/components/RemindersManager.svelte`: reminder creation and management.
+- `src/lib/components/ReminderForm.svelte`: independent settings form per reminder.
+- `src/lib/components/DatePicker.svelte`: date field and calendar with past/future styling.
 - `src/lib/components/DayReminders.svelte`: reminders due on the selected day.
 - `src/lib/reminders.ts`: recurrence rules and saved-reminder validation.
 - `src/lib/view-state.ts`: validation of saved browser view state.

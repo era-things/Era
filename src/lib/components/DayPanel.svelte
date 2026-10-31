@@ -21,7 +21,9 @@
 		onRemoveMeasure,
 		onManageMeasures,
 		reminders,
-		onManageReminders
+		onManageReminders,
+		onCompleteReminder,
+		onAddReminder
 	}: {
 		selected: DateKey;
 		today: DateKey;
@@ -39,6 +41,8 @@
 		onManageMeasures: () => void;
 		reminders: Reminder[];
 		onManageReminders: () => void;
+		onCompleteReminder: (id: string, completed: boolean) => void;
+		onAddReminder: (text: string) => boolean;
 	} = $props();
 </script>
 
@@ -101,5 +105,13 @@
 			onmanage={onManageMeasures}
 		/>
 	{/key}
-	<DayReminders {reminders} onmanage={onManageReminders} />
+	{#key selected}
+		<DayReminders
+			{reminders}
+			{selected}
+			onmanage={onManageReminders}
+			oncomplete={onCompleteReminder}
+			onadd={onAddReminder}
+		/>
+	{/key}
 </aside>

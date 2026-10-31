@@ -2,14 +2,42 @@ import { asDate, daysBetween, type DateKey } from './calendar.ts';
 
 export const REMINDERS_STORAGE_KEY = 'era:reminders:v1';
 export const REMINDER_PERIODS = [
-	{ value: 'daily', label: 'Daily' },
+	{ value: 'once', label: 'Just once' },
 	{ value: 'weekly', label: 'Weekly' },
 	{ value: 'monthly', label: 'Monthly' },
-	{ value: 'yearly', label: 'Yearly' },
-	{ value: 'once', label: 'Just once' }
+	{ value: 'yearly', label: 'Yearly' }
 ] as const;
 export type ReminderPeriod = (typeof REMINDER_PERIODS)[number]['value'];
-export type Reminder = { id: string; text: string; period: ReminderPeriod; start: DateKey };
+export type Reminder = {
+	id: string;
+	text: string;
+	period: ReminderPeriod;
+	start: DateKey;
+	overrideEmoji: boolean;
+	leadDays: number | 'always';
+	completedDates: DateKey[];
+};
+
+export function reminderOverridesEmoji(reminder: Reminder, day: DateKey, today: DateKey): boolean {
+	return (
+		reminder.overrideEmoji &&
+		!reminder.completedDates.includes(day) &&
+		(reminder.leadDays === 'always' || daysBetween(today, day) <= reminder.leadDays) &&
+		reminderOccursOn(reminder, day)
+	);
+}
+
+export function setReminderCompleted(
+	reminder: Reminder,
+	day: DateKey,
+	completed: boolean
+): Reminder {
+	if (!reminderOccursOn(reminder, day)) return reminder;
+	const dates = new Set(reminder.completedDates);
+	if (completed) dates.add(day);
+	else dates.delete(day);
+	return { ...reminder, completedDates: [...dates].sort() };
+}
 
 export function isReminderDate(value: unknown): value is DateKey {
 	if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -21,7 +49,6 @@ export function isReminderDate(value: unknown): value is DateKey {
 export function reminderOccursOn(reminder: Reminder, day: DateKey): boolean {
 	if (day < reminder.start) return false;
 	if (reminder.period === 'once') return day === reminder.start;
-	if (reminder.period === 'daily') return true;
 	if (reminder.period === 'weekly') return daysBetween(reminder.start, day) % 7 === 0;
 	const start = asDate(reminder.start);
 	const date = asDate(day);
@@ -53,7 +80,18 @@ export function parseReminders(raw: string | null): Reminder[] {
 				id: item.id,
 				text: item.text.trim(),
 				period: item.period,
-				start: item.start
+				start: item.start,
+				overrideEmoji: item.overrideEmoji === true,
+				leadDays:
+					item.leadDays === 'always' ||
+					(typeof item.leadDays === 'number' &&
+						Number.isSafeInteger(item.leadDays) &&
+						item.leadDays >= 0)
+						? item.leadDays
+						: 0,
+				completedDates: Array.isArray(item.completedDates)
+					? ([...new Set(item.completedDates.filter(isReminderDate))] as DateKey[])
+					: []
 			});
 		}
 		return reminders;

@@ -1,135 +1,84 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import type { DateKey } from '../calendar';
-	import {
-		REMINDER_PERIODS,
-		isReminderDate,
-		type Reminder,
-		type ReminderPeriod
-	} from '../reminders';
+	import { REMINDER_PERIODS, type Reminder } from '../reminders';
+	import ReminderForm from './ReminderForm.svelte';
 	let {
 		reminders,
 		selected,
+		today,
 		onsave,
 		ondelete
 	}: {
 		reminders: Reminder[];
 		selected: DateKey;
+		today: DateKey;
 		onsave: (reminder: Reminder) => boolean;
 		ondelete: (id: string) => boolean;
 	} = $props();
-	let editing = $state<string | null>(null);
-	let creating = $state(false);
-	let text = $state('');
-	let period = $state<ReminderPeriod>('daily');
-	let start = $state('');
-	let error = $state('');
+	const groups = [
+		{ value: 'once', label: 'One-off' },
+		{ value: 'periodic', label: 'Periodic' }
+	] as const;
+	let creating = $state({ once: false, periodic: false });
 	let deleting = $state<string | null>(null);
-	let textInput = $state<HTMLTextAreaElement>();
-	const dateFormat = new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC'
-	});
-	async function edit(reminder?: Reminder) {
-		editing = reminder?.id ?? null;
-		creating = true;
-		text = reminder?.text ?? '';
-		period = reminder?.period ?? 'daily';
-		start = reminder?.start ?? selected;
-		error = '';
-		deleting = null;
-		await tick();
-		textInput?.focus();
-	}
-	function save(event: SubmitEvent) {
-		event.preventDefault();
-		if (!text.trim()) {
-			error = 'Enter reminder text.';
-			return;
-		}
-		if (!isReminderDate(start)) {
-			error = 'Enter a valid starting date.';
-			return;
-		}
-		if (onsave({ id: editing ?? crypto.randomUUID(), text: text.trim(), period, start }))
-			creating = false;
+	function create(reminder: Reminder, group: 'once' | 'periodic'): boolean {
+		if (!onsave(reminder)) return false;
+		creating[group] = false;
+		return true;
 	}
 </script>
 
 <div class="reminders-manager" id="reminders-panel" role="tabpanel" aria-labelledby="tab-reminders">
 	<div class="manager-content">
-		<header>
-			<h2>Reminders</h2>
-			<button type="button" onclick={() => edit()}>+ New reminder</button>
-		</header>
-		{#if creating}
-			<form onsubmit={save}>
-				<label
-					>Text<textarea bind:this={textInput} bind:value={text} rows="2" maxlength="500" required
-					></textarea></label
-				>
-				<div class="schedule-fields">
-					<label
-						>Period<select bind:value={period}
-							>{#each REMINDER_PERIODS as p}<option value={p.value}>{p.label}</option
-								>{/each}</select
-						></label
-					>
-					<label
-						>Starting date<input
-							type="date"
-							bind:value={start}
-							min="0001-01-01"
-							max="9999-12-31"
-							required
-						/></label
-					>
-				</div>
-				{#if error}<p role="alert" class="form-error">{error}</p>{/if}
-				<div class="form-actions">
-					<button type="submit" class="primary"
-						>{editing ? 'Save changes' : 'Create reminder'}</button
-					><button type="button" onclick={() => (creating = false)}>Cancel</button>
-				</div>
-			</form>
-		{/if}
-		{#each reminders as reminder (reminder.id)}
-			<div class="reminder-row">
-				<div class="reminder-info">
-					<p>{reminder.text}</p>
-					<span
-						>{REMINDER_PERIODS.find((p) => p.value === reminder.period)!.label} ·
-						<time datetime={reminder.start}
-							>{dateFormat.format(new Date(reminder.start + 'T00:00:00Z'))}</time
-						></span
-					>
-				</div>
-				<button
-					type="button"
-					aria-label={'Edit reminder: ' + reminder.text}
-					onclick={() => edit(reminder)}>Edit</button
-				>
-				<button
-					type="button"
-					aria-label={'Delete reminder: ' + reminder.text}
-					onclick={() => (deleting = reminder.id)}>Delete</button
-				>
-			</div>
-			{#if deleting === reminder.id}<div class="delete-confirm">
-					<span>Delete this reminder?</span><button
-						type="button"
-						onclick={() => {
-							if (ondelete(reminder.id)) {
-								deleting = null;
-								if (editing === reminder.id) creating = false;
-							}
-						}}>Delete reminder</button
-					><button type="button" onclick={() => (deleting = null)}>Cancel</button>
-				</div>{/if}
-		{/each}
-		{#if !reminders.length && !creating}<p class="empty">No reminders yet.</p>{/if}
+		<div class="period-groups">
+			{#each groups as group (group.value)}
+				<section class="period-group" aria-label={group.label + ' reminders'}>
+					<div class="group-heading">
+						<h2>{group.label}</h2>
+						<button
+							type="button"
+							aria-label={'New ' + group.label.toLowerCase() + ' reminder'}
+							disabled={creating[group.value]}
+							onclick={() => (creating[group.value] = true)}>+ New</button
+						>
+					</div>
+					{#if creating[group.value]}<div class="new-reminder">
+							<ReminderForm
+								kind={group.value}
+								{selected}
+								{today}
+								onsave={(reminder) => create(reminder, group.value)}
+								oncancel={() => (creating[group.value] = false)}
+							/>
+						</div>{/if}
+					{#each reminders.filter( (r) => (group.value === 'once' ? r.period === 'once' : r.period !== 'once') ) as reminder (reminder.id)}
+						<details class="reminder-drawer">
+							<summary
+								><span>{reminder.text}</span>{#if group.value === 'periodic'}<span class="period"
+										>{REMINDER_PERIODS.find((p) => p.value === reminder.period)!.label}</span
+									>{/if}</summary
+							>
+							<ReminderForm
+								{reminder}
+								kind={group.value}
+								{selected}
+								{today}
+								{onsave}
+								ondelete={() => (deleting = reminder.id)}
+							/>
+							{#if deleting === reminder.id}<div class="delete-confirm">
+									<span>Delete this reminder?</span><button
+										type="button"
+										onclick={() => {
+											if (ondelete(reminder.id)) deleting = null;
+										}}>Delete reminder</button
+									><button type="button" onclick={() => (deleting = null)}>Cancel</button>
+								</div>{/if}
+						</details>
+					{/each}
+				</section>
+			{/each}
+		</div>
 	</div>
 </div>
 
@@ -140,98 +89,85 @@
 		padding: 24px;
 	}
 	.manager-content {
-		max-width: 680px;
+		max-width: 984px;
 		margin-inline: auto;
 	}
-	header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		margin-bottom: 20px;
+	.period-groups {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 480px));
+		gap: 24px;
+		align-items: start;
+	}
+	.period-group {
+		min-width: 0;
 	}
 	h2 {
 		margin: 0;
-		font-size: 17px;
+		font-size: 13px;
 		font-weight: 600;
+		color: var(--muted);
+	}
+	.group-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 10px;
+	}
+	.period {
+		margin-left: auto;
+		flex-shrink: 0;
+		color: var(--muted);
+		font-size: 11px;
 	}
 	button {
+		min-height: 32px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
 		background: transparent;
 		padding: 6px 10px;
 		font-size: 12px;
 	}
-	button:hover {
+	button:hover:not(:disabled) {
 		background: #e5eae2;
 	}
-	form {
-		display: grid;
-		gap: 16px;
+	.reminder-drawer,
+	.new-reminder {
+		container-type: inline-size;
 		border: 1px solid var(--line);
-		padding: 18px;
-		margin-bottom: 20px;
+		margin-bottom: 12px;
 	}
-	label {
-		display: grid;
-		gap: 6px;
-		font-size: 12px;
-		min-width: 0;
-	}
-	input,
-	select,
-	textarea {
-		width: 100%;
-		min-width: 0;
-		font: inherit;
-		color: inherit;
-		border: 1px solid #bdc8bc;
-		border-radius: 3px;
-		padding: 8px;
-		background: var(--paper);
-	}
-	textarea {
-		resize: vertical;
-	}
-	.schedule-fields {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 16px;
-	}
-	.form-actions {
-		display: flex;
-		gap: 8px;
-	}
-	.primary {
-		background: var(--accent);
-		color: white;
-		border-color: var(--accent);
-	}
-	.primary:hover {
-		background: #1b574b;
-	}
-	.reminder-row {
+	summary {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 14px 0;
+		gap: 8px;
+		padding: 10px 12px;
+		cursor: pointer;
+		font-size: 13px;
+		list-style: none;
+	}
+	summary::-webkit-details-marker {
+		display: none;
+	}
+	summary::before {
+		content: '›';
+		color: var(--muted);
+		font-size: 18px;
+		line-height: 1;
+	}
+	details[open] > summary::before {
+		transform: rotate(90deg);
+	}
+	details[open] > summary {
 		border-bottom: 1px solid var(--line);
 	}
-	.reminder-info {
-		flex: 1;
+	summary > span:first-of-type {
 		min-width: 0;
 		overflow-wrap: anywhere;
 	}
-	.reminder-info p {
-		margin: 0 0 4px;
-		font-size: 14px;
-		line-height: 1.5;
-		white-space: pre-wrap;
-	}
-	.reminder-info > span,
-	.empty {
-		color: var(--muted);
-		font-size: 12px;
+	summary:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 	.delete-confirm {
 		display: flex;
@@ -242,21 +178,17 @@
 		font-size: 12px;
 		background: #f5e5e8;
 	}
-	.form-error {
-		margin: 0;
-		font-size: 12px;
-		color: #a02d2d;
+	@media (max-width: 720px) {
+		.manager-content {
+			max-width: 480px;
+		}
+		.period-groups {
+			grid-template-columns: minmax(0, 480px);
+		}
 	}
 	@media (max-width: 560px) {
 		.reminders-manager {
 			padding: 16px;
-		}
-		.schedule-fields {
-			grid-template-columns: 1fr;
-			gap: 12px;
-		}
-		.reminder-row {
-			gap: 8px;
 		}
 	}
 </style>

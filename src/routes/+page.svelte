@@ -10,6 +10,8 @@
 		REMINDERS_STORAGE_KEY,
 		parseReminders,
 		reminderOccursOn,
+		reminderOverridesEmoji,
+		setReminderCompleted,
 		type Reminder
 	} from '../lib/reminders';
 	import {
@@ -22,7 +24,7 @@
 		type MeasureValue,
 		type MeasuresState
 	} from '../lib/measures';
-	import { addDays, localToday, yearOf, type DateKey } from '../lib/calendar';
+	import { addDays, daysInRange, localToday, yearOf, type DateKey } from '../lib/calendar';
 	import {
 		DAY_EMOJIS_STORAGE_KEY,
 		normalizeEmoji,
@@ -62,6 +64,16 @@
 	const firstYear = $derived(rangeStart ?? yearOf(today) - 5);
 	const lastYear = $derived(firstYear + 9);
 	const selected = $derived(selection ?? today);
+	const reminderEmojis = $derived.by(() => {
+		const overrides: DayEmojis = {};
+		const enabled = reminders.filter((r) => r.overrideEmoji);
+		if (!enabled.length) return overrides;
+		for (const { key } of daysInRange(firstYear, lastYear)) {
+			if (enabled.some((r) => reminderOverridesEmoji(r, key, today))) overrides[key] = '❗';
+		}
+		return overrides;
+	});
+	const displayedEmojis = $derived({ ...emojis, ...reminderEmojis });
 
 	function saveView() {
 		if (!restored || !viewport || section !== 'calendar') return;
@@ -270,6 +282,12 @@
 			reminders.some((r) => r.id === reminder.id)
 				? reminders.map((r) => (r.id === reminder.id ? reminder : r))
 				: [...reminders, reminder]
+		);
+	}
+
+	function completeReminder(id: string, completed: boolean) {
+		persistReminders(
+			reminders.map((r) => (r.id === id ? setReminderCompleted(r, selected, completed) : r))
 		);
 	}
 
@@ -497,7 +515,7 @@
 					{selected}
 					{mode}
 					{cellSize}
-					{emojis}
+					emojis={displayedEmojis}
 					onSelect={(key) => (selection = key)}
 					onNavigate={navigateDay}
 				/>
@@ -521,6 +539,17 @@
 					onManageMeasures={showMeasures}
 					reminders={dayReminders}
 					onManageReminders={showReminders}
+					onCompleteReminder={completeReminder}
+					onAddReminder={(text) =>
+						saveReminder({
+							id: crypto.randomUUID(),
+							text,
+							period: 'once',
+							start: selected,
+							overrideEmoji: false,
+							leadDays: 0,
+							completedDates: []
+						})}
 				/>
 			{/if}
 		</div>
@@ -536,6 +565,7 @@
 		<RemindersManager
 			{reminders}
 			{selected}
+			{today}
 			onsave={saveReminder}
 			ondelete={(id) => persistReminders(reminders.filter((r) => r.id !== id))}
 		/>
