@@ -6,6 +6,7 @@
 	import DayPanel from '../lib/components/DayPanel.svelte';
 	import MeasuresManager from '../lib/components/MeasuresManager.svelte';
 	import RemindersManager from '../lib/components/RemindersManager.svelte';
+	import SettingsPanel from '../lib/components/SettingsPanel.svelte';
 	import {
 		REMINDERS_STORAGE_KEY,
 		createReminder,
@@ -49,7 +50,7 @@
 	let zoom = $state<ZoomLevel>(100);
 	let emojis = $state<DayEmojis>({});
 	let emojiSaveError = $state('');
-	let section = $state<'calendar' | 'measures' | 'reminders'>('calendar');
+	let section = $state<'calendar' | 'measures' | 'reminders' | 'settings'>('calendar');
 	let measures = $state<MeasuresState>(emptyMeasures());
 	let measureSaveError = $state('');
 	let reminders = $state<Reminder[]>([]);
@@ -241,7 +242,7 @@
 	async function navigateTabs(event: KeyboardEvent) {
 		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
-		const tabs = ['horizontal', 'vertical', 'measures', 'reminders'] as const;
+		const tabs = ['horizontal', 'vertical', 'measures', 'reminders', 'settings'] as const;
 		const index = tabs.indexOf(section === 'calendar' ? mode : section);
 		const next =
 			event.key === 'Home'
@@ -251,6 +252,7 @@
 					: tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
 		if (next === 'measures') showMeasures();
 		else if (next === 'reminders') showReminders();
+		else if (next === 'settings') showSettings();
 		else await changeMode(next);
 		await tick();
 		document.getElementById('tab-' + next)?.focus();
@@ -264,6 +266,11 @@
 	function showReminders() {
 		saveView();
 		section = 'reminders';
+	}
+
+	function showSettings() {
+		saveView();
+		section = 'settings';
 	}
 
 	function persistReminders(next: Reminder[]): boolean {
@@ -463,6 +470,16 @@
 				tabindex={section === 'reminders' ? 0 : -1}
 				onclick={showReminders}>Reminders</button
 			>
+			<button
+				type="button"
+				role="tab"
+				id="tab-settings"
+				onkeydown={navigateTabs}
+				aria-selected={section === 'settings'}
+				aria-controls="settings-panel"
+				tabindex={section === 'settings' ? 0 : -1}
+				onclick={showSettings}>Settings</button
+			>
 		</div>
 		<div
 			class="zoom-controls"
@@ -561,5 +578,8 @@
 			onsave={saveReminder}
 			ondelete={(id) => persistReminders(reminders.filter((r) => r.id !== id))}
 		/>
+	{/if}
+	{#if section === 'settings'}
+		<SettingsPanel data={{ emojis, measures, reminders }} />
 	{/if}
 </main>

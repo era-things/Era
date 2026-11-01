@@ -77,6 +77,9 @@ for reverse-proxy and deployment configuration.
 - The selected day's Reminders section has a + button for quickly adding a
   one-off reminder by name. Enter adds it and closes the field;
   Escape closes the field. These items use the same Done/Undo controls and storage.
+- Settings exports all day emojis, measure definitions and daily values, and
+  reminders with completion history to a dated JSON file, including dates outside
+  the visible calendar range.
 - The reminder date picker distinguishes past and future dates and marks today.
   Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
   move between days, Page Up/Down changes months, and Escape closes the picker.
