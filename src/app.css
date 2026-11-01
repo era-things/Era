@@ -328,6 +328,9 @@ h1 {
 	line-height: 1;
 	pointer-events: none;
 }
+.day.past .day-emoji {
+	opacity: 0.65;
+}
 .emoji-error {
 	font-size: 11px;
 	line-height: 1.4;
