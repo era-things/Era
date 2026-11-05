@@ -19,9 +19,12 @@ Open the local URL printed by Vite.
 ```sh
 npm run check
 npm test
+npm run test:browser
 npm run format:check
 npm run build
 ```
+
+Browser tests use the locally installed Google Chrome and start their own Vite server.
 
 ## Production
 
@@ -88,6 +91,10 @@ for reverse-proxy and deployment configuration.
   each day editor. Food entries accept decimal values and can be added, edited,
   or removed. Each item has quantity controls starting at ×1; its nutrient values
   are displayed per item, and the day totals include the quantity.
+  Edit names and nutrient values directly in their rows; Enter or leaving a field
+  saves it, and Escape cancels the change.
+  The + button adds a blank row and focuses its name. Click the quantity to reveal
+  decrease/increase controls. At ×1, the decrease control becomes delete.
   Disabling Nutrition hides it while preserving the entries.
 - The reminder date picker distinguishes past and future dates and marks today.
   Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
@@ -134,6 +141,9 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
 - `src/lib/components/EmojiSelector.svelte`: reusable emoji button and full picker dialog.
 - `src/lib/components/MeasuresManager.svelte`: global measure creation and management.
+- `src/lib/components/NutritionPanel.svelte`: daily totals and nutrition item table.
+- `src/lib/components/NutritionItemRow.svelte`: inline editing and quantity controls.
+- `src/lib/browser-storage.ts`: shared browser persistence and cross-tab synchronization.
 - `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
 - `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
 - `src/lib/components/RemindersManager.svelte`: reminder creation and management.

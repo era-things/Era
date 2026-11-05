@@ -28,7 +28,18 @@ const snack: FoodItem = {
 	carbs: 20.2
 };
 
+const blank: FoodItem = {
+	id: 'blank',
+	name: '',
+	quantity: 1,
+	kcal: 0,
+	protein: 0,
+	fat: 0,
+	carbs: 0
+};
+
 test('nutrition totals follow additions, edits and removal, including decimal macros', () => {
+	assert.deepEqual(nutritionTotals([blank]), nutritionTotals([]));
 	assert.deepEqual(nutritionTotals([]), { kcal: 0, protein: 0, fat: 0, carbs: 0 });
 	assert.deepEqual(nutritionTotals([lunch, snack]), {
 		kcal: 550,
@@ -47,7 +58,7 @@ test('nutrition totals follow additions, edits and removal, including decimal ma
 	assert.equal(nutritionTotals([snack]).kcal, 100);
 });
 
-test('quantities multiply every nutrient and round-trip through storage', () => {
+test('quantities multiply every nutrient and must be positive safe integers', () => {
 	const doubled = { ...lunch, quantity: 2 };
 	assert.deepEqual(nutritionTotals([doubled, snack]), {
 		kcal: 1000,
@@ -56,49 +67,44 @@ test('quantities multiply every nutrient and round-trip through storage', () => 
 		carbs: 130.2
 	});
 	assert.deepEqual(nutritionTotals([{ ...doubled, quantity: 1 }]), nutritionTotals([lunch]));
-	const state = setNutritionItems({ ...emptyNutrition(), enabled: true }, '2026-11-05', [doubled]);
-	assert.deepEqual(parseNutrition(JSON.stringify(state)), state);
 	for (const quantity of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, undefined, '2']) {
 		assert.equal(validFoodItem({ ...lunch, quantity }), false);
 	}
 });
 
-test('food values must be named, finite and non-negative; zero and decimals are valid', () => {
+test('food values must be finite and non-negative; blank names, zero and decimals are valid', () => {
 	assert.equal(validFoodItem(lunch), true);
 	assert.equal(validFoodItem({ ...lunch, kcal: 0, protein: 0 }), true);
 	for (const kcal of [-1, Infinity, NaN, '100', null, undefined])
 		assert.equal(validFoodItem({ ...lunch, kcal }), false);
 	assert.equal(validFoodItem({ ...lunch, fat: -0.1 }), false);
-	assert.equal(validFoodItem({ ...lunch, name: '  ' }), false);
+	assert.equal(validFoodItem({ ...lunch, name: '' }), true);
 });
 
-test('day updates preserve other dates and disabling preserves food history', () => {
+test('day updates preserve other dates and remove empty dates', () => {
 	const first = setNutritionItems({ ...emptyNutrition(), enabled: true }, '2026-11-05', [lunch]);
 	const second = setNutritionItems(first, '2026-11-06', [snack]);
 	const removed = setNutritionItems(second, '2026-11-05', []);
 	assert.deepEqual(removed.days, { '2026-11-06': [snack] });
 	assert.deepEqual(first.days, { '2026-11-05': [lunch] });
-	const disabled = { ...second, enabled: false };
-	assert.deepEqual(parseNutrition(JSON.stringify(disabled)), disabled);
-	assert.deepEqual(
-		parseNutrition(JSON.stringify({ ...disabled, enabled: true })).days,
-		second.days
-	);
 });
 
-test('nutrition storage discards malformed entries and duplicate food IDs per day', () => {
+test('nutrition storage preserves blank rows, quantities and disabled history, filtering invalid entries', () => {
 	assert.deepEqual(parseNutrition('{'), emptyNutrition());
 	assert.deepEqual(
 		parseNutrition(
 			JSON.stringify({
-				enabled: true,
+				enabled: false,
 				days: {
 					'2026-02-30': [lunch],
-					'2026-11-05': [lunch, lunch, { ...snack, kcal: -1 }, snack],
-					'2026-11-06': [lunch]
+					'2026-11-05': [lunch, lunch, { ...snack, kcal: -1 }, snack, blank],
+					'2026-11-06': [{ ...lunch, quantity: 2 }]
 				}
 			})
 		),
-		{ enabled: true, days: { '2026-11-05': [lunch, snack], '2026-11-06': [lunch] } }
+		{
+			enabled: false,
+			days: { '2026-11-05': [lunch, snack, blank], '2026-11-06': [{ ...lunch, quantity: 2 }] }
+		}
 	);
 });

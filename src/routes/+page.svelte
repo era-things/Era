@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { browserStorage } from '../lib/browser-storage';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
@@ -12,7 +13,6 @@
 		emptyNutrition,
 		parseNutrition,
 		setNutritionItems,
-		validFoodItem,
 		type FoodItem,
 		type NutritionState
 	} from '../lib/nutrition';
@@ -73,6 +73,37 @@
 	let nutritionSaveError = $state('');
 	let reminders = $state<Reminder[]>([]);
 	let reminderSaveError = $state('');
+	const emojiStorage = browserStorage<DayEmojis>({
+		key: DAY_EMOJIS_STORAGE_KEY,
+		label: 'Day emojis',
+		parse: parseDayEmojis,
+		serialize: (days) => JSON.stringify({ version: 1, days }),
+		apply: (value) => (emojis = value),
+		error: (message) => (emojiSaveError = message)
+	});
+	const measureStorage = browserStorage<MeasuresState>({
+		key: MEASURES_STORAGE_KEY,
+		label: 'Measures',
+		parse: parseMeasures,
+		serialize: (value) => JSON.stringify({ version: 1, ...value }),
+		apply: (value) => (measures = value),
+		error: (message) => (measureSaveError = message)
+	});
+	const nutritionStorage = browserStorage<NutritionState>({
+		key: NUTRITION_STORAGE_KEY,
+		label: 'Nutrition',
+		parse: parseNutrition,
+		apply: (value) => (nutrition = value),
+		error: (message) => (nutritionSaveError = message)
+	});
+	const reminderStorage = browserStorage<Reminder[]>({
+		key: REMINDERS_STORAGE_KEY,
+		label: 'Reminders',
+		parse: parseReminders,
+		serialize: (reminders) => JSON.stringify({ version: 1, reminders }),
+		apply: (value) => (reminders = value),
+		error: (message) => (reminderSaveError = message)
+	});
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -131,42 +162,9 @@
 			browserToday = localToday();
 		};
 		refreshToday();
-		try {
-			emojis = parseDayEmojis(localStorage.getItem(DAY_EMOJIS_STORAGE_KEY));
-		} catch {
-			emojiSaveError = 'Day emoji storage is unavailable in this browser.';
-		}
-		const syncEmojis = (event: StorageEvent) => {
-			if (event.key === DAY_EMOJIS_STORAGE_KEY) emojis = parseDayEmojis(event.newValue);
-		};
-		try {
-			measures = parseMeasures(localStorage.getItem(MEASURES_STORAGE_KEY));
-		} catch {
-			measureSaveError = 'Measure storage is unavailable in this browser.';
-		}
-		const syncMeasures = (event: StorageEvent) => {
-			if (event.key === MEASURES_STORAGE_KEY) measures = parseMeasures(event.newValue);
-		};
-		window.addEventListener('storage', syncMeasures);
-		window.addEventListener('storage', syncEmojis);
-		try {
-			nutrition = parseNutrition(localStorage.getItem(NUTRITION_STORAGE_KEY));
-		} catch {
-			nutritionSaveError = 'Nutrition storage is unavailable in this browser.';
-		}
-		const syncNutrition = (event: StorageEvent) => {
-			if (event.key === NUTRITION_STORAGE_KEY) nutrition = parseNutrition(event.newValue);
-		};
-		window.addEventListener('storage', syncNutrition);
-		try {
-			reminders = parseReminders(localStorage.getItem(REMINDERS_STORAGE_KEY));
-		} catch {
-			reminderSaveError = 'Reminder storage is unavailable in this browser.';
-		}
-		const syncReminders = (event: StorageEvent) => {
-			if (event.key === REMINDERS_STORAGE_KEY) reminders = parseReminders(event.newValue);
-		};
-		window.addEventListener('storage', syncReminders);
+		const disconnectStorage = [emojiStorage, measureStorage, nutritionStorage, reminderStorage].map(
+			(storage) => storage.connect()
+		);
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -197,15 +195,12 @@
 		window.addEventListener('pagehide', saveView);
 		return () => {
 			saveView();
+			disconnectStorage.forEach((disconnect) => disconnect());
 			active = false;
 			clearTimeout(saveTimer);
 			window.clearInterval(timer);
 			window.removeEventListener('focus', refreshToday);
 			window.removeEventListener('pagehide', saveView);
-			window.removeEventListener('storage', syncEmojis);
-			window.removeEventListener('storage', syncMeasures);
-			window.removeEventListener('storage', syncNutrition);
-			window.removeEventListener('storage', syncReminders);
 		};
 	});
 
@@ -304,20 +299,8 @@
 		section = 'settings';
 	}
 
-	function persistReminders(next: Reminder[]): boolean {
-		try {
-			localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify({ version: 1, reminders: next }));
-			reminders = next;
-			reminderSaveError = '';
-			return true;
-		} catch {
-			reminderSaveError = 'Could not save reminders in this browser.';
-			return false;
-		}
-	}
-
 	function saveReminder(reminder: Reminder): boolean {
-		return persistReminders(
+		return reminderStorage.save(
 			reminders.some((r) => r.id === reminder.id)
 				? reminders.map((r) => (r.id === reminder.id ? reminder : r))
 				: [...reminders, reminder]
@@ -325,27 +308,15 @@
 	}
 
 	function completeReminder(day: DateKey, id: string, completed: boolean) {
-		persistReminders(
+		reminderStorage.save(
 			reminders.map((r) => (r.id === id ? setReminderCompleted(r, day, completed) : r))
 		);
-	}
-
-	function persistMeasures(next: MeasuresState): boolean {
-		try {
-			localStorage.setItem(MEASURES_STORAGE_KEY, JSON.stringify({ version: 1, ...next }));
-			measures = next;
-			measureSaveError = '';
-			return true;
-		} catch {
-			measureSaveError = 'Could not save measures in this browser.';
-			return false;
-		}
 	}
 
 	function saveMeasure(measure: Measure): boolean {
 		const previous = measures.definitions.find((m) => m.id === measure.id);
 		if (previous && previous.type !== measure.type) return false;
-		return persistMeasures({
+		return measureStorage.save({
 			...measures,
 			definitions: previous
 				? measures.definitions.map((m) => (m.id === measure.id ? measure : m))
@@ -353,26 +324,14 @@
 		});
 	}
 
-	function persistNutrition(next: NutritionState): boolean {
-		try {
-			localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(next));
-			nutrition = next;
-			nutritionSaveError = '';
-			return true;
-		} catch {
-			nutritionSaveError = 'Could not save nutrition in this browser.';
-			return false;
-		}
-	}
 	function updateNutrition(day: DateKey, items: FoodItem[]): boolean {
-		if (!items.every(validFoodItem)) return false;
-		return persistNutrition(setNutritionItems(nutrition, day, items));
+		return nutritionStorage.save(setNutritionItems(nutrition, day, items));
 	}
 
 	function setMeasureValue(day: DateKey, id: string, value: MeasureValue) {
 		const definition = measures.definitions.find((m) => m.id === id);
 		if (!definition || !validMeasureValue(definition.type, value)) return;
-		persistMeasures({
+		measureStorage.save({
 			...measures,
 			days: { ...measures.days, [day]: { ...measures.days[day], [id]: value } }
 		});
@@ -384,7 +343,7 @@
 		delete values[id];
 		if (Object.keys(values).length) days[day] = values;
 		else delete days[day];
-		persistMeasures({ ...measures, days });
+		measureStorage.save({ ...measures, days });
 	}
 
 	async function setZoom(next: ZoomLevel) {
@@ -441,13 +400,7 @@
 		const next = { ...emojis };
 		if (emoji) next[day] = emoji;
 		else delete next[day];
-		try {
-			localStorage.setItem(DAY_EMOJIS_STORAGE_KEY, JSON.stringify({ version: 1, days: next }));
-			emojis = next;
-			emojiSaveError = '';
-		} catch {
-			emojiSaveError = 'Could not save the emoji in this browser.';
-		}
+		emojiStorage.save(next);
 	}
 </script>
 
@@ -484,7 +437,7 @@
 	/>
 {/snippet}
 
-<main class="app" aria-label="Era timeline" style:--cell={cellSize + 'px'}>
+<main class="app" aria-label="Era timeline" aria-busy={!restored} style:--cell={cellSize + 'px'}>
 	<header class="toolbar">
 		<h1>Era</h1>
 		<nav class="range-controls" aria-label="Timeline range" hidden={section !== 'calendar'}>
@@ -643,9 +596,9 @@
 		<MeasuresManager
 			measures={measures.definitions}
 			nutritionEnabled={nutrition.enabled}
-			onNutritionEnabledChange={(enabled) => persistNutrition({ ...nutrition, enabled })}
+			onNutritionEnabledChange={(enabled) => nutritionStorage.save({ ...nutrition, enabled })}
 			onsave={saveMeasure}
-			ondelete={(id) => persistMeasures(removeMeasure(measures, id))}
+			ondelete={(id) => measureStorage.save(removeMeasure(measures, id))}
 		/>
 	{/if}
 	{#if section === 'reminders'}
@@ -654,7 +607,7 @@
 			{selected}
 			{today}
 			onsave={saveReminder}
-			ondelete={(id) => persistReminders(reminders.filter((r) => r.id !== id))}
+			ondelete={(id) => reminderStorage.save(reminders.filter((r) => r.id !== id))}
 		/>
 	{/if}
 	{#if section === 'settings'}

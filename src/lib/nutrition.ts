@@ -19,7 +19,6 @@ export function validFoodItem(value: unknown): value is FoodItem {
 		typeof item.id === 'string' &&
 		/^[a-zA-Z0-9-]{1,80}$/.test(item.id) &&
 		typeof item.name === 'string' &&
-		item.name.trim().length > 0 &&
 		item.name.length <= 120 &&
 		typeof item.quantity === 'number' &&
 		Number.isSafeInteger(item.quantity) &&
