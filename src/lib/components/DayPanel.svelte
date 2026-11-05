@@ -5,6 +5,8 @@
 	import type { Measure, MeasureValue } from '../measures';
 	import DayReminders from './DayReminders.svelte';
 	import type { Reminder } from '../reminders';
+	import NutritionPanel from './NutritionPanel.svelte';
+	import type { FoodItem } from '../nutrition';
 	let {
 		selected,
 		today,
@@ -24,7 +26,10 @@
 		reminders,
 		onManageReminders,
 		onCompleteReminder,
-		onAddReminder
+		onAddReminder,
+		nutritionEnabled,
+		nutritionItems,
+		onNutritionChange
 	}: {
 		selected: DateKey;
 		today: DateKey;
@@ -45,6 +50,9 @@
 		onManageReminders: () => void;
 		onCompleteReminder: (id: string, completed: boolean) => void;
 		onAddReminder: (text: string) => boolean;
+		nutritionEnabled: boolean;
+		nutritionItems: FoodItem[];
+		onNutritionChange: (items: FoodItem[]) => boolean;
 	} = $props();
 </script>
 
@@ -100,6 +108,10 @@
 	</nav>
 	{#if saveError}<p class="emoji-error" role="alert">{saveError}</p>{/if}
 	{#key selected}
+		{#if nutritionEnabled}<NutritionPanel
+				items={nutritionItems}
+				onchange={onNutritionChange}
+			/>{/if}
 		<DayMeasures
 			{measures}
 			values={measureValues}

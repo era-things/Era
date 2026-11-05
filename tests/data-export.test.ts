@@ -12,6 +12,14 @@ test('export preserves all dates, zero/false values, emoji and reminder completi
 			],
 			days: { '2000-01-01': { hours: 0, read: false }, '2040-12-31': { hours: null } }
 		},
+		nutrition: {
+			enabled: false,
+			days: {
+				'2000-01-01': [
+					{ id: 'food', name: 'Lunch', quantity: 2, kcal: 500, protein: 25.5, fat: 10, carbs: 60 }
+				]
+			}
+		},
 		reminders: [
 			{
 				id: 'rent',
@@ -33,7 +41,12 @@ test('export preserves all dates, zero/false values, emoji and reminder completi
 	assert.deepEqual(
 		JSON.parse(
 			serializeDataExport(
-				{ emojis: {}, measures: { definitions: [], days: {} }, reminders: [] },
+				{
+					emojis: {},
+					measures: { definitions: [], days: {} },
+					reminders: [],
+					nutrition: { enabled: false, days: {} }
+				},
 				now
 			)
 		).reminders,

@@ -142,7 +142,7 @@ h1 {
 	min-height: 0;
 }
 .view-workspace.with-day-panel {
-	grid-template-columns: minmax(0, 1fr) clamp(200px, 24vw, 300px);
+	grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 420px);
 }
 .day-panel {
 	border-left: 1px solid var(--line);
@@ -361,7 +361,7 @@ h1 {
 }
 @media (max-width: 560px) {
 	.view-workspace.with-day-panel {
-		grid-template-columns: minmax(0, 1fr) minmax(112px, 30%);
+		grid-template-columns: minmax(0, 1fr) minmax(200px, 50%);
 	}
 	.day-panel {
 		padding: 12px;

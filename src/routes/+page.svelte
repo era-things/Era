@@ -8,6 +8,15 @@
 	import RemindersManager from '../lib/components/RemindersManager.svelte';
 	import SettingsPanel from '../lib/components/SettingsPanel.svelte';
 	import {
+		NUTRITION_STORAGE_KEY,
+		emptyNutrition,
+		parseNutrition,
+		setNutritionItems,
+		validFoodItem,
+		type FoodItem,
+		type NutritionState
+	} from '../lib/nutrition';
+	import {
 		REMINDERS_STORAGE_KEY,
 		createReminder,
 		parseReminders,
@@ -60,6 +69,8 @@
 	let section = $state<'calendar' | 'today' | 'measures' | 'reminders' | 'settings'>('calendar');
 	let measures = $state<MeasuresState>(emptyMeasures());
 	let measureSaveError = $state('');
+	let nutrition = $state<NutritionState>(emptyNutrition());
+	let nutritionSaveError = $state('');
 	let reminders = $state<Reminder[]>([]);
 	let reminderSaveError = $state('');
 	const cellSize = $derived((24 * zoom) / 100);
@@ -139,6 +150,15 @@
 		window.addEventListener('storage', syncMeasures);
 		window.addEventListener('storage', syncEmojis);
 		try {
+			nutrition = parseNutrition(localStorage.getItem(NUTRITION_STORAGE_KEY));
+		} catch {
+			nutritionSaveError = 'Nutrition storage is unavailable in this browser.';
+		}
+		const syncNutrition = (event: StorageEvent) => {
+			if (event.key === NUTRITION_STORAGE_KEY) nutrition = parseNutrition(event.newValue);
+		};
+		window.addEventListener('storage', syncNutrition);
+		try {
 			reminders = parseReminders(localStorage.getItem(REMINDERS_STORAGE_KEY));
 		} catch {
 			reminderSaveError = 'Reminder storage is unavailable in this browser.';
@@ -184,6 +204,7 @@
 			window.removeEventListener('pagehide', saveView);
 			window.removeEventListener('storage', syncEmojis);
 			window.removeEventListener('storage', syncMeasures);
+			window.removeEventListener('storage', syncNutrition);
 			window.removeEventListener('storage', syncReminders);
 		};
 	});
@@ -332,6 +353,22 @@
 		});
 	}
 
+	function persistNutrition(next: NutritionState): boolean {
+		try {
+			localStorage.setItem(NUTRITION_STORAGE_KEY, JSON.stringify(next));
+			nutrition = next;
+			nutritionSaveError = '';
+			return true;
+		} catch {
+			nutritionSaveError = 'Could not save nutrition in this browser.';
+			return false;
+		}
+	}
+	function updateNutrition(day: DateKey, items: FoodItem[]): boolean {
+		if (!items.every(validFoodItem)) return false;
+		return persistNutrition(setNutritionItems(nutrition, day, items));
+	}
+
 	function setMeasureValue(day: DateKey, id: string, value: MeasureValue) {
 		const definition = measures.definitions.find((m) => m.id === id);
 		if (!definition || !validMeasureValue(definition.type, value)) return;
@@ -441,6 +478,9 @@
 		onManageReminders={showReminders}
 		onCompleteReminder={(id, completed) => completeReminder(day, id, completed)}
 		onAddReminder={(text) => saveReminder(createReminder(text, day))}
+		nutritionEnabled={nutrition.enabled}
+		nutritionItems={nutrition.days[day] ?? []}
+		onNutritionChange={(items) => updateNutrition(day, items)}
 	/>
 {/snippet}
 
@@ -559,6 +599,7 @@
 		>
 	</header>
 	{#if measureSaveError}<p class="measure-save-error" role="alert">{measureSaveError}</p>{/if}
+	{#if nutritionSaveError}<p class="measure-save-error" role="alert">{nutritionSaveError}</p>{/if}
 	{#if reminderSaveError}<p class="measure-save-error" role="alert">{reminderSaveError}</p>{/if}
 	<div class="calendar-content" hidden={section !== 'calendar'}>
 		{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
@@ -601,6 +642,8 @@
 	{#if section === 'measures'}
 		<MeasuresManager
 			measures={measures.definitions}
+			nutritionEnabled={nutrition.enabled}
+			onNutritionEnabledChange={(enabled) => persistNutrition({ ...nutrition, enabled })}
 			onsave={saveMeasure}
 			ondelete={(id) => persistMeasures(removeMeasure(measures, id))}
 		/>
@@ -615,6 +658,6 @@
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel data={{ emojis, measures, reminders }} />
+		<SettingsPanel data={{ emojis, measures, reminders, nutrition }} />
 	{/if}
 </main>

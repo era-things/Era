@@ -77,12 +77,18 @@ for reverse-proxy and deployment configuration.
 - The selected day's Reminders section has a + button for quickly adding a
   one-off reminder by name. Enter adds it and closes the field;
   Escape closes the field. These items use the same Done/Undo controls and storage.
-- Settings exports all day emojis, measure definitions and daily values, and
-  reminders with completion history to a dated JSON file, including dates outside
-  the visible calendar range.
+- Settings exports day emojis, measure definitions and daily values, nutrition
+  entries, and reminders with completion history to a dated JSON file, including
+  dates outside the visible calendar range.
 - Today shows yesterday, today, and tomorrow side by side, with independent day
   editors for emojis, measures, and reminders. The columns scroll horizontally
   on narrow screens.
+- Measures lists built-in measures before custom measures. Enable Nutrition to
+  show daily kcal, protein, fat, and carb totals with an expandable food log in
+  each day editor. Food entries accept decimal values and can be added, edited,
+  or removed. Each item has quantity controls starting at ×1; its nutrient values
+  are displayed per item, and the day totals include the quantity.
+  Disabling Nutrition hides it while preserving the entries.
 - The reminder date picker distinguishes past and future dates and marks today.
   Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
   move between days, Page Up/Down changes months, and Escape closes the picker.

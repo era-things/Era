@@ -1,0 +1,83 @@
+import { isDateKey, type DateKey } from './calendar.ts';
+
+export const NUTRITION_STORAGE_KEY = 'era:nutrition';
+export const NUTRIENTS = [
+	{ key: 'kcal', label: 'kcal', shortLabel: 'kcal', color: 'var(--ink)' },
+	{ key: 'protein', label: 'Protein', shortLabel: 'P', color: '#286394' },
+	{ key: 'fat', label: 'Fat', shortLabel: 'F', color: '#38713d' },
+	{ key: 'carbs', label: 'Carbs', shortLabel: 'C', color: '#965015' }
+] as const;
+export type Nutrients = { kcal: number; protein: number; fat: number; carbs: number };
+export type FoodItem = Nutrients & { id: string; name: string; quantity: number };
+export type NutritionState = { enabled: boolean; days: Record<DateKey, FoodItem[]> };
+export const emptyNutrition = (): NutritionState => ({ enabled: false, days: {} });
+
+export function validFoodItem(value: unknown): value is FoodItem {
+	if (!value || typeof value !== 'object') return false;
+	const item = value as Record<string, unknown>;
+	return (
+		typeof item.id === 'string' &&
+		/^[a-zA-Z0-9-]{1,80}$/.test(item.id) &&
+		typeof item.name === 'string' &&
+		item.name.trim().length > 0 &&
+		item.name.length <= 120 &&
+		typeof item.quantity === 'number' &&
+		Number.isSafeInteger(item.quantity) &&
+		item.quantity >= 1 &&
+		NUTRIENTS.every(
+			({ key }) =>
+				typeof item[key] === 'number' &&
+				Number.isFinite(item[key]) &&
+				item[key] >= 0 &&
+				item[key] <= Number.MAX_SAFE_INTEGER
+		)
+	);
+}
+
+export function nutritionTotals(items: FoodItem[]): Nutrients {
+	const totals: Nutrients = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
+	for (const { key } of NUTRIENTS) {
+		totals[key] =
+			Math.round(items.reduce((sum, item) => sum + item[key] * item.quantity, 0) * 100) / 100;
+	}
+	return totals;
+}
+
+export function setNutritionItems(
+	state: NutritionState,
+	day: DateKey,
+	items: FoodItem[]
+): NutritionState {
+	const days = { ...state.days };
+	if (items.length) days[day] = items;
+	else delete days[day];
+	return { ...state, days };
+}
+
+export function parseNutrition(raw: string | null): NutritionState {
+	try {
+		const saved = JSON.parse(raw ?? 'null');
+		if (
+			!saved ||
+			typeof saved.enabled !== 'boolean' ||
+			!saved.days ||
+			typeof saved.days !== 'object' ||
+			Array.isArray(saved.days)
+		)
+			return emptyNutrition();
+		const days: NutritionState['days'] = {};
+		for (const [day, entries] of Object.entries(saved.days)) {
+			if (!isDateKey(day) || !Array.isArray(entries)) continue;
+			const ids = new Set<string>();
+			const items = entries.filter((item): item is FoodItem => {
+				if (!validFoodItem(item) || ids.has(item.id)) return false;
+				ids.add(item.id);
+				return true;
+			});
+			if (items.length) days[day] = items;
+		}
+		return { enabled: saved.enabled, days };
+	} catch {
+		return emptyNutrition();
+	}
+}

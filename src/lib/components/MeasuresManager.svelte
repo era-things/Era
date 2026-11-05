@@ -3,11 +3,15 @@
 	let {
 		measures,
 		onsave,
-		ondelete
+		ondelete,
+		nutritionEnabled,
+		onNutritionEnabledChange
 	}: {
 		measures: Measure[];
 		onsave: (measure: Measure) => boolean;
 		ondelete: (id: string) => boolean;
+		nutritionEnabled: boolean;
+		onNutritionEnabledChange: (enabled: boolean) => void;
 	} = $props();
 	let editing = $state<string | null>(null);
 	let creating = $state(false);
@@ -48,8 +52,18 @@
 </script>
 
 <div class="measures-manager" id="measures-panel" role="tabpanel" aria-labelledby="tab-measures">
+	<section class="built-in-measures" aria-label="Built-in measures">
+		<h2>Built-in measures</h2>
+		<label class="nutrition-toggle"
+			><input
+				type="checkbox"
+				checked={nutritionEnabled}
+				onchange={(event) => onNutritionEnabledChange(event.currentTarget.checked)}
+			/><span>Nutrition</span></label
+		>
+	</section>
 	<div class="manager-heading">
-		<h2>Measures</h2>
+		<h2>Custom measures</h2>
 		<button type="button" onclick={() => edit()}>+ New measure</button>
 	</div>
 	{#if creating}
@@ -137,10 +151,29 @@
 		padding: 24px;
 	}
 	.manager-heading,
+	.built-in-measures,
 	.measure-list,
 	.measure-form {
 		max-width: 680px;
 		margin-inline: auto;
+	}
+	.built-in-measures {
+		margin-bottom: 28px;
+	}
+	.nutrition-toggle {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding-block: 14px;
+		border-bottom: 1px solid var(--line);
+		font-size: 14px;
+		cursor: pointer;
+	}
+	.nutrition-toggle input {
+		width: 16px;
+		height: 16px;
+		margin: 0;
+		accent-color: var(--accent);
 	}
 	.manager-heading {
 		display: flex;
@@ -176,7 +209,7 @@
 		gap: 6px;
 		font-size: 12px;
 	}
-	input:not([type='radio']),
+	.measure-form input:not([type='radio']),
 	select {
 		min-width: 0;
 		width: 100%;
