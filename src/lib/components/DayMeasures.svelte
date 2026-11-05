@@ -15,6 +15,7 @@
 		onremove: (id: string) => void;
 		onmanage: () => void;
 	} = $props();
+	const inputId = $props.id();
 	let choosing = $state(false);
 	const attached = $derived(measures.filter((m) => Object.hasOwn(values, m.id)));
 	const available = $derived(measures.filter((m) => !Object.hasOwn(values, m.id)));
@@ -89,7 +90,7 @@
 					{#if measure.type === 'boolean'}
 						<label class="boolean-value">
 							<input
-								id={'value-' + measure.id}
+								id={inputId + '-' + measure.id}
 								type="checkbox"
 								checked={values[measure.id] === true}
 								onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
@@ -97,7 +98,7 @@
 							<span>{measure.name}</span>
 						</label>
 					{:else}
-						<label for={'value-' + measure.id}>{measure.name}</label>
+						<label for={inputId + '-' + measure.id}>{measure.name}</label>
 					{/if}
 					<button
 						type="button"
@@ -109,7 +110,7 @@
 				{#if measure.type === 'uint'}
 					<div class="number-control">
 						<input
-							id={'value-' + measure.id}
+							id={inputId + '-' + measure.id}
 							type="number"
 							min="0"
 							max={Number.MAX_SAFE_INTEGER}
@@ -125,7 +126,7 @@
 								type="button"
 								class="step-button"
 								aria-label={'Increase ' + measure.name}
-								aria-controls={'value-' + measure.id}
+								aria-controls={inputId + '-' + measure.id}
 								disabled={values[measure.id] === Number.MAX_SAFE_INTEGER}
 								onclick={(event) => adjustNumber(event, measure.id, 1)}
 							>
@@ -145,7 +146,7 @@
 								type="button"
 								class="step-button"
 								aria-label={'Decrease ' + measure.name}
-								aria-controls={'value-' + measure.id}
+								aria-controls={inputId + '-' + measure.id}
 								disabled={Number(values[measure.id] ?? 0) <= 0}
 								onclick={(event) => adjustNumber(event, measure.id, -1)}
 							>

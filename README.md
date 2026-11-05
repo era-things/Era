@@ -80,6 +80,9 @@ for reverse-proxy and deployment configuration.
 - Settings exports all day emojis, measure definitions and daily values, and
   reminders with completion history to a dated JSON file, including dates outside
   the visible calendar range.
+- Today shows yesterday, today, and tomorrow side by side, with independent day
+  editors for emojis, measures, and reminders. The columns scroll horizontally
+  on narrow screens.
 - The reminder date picker distinguishes past and future dates and marks today.
   Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
   move between days, Page Up/Down changes months, and Escape closes the picker.

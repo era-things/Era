@@ -26,7 +26,14 @@
 		type MeasureValue,
 		type MeasuresState
 	} from '../lib/measures';
-	import { addDays, daysInRange, localToday, yearOf, type DateKey } from '../lib/calendar';
+	import {
+		addDays,
+		daysInRange,
+		localToday,
+		relativeDay,
+		yearOf,
+		type DateKey
+	} from '../lib/calendar';
 	import {
 		DAY_EMOJIS_STORAGE_KEY,
 		normalizeEmoji,
@@ -50,14 +57,11 @@
 	let zoom = $state<ZoomLevel>(100);
 	let emojis = $state<DayEmojis>({});
 	let emojiSaveError = $state('');
-	let section = $state<'calendar' | 'measures' | 'reminders' | 'settings'>('calendar');
+	let section = $state<'calendar' | 'today' | 'measures' | 'reminders' | 'settings'>('calendar');
 	let measures = $state<MeasuresState>(emptyMeasures());
 	let measureSaveError = $state('');
 	let reminders = $state<Reminder[]>([]);
 	let reminderSaveError = $state('');
-	const dayReminders = $derived(
-		reminders.filter((reminder) => reminderOccursOn(reminder, selected))
-	);
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -242,7 +246,7 @@
 	async function navigateTabs(event: KeyboardEvent) {
 		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
-		const tabs = ['horizontal', 'vertical', 'measures', 'reminders', 'settings'] as const;
+		const tabs = ['horizontal', 'vertical', 'today', 'measures', 'reminders', 'settings'] as const;
 		const index = tabs.indexOf(section === 'calendar' ? mode : section);
 		const next =
 			event.key === 'Home'
@@ -250,12 +254,18 @@
 				: event.key === 'End'
 					? tabs[tabs.length - 1]
 					: tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-		if (next === 'measures') showMeasures();
+		if (next === 'today') showToday();
+		else if (next === 'measures') showMeasures();
 		else if (next === 'reminders') showReminders();
 		else if (next === 'settings') showSettings();
 		else await changeMode(next);
 		await tick();
 		document.getElementById('tab-' + next)?.focus();
+	}
+
+	function showToday() {
+		saveView();
+		section = 'today';
 	}
 
 	function showMeasures() {
@@ -293,9 +303,9 @@
 		);
 	}
 
-	function completeReminder(id: string, completed: boolean) {
+	function completeReminder(day: DateKey, id: string, completed: boolean) {
 		persistReminders(
-			reminders.map((r) => (r.id === id ? setReminderCompleted(r, selected, completed) : r))
+			reminders.map((r) => (r.id === id ? setReminderCompleted(r, day, completed) : r))
 		);
 	}
 
@@ -322,21 +332,21 @@
 		});
 	}
 
-	function setMeasureValue(id: string, value: MeasureValue) {
+	function setMeasureValue(day: DateKey, id: string, value: MeasureValue) {
 		const definition = measures.definitions.find((m) => m.id === id);
 		if (!definition || !validMeasureValue(definition.type, value)) return;
 		persistMeasures({
 			...measures,
-			days: { ...measures.days, [selected]: { ...measures.days[selected], [id]: value } }
+			days: { ...measures.days, [day]: { ...measures.days[day], [id]: value } }
 		});
 	}
 
-	function removeDayMeasure(id: string) {
+	function removeDayMeasure(day: DateKey, id: string) {
 		const days = { ...measures.days };
-		const values = { ...days[selected] };
+		const values = { ...days[day] };
 		delete values[id];
-		if (Object.keys(values).length) days[selected] = values;
-		else delete days[selected];
+		if (Object.keys(values).length) days[day] = values;
+		else delete days[day];
 		persistMeasures({ ...measures, days });
 	}
 
@@ -388,12 +398,12 @@
 		);
 	}
 
-	function setEmoji(value: string) {
+	function setEmoji(day: DateKey, value: string) {
 		const emoji = normalizeEmoji(value);
 		if (emoji === null) return;
 		const next = { ...emojis };
-		if (emoji) next[selected] = emoji;
-		else delete next[selected];
+		if (emoji) next[day] = emoji;
+		else delete next[day];
 		try {
 			localStorage.setItem(DAY_EMOJIS_STORAGE_KEY, JSON.stringify({ version: 1, days: next }));
 			emojis = next;
@@ -408,6 +418,31 @@
 	<title>Era</title>
 	<meta name="description" content="Personal day timeline." />
 </svelte:head>
+
+{#snippet dayEditor(day: DateKey, label: string, navigation = false)}
+	<DayPanel
+		selected={day}
+		{today}
+		{firstYear}
+		{lastYear}
+		{label}
+		onNavigate={navigation ? (key, offset) => navigateDay(key, offset, false) : undefined}
+		emoji={emojis[day] ?? ''}
+		onEmojiChange={(value) => setEmoji(day, value)}
+		saveError={emojiSaveError}
+		measures={measures.definitions}
+		measureValues={measures.days[day] ?? {}}
+		onAddMeasure={(measure) =>
+			setMeasureValue(day, measure.id, measure.type === 'uint' ? 0 : false)}
+		onMeasureChange={(id, value) => setMeasureValue(day, id, value)}
+		onRemoveMeasure={(id) => removeDayMeasure(day, id)}
+		onManageMeasures={showMeasures}
+		reminders={reminders.filter((reminder) => reminderOccursOn(reminder, day))}
+		onManageReminders={showReminders}
+		onCompleteReminder={(id, completed) => completeReminder(day, id, completed)}
+		onAddReminder={(text) => saveReminder(createReminder(text, day))}
+	/>
+{/snippet}
 
 <main class="app" aria-label="Era timeline" style:--cell={cellSize + 'px'}>
 	<header class="toolbar">
@@ -449,6 +484,16 @@
 				aria-controls="timeline-panel"
 				tabindex={section === 'calendar' && mode === 'vertical' ? 0 : -1}
 				onclick={() => changeMode('vertical')}>Grid</button
+			>
+			<button
+				type="button"
+				role="tab"
+				id="tab-today"
+				onkeydown={navigateTabs}
+				aria-selected={section === 'today'}
+				aria-controls="today-panel"
+				tabindex={section === 'today' ? 0 : -1}
+				onclick={showToday}>Today</button
 			>
 			<button
 				type="button"
@@ -539,30 +584,20 @@
 				/>
 			</div>
 			{#if mode === 'vertical'}
-				<DayPanel
-					{selected}
-					{today}
-					{firstYear}
-					{lastYear}
-					emoji={emojis[selected] ?? ''}
-					onEmojiChange={setEmoji}
-					saveError={emojiSaveError}
-					onNavigate={(key, offset) => navigateDay(key, offset, false)}
-					measures={measures.definitions}
-					measureValues={measures.days[selected] ?? {}}
-					onAddMeasure={(measure) =>
-						setMeasureValue(measure.id, measure.type === 'uint' ? 0 : false)}
-					onMeasureChange={setMeasureValue}
-					onRemoveMeasure={removeDayMeasure}
-					onManageMeasures={showMeasures}
-					reminders={dayReminders}
-					onManageReminders={showReminders}
-					onCompleteReminder={completeReminder}
-					onAddReminder={(text) => saveReminder(createReminder(text, selected))}
-				/>
+				{@render dayEditor(selected, 'Selected day', true)}
 			{/if}
 		</div>
 	</div>
+	{#if section === 'today'}
+		<div class="today-view" id="today-panel" role="tabpanel" aria-labelledby="tab-today">
+			<div class="today-workspace">
+				{#each [-1, 0, 1] as offset (offset)}
+					{@const day = addDays(today, offset)}
+					{@render dayEditor(day, relativeDay(day, today))}
+				{/each}
+			</div>
+		</div>
+	{/if}
 	{#if section === 'measures'}
 		<MeasuresManager
 			measures={measures.definitions}

@@ -150,6 +150,28 @@ h1 {
 	overflow: auto;
 	min-width: 0;
 }
+.today-view {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+.today-workspace {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(280px, 1fr));
+	min-width: 840px;
+	max-width: 1200px;
+	min-height: 100%;
+	margin-inline: auto;
+}
+.today-workspace > .day-panel {
+	border-top: 2px solid transparent;
+}
+.today-workspace > .day-panel:first-child {
+	border-left: 0;
+}
+.today-workspace > .day-panel:nth-child(2) {
+	border-top-color: var(--accent);
+}
 .day-panel h2 {
 	font-size: 15px;
 	font-weight: 600;
