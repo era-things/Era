@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { paletteFor, type Measure, type MeasureValue } from '../measures';
 	let {
 		measures,
@@ -6,7 +7,8 @@
 		onadd,
 		onchange,
 		onremove,
-		onmanage
+		onmanage,
+		children
 	}: {
 		measures: Measure[];
 		values: Record<string, MeasureValue>;
@@ -14,6 +16,7 @@
 		onchange: (id: string, value: MeasureValue) => void;
 		onremove: (id: string) => void;
 		onmanage: () => void;
+		children: Snippet;
 	} = $props();
 	const inputId = $props.id();
 	let choosing = $state(false);
@@ -48,16 +51,100 @@
 </script>
 
 <section class="day-measures" aria-label="Day measures">
-	<header>
-		<h3>Measures</h3>
-		<button
-			class="add-button"
-			type="button"
-			aria-label="Add measure"
-			aria-expanded={choosing}
-			onclick={() => (choosing = !choosing)}>+</button
-		>
-	</header>
+	{#if attached.length}
+		<div class="measure-cards">
+			{#each attached as measure (measure.id)}
+				{@const p = paletteFor(measure.palette)}
+				<article
+					class="measure-card"
+					style:--measure-faint={p.faint}
+					style:--measure-bright={p.bright}
+					aria-label={measure.name}
+				>
+					<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
+						{#if measure.type === 'boolean'}
+							<label class="boolean-value">
+								<input
+									id={inputId + '-' + measure.id}
+									type="checkbox"
+									checked={values[measure.id] === true}
+									onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
+								/>
+								<span>{measure.name}</span>
+							</label>
+						{:else}
+							<label for={inputId + '-' + measure.id}>{measure.name}</label>
+						{/if}
+						<button
+							type="button"
+							aria-label={'Remove ' + measure.name + ' from day'}
+							title="Remove from day"
+							onclick={() => onremove(measure.id)}>×</button
+						>
+					</div>
+					{#if measure.type === 'uint'}
+						<div class="number-control">
+							<input
+								id={inputId + '-' + measure.id}
+								type="number"
+								min="0"
+								max={Number.MAX_SAFE_INTEGER}
+								step="1"
+								inputmode="numeric"
+								placeholder="—"
+								value={values[measure.id] ?? ''}
+								oninput={(event) => numberInput(event, measure.id)}
+								onchange={(event) => event.currentTarget.reportValidity()}
+							/>
+							<div class="step-controls">
+								<button
+									type="button"
+									class="step-button"
+									aria-label={'Increase ' + measure.name}
+									aria-controls={inputId + '-' + measure.id}
+									disabled={values[measure.id] === Number.MAX_SAFE_INTEGER}
+									onclick={(event) => adjustNumber(event, measure.id, 1)}
+								>
+									<svg
+										aria-hidden="true"
+										viewBox="0 0 16 16"
+										width="12"
+										height="12"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.75"
+										stroke-linecap="round"
+										stroke-linejoin="round"><path d="m4 10 4-4 4 4" /></svg
+									>
+								</button>
+								<button
+									type="button"
+									class="step-button"
+									aria-label={'Decrease ' + measure.name}
+									aria-controls={inputId + '-' + measure.id}
+									disabled={Number(values[measure.id] ?? 0) <= 0}
+									onclick={(event) => adjustNumber(event, measure.id, -1)}
+								>
+									<svg
+										aria-hidden="true"
+										viewBox="0 0 16 16"
+										width="12"
+										height="12"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.75"
+										stroke-linecap="round"
+										stroke-linejoin="round"><path d="m4 6 4 4 4-4" /></svg
+									>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</article>
+			{/each}
+		</div>
+	{/if}
+	{@render children()}
 	{#if choosing}
 		<div class="measure-chooser">
 			{#each available as measure (measure.id)}
@@ -77,117 +164,27 @@
 			<button type="button" class="manage-button" onclick={onmanage}>Manage measures</button>
 		</div>
 	{/if}
-	<div class="measure-cards">
-		{#each attached as measure (measure.id)}
-			{@const p = paletteFor(measure.palette)}
-			<article
-				class="measure-card"
-				style:--measure-faint={p.faint}
-				style:--measure-bright={p.bright}
-				aria-label={measure.name}
-			>
-				<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
-					{#if measure.type === 'boolean'}
-						<label class="boolean-value">
-							<input
-								id={inputId + '-' + measure.id}
-								type="checkbox"
-								checked={values[measure.id] === true}
-								onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
-							/>
-							<span>{measure.name}</span>
-						</label>
-					{:else}
-						<label for={inputId + '-' + measure.id}>{measure.name}</label>
-					{/if}
-					<button
-						type="button"
-						aria-label={'Remove ' + measure.name + ' from day'}
-						title="Remove from day"
-						onclick={() => onremove(measure.id)}>×</button
-					>
-				</div>
-				{#if measure.type === 'uint'}
-					<div class="number-control">
-						<input
-							id={inputId + '-' + measure.id}
-							type="number"
-							min="0"
-							max={Number.MAX_SAFE_INTEGER}
-							step="1"
-							inputmode="numeric"
-							placeholder="—"
-							value={values[measure.id] ?? ''}
-							oninput={(event) => numberInput(event, measure.id)}
-							onchange={(event) => event.currentTarget.reportValidity()}
-						/>
-						<div class="step-controls">
-							<button
-								type="button"
-								class="step-button"
-								aria-label={'Increase ' + measure.name}
-								aria-controls={inputId + '-' + measure.id}
-								disabled={values[measure.id] === Number.MAX_SAFE_INTEGER}
-								onclick={(event) => adjustNumber(event, measure.id, 1)}
-							>
-								<svg
-									aria-hidden="true"
-									viewBox="0 0 16 16"
-									width="12"
-									height="12"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="1.75"
-									stroke-linecap="round"
-									stroke-linejoin="round"><path d="m4 10 4-4 4 4" /></svg
-								>
-							</button>
-							<button
-								type="button"
-								class="step-button"
-								aria-label={'Decrease ' + measure.name}
-								aria-controls={inputId + '-' + measure.id}
-								disabled={Number(values[measure.id] ?? 0) <= 0}
-								onclick={(event) => adjustNumber(event, measure.id, -1)}
-							>
-								<svg
-									aria-hidden="true"
-									viewBox="0 0 16 16"
-									width="12"
-									height="12"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="1.75"
-									stroke-linecap="round"
-									stroke-linejoin="round"><path d="m4 6 4 4 4-4" /></svg
-								>
-							</button>
-						</div>
-					</div>
-				{/if}
-			</article>
-		{/each}
-	</div>
+	<button
+		class="add-button"
+		type="button"
+		aria-label="Add measure"
+		aria-expanded={choosing}
+		onclick={() => (choosing = !choosing)}>+</button
+	>
 </section>
 
 <style>
 	.day-measures {
-		margin-top: 24px;
+		--widget-gap: 10px;
+		display: grid;
+		gap: var(--widget-gap);
+		margin-top: var(--widget-gap);
 	}
-	header,
 	.card-heading {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-	}
-	header {
-		margin-bottom: 10px;
-	}
-	h3 {
-		margin: 0;
-		font-size: 12px;
-		font-weight: 600;
 	}
 	button {
 		border: 0;
@@ -195,9 +192,12 @@
 		border-radius: 3px;
 	}
 	.add-button {
-		width: 26px;
-		height: 26px;
+		width: 100%;
+		height: 28px;
+		border-radius: 3px 3px 10px 10px;
 		font-size: 20px;
+		font-weight: 700;
+		color: color-mix(in srgb, var(--muted) 55%, transparent);
 		background: #e9ede6;
 	}
 	button:hover {
@@ -207,7 +207,6 @@
 		border: 1px solid var(--line);
 		border-radius: 4px;
 		padding: 4px;
-		margin-bottom: 10px;
 	}
 	.measure-chooser button {
 		display: flex;
@@ -235,7 +234,7 @@
 	}
 	.measure-cards {
 		display: grid;
-		gap: 10px;
+		gap: var(--widget-gap);
 	}
 	.measure-card {
 		padding: 10px 12px;

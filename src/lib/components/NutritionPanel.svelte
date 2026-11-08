@@ -1,26 +1,34 @@
 <script lang="ts">
 	import { NUTRIENTS, nutritionTotals, type FoodItem } from '../nutrition';
+	import NutritionHistory from './NutritionHistory.svelte';
 	import NutritionItemRow from './NutritionItemRow.svelte';
-	let { items, onchange }: { items: FoodItem[]; onchange: (items: FoodItem[]) => boolean } =
+	let {
+		items,
+		history,
+		onchange
+	}: { items: FoodItem[]; history: FoodItem[]; onchange: (items: FoodItem[]) => boolean } =
 		$props();
 	let expanded = $state<string | null>(null);
 	let focusId = $state<string | null>(null);
 	const totals = $derived(nutritionTotals(items));
 	const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
-	function add() {
+	function add(source?: FoodItem) {
 		const item: FoodItem = {
-			id: crypto.randomUUID(),
 			name: '',
-			quantity: 1,
 			kcal: 0,
 			protein: 0,
 			fat: 0,
-			carbs: 0
+			carbs: 0,
+			...source,
+			id: crypto.randomUUID(),
+			quantity: 1
 		};
 		if (onchange([...items, item])) {
-			focusId = item.id;
+			focusId = source ? null : item.id;
 			expanded = null;
+			return true;
 		}
+		return false;
 	}
 	function update(id: string, next: FoodItem | null) {
 		return onchange(
@@ -74,7 +82,21 @@
 				</tbody>
 			</table>
 		{/if}
-		<button class="add-item" type="button" aria-label="Add item" onclick={add}>+</button>
+		<div class="item-actions">
+			<button class="add-item" type="button" aria-label="Add item" onclick={() => add()}
+				><svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.7"
+					stroke-linecap="round"
+					aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg
+				></button
+			>
+			<NutritionHistory items={history} onselect={add} />
+		</div>
 	</details>
 </section>
 
@@ -167,8 +189,17 @@
 		font-size: 11px;
 		font-weight: 400;
 	}
-	.add-item {
+	.item-actions {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 2px;
 		margin-top: 2px;
+	}
+	.add-item {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 28px;
 		height: var(--nutrition-row-height);
 		padding: 0;

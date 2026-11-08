@@ -14,7 +14,16 @@
 		expanded?: string | null;
 	} = $props();
 	let nameInput: HTMLInputElement;
+	let quantityCell: HTMLTableCellElement;
 	const label = $derived(item.name || 'new item');
+	$effect(() => {
+		if (expanded !== item.id) return;
+		const dismiss = (event: PointerEvent) => {
+			if (!quantityCell.contains(event.target as Node)) expanded = null;
+		};
+		document.addEventListener('pointerdown', dismiss);
+		return () => document.removeEventListener('pointerdown', dismiss);
+	});
 	onMount(() => {
 		if (autofocus) nameInput.focus();
 	});
@@ -39,7 +48,14 @@
 </script>
 
 <tr aria-label={label}>
-	<td class="quantity-cell">
+	<td
+		class="quantity-cell"
+		bind:this={quantityCell}
+		onfocusout={(event) => {
+			if (!quantityCell.contains(event.relatedTarget as Node | null) && expanded === item.id)
+				expanded = null;
+		}}
+	>
 		<button
 			class="quantity-toggle"
 			type="button"

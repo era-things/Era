@@ -80,3 +80,21 @@ export function parseNutrition(raw: string | null): NutritionState {
 		return emptyNutrition();
 	}
 }
+
+/** Most recent unique recipes before this day; quantity does not define a recipe. */
+export function previousNutritionItems(days: NutritionState['days'], before: DateKey): FoodItem[] {
+	const seen = new Set<string>();
+	return Object.keys(days)
+		.filter((day) => day < before)
+		.sort()
+		.reverse()
+		.flatMap((day) =>
+			days[day].filter((item) => {
+				if (!item.name.trim()) return false;
+				const key = JSON.stringify([item.name, ...NUTRIENTS.map(({ key }) => item[key])]);
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+		);
+}

@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { browserStorage } from '../lib/browser-storage';
+	import {
+		DAY_NOTES_STORAGE_KEY,
+		parseDayNotes,
+		setDayNote,
+		type DayNotes
+	} from '../lib/day-notes';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
@@ -11,6 +17,7 @@
 	import {
 		NUTRITION_STORAGE_KEY,
 		emptyNutrition,
+		previousNutritionItems,
 		parseNutrition,
 		setNutritionItems,
 		type FoodItem,
@@ -73,6 +80,15 @@
 	let nutritionSaveError = $state('');
 	let reminders = $state<Reminder[]>([]);
 	let reminderSaveError = $state('');
+	let notes = $state<DayNotes>({});
+	let noteSaveError = $state('');
+	const noteStorage = browserStorage<DayNotes>({
+		key: DAY_NOTES_STORAGE_KEY,
+		label: 'Notes',
+		parse: parseDayNotes,
+		apply: (value) => (notes = value),
+		error: (message) => (noteSaveError = message)
+	});
 	const emojiStorage = browserStorage<DayEmojis>({
 		key: DAY_EMOJIS_STORAGE_KEY,
 		label: 'Day emojis',
@@ -162,9 +178,13 @@
 			browserToday = localToday();
 		};
 		refreshToday();
-		const disconnectStorage = [emojiStorage, measureStorage, nutritionStorage, reminderStorage].map(
-			(storage) => storage.connect()
-		);
+		const disconnectStorage = [
+			emojiStorage,
+			measureStorage,
+			nutritionStorage,
+			reminderStorage,
+			noteStorage
+		].map((storage) => storage.connect());
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -433,7 +453,10 @@
 		onAddReminder={(text) => saveReminder(createReminder(text, day))}
 		nutritionEnabled={nutrition.enabled}
 		nutritionItems={nutrition.days[day] ?? []}
+		nutritionHistory={previousNutritionItems(nutrition.days, day)}
 		onNutritionChange={(items) => updateNutrition(day, items)}
+		note={notes[day] ?? ''}
+		onNoteChange={(text) => noteStorage.save(setDayNote(notes, day, text))}
 	/>
 {/snippet}
 
@@ -553,6 +576,7 @@
 	</header>
 	{#if measureSaveError}<p class="measure-save-error" role="alert">{measureSaveError}</p>{/if}
 	{#if nutritionSaveError}<p class="measure-save-error" role="alert">{nutritionSaveError}</p>{/if}
+	{#if noteSaveError}<p class="measure-save-error" role="alert">{noteSaveError}</p>{/if}
 	{#if reminderSaveError}<p class="measure-save-error" role="alert">{reminderSaveError}</p>{/if}
 	<div class="calendar-content" hidden={section !== 'calendar'}>
 		{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
@@ -611,6 +635,6 @@
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel data={{ emojis, measures, reminders, nutrition }} />
+		<SettingsPanel data={{ emojis, measures, reminders, nutrition, notes }} />
 	{/if}
 </main>

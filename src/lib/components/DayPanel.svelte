@@ -7,6 +7,7 @@
 	import type { Reminder } from '../reminders';
 	import NutritionPanel from './NutritionPanel.svelte';
 	import type { FoodItem } from '../nutrition';
+	import MarkdownNote from './MarkdownNote.svelte';
 	let {
 		selected,
 		today,
@@ -29,7 +30,10 @@
 		onAddReminder,
 		nutritionEnabled,
 		nutritionItems,
-		onNutritionChange
+		nutritionHistory,
+		onNutritionChange,
+		note,
+		onNoteChange
 	}: {
 		selected: DateKey;
 		today: DateKey;
@@ -52,7 +56,10 @@
 		onAddReminder: (text: string) => boolean;
 		nutritionEnabled: boolean;
 		nutritionItems: FoodItem[];
+		nutritionHistory: FoodItem[];
 		onNutritionChange: (items: FoodItem[]) => boolean;
+		note: string;
+		onNoteChange: (text: string) => void;
 	} = $props();
 </script>
 
@@ -63,8 +70,8 @@
 			<h2><time datetime={selected}>{formatDate(selected)}</time></h2>
 		</div>
 	</div>
-	<nav class="day-navigation" aria-label="Day navigation">
-		{#if onNavigate}
+	{#if onNavigate}
+		<nav class="day-navigation" aria-label="Day navigation">
 			<button
 				type="button"
 				aria-label="Previous day"
@@ -103,13 +110,14 @@
 					stroke-linejoin="round"><path d="m6.5 4 4 4-4 4" /></svg
 				>
 			</button>
-		{/if}
-		<span class="panel-relative" aria-live="polite">{relativeDay(selected, today)}</span>
-	</nav>
+			<span class="panel-relative" aria-live="polite">{relativeDay(selected, today)}</span>
+		</nav>
+	{/if}
 	{#if saveError}<p class="emoji-error" role="alert">{saveError}</p>{/if}
 	{#key selected}
 		{#if nutritionEnabled}<NutritionPanel
 				items={nutritionItems}
+				history={nutritionHistory}
 				onchange={onNutritionChange}
 			/>{/if}
 		<DayMeasures
@@ -119,7 +127,9 @@
 			onchange={onMeasureChange}
 			onremove={onRemoveMeasure}
 			onmanage={onManageMeasures}
-		/>
+		>
+			<MarkdownNote value={note} onchange={onNoteChange} />
+		</DayMeasures>
 	{/key}
 	{#key selected}
 		<DayReminders

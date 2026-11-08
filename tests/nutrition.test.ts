@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
 	emptyNutrition,
 	nutritionTotals,
+	previousNutritionItems,
 	parseNutrition,
 	setNutritionItems,
 	validFoodItem,
@@ -106,5 +107,22 @@ test('nutrition storage preserves blank rows, quantities and disabled history, f
 			enabled: false,
 			days: { '2026-11-05': [lunch, snack, blank], '2026-11-06': [{ ...lunch, quantity: 2 }] }
 		}
+	);
+});
+
+test('previous items exclude current/future days and blank rows, deduplicating recipes regardless of quantity', () => {
+	const recent = { ...lunch, id: 'recent', quantity: 4 };
+	const variation = { ...lunch, id: 'variation', kcal: 600 };
+	assert.deepEqual(
+		previousNutritionItems(
+			{
+				'2026-11-01': [lunch, snack],
+				'2026-11-04': [recent, variation, blank],
+				'2026-11-05': [{ ...snack, name: 'Current' }],
+				'2026-11-06': [{ ...snack, name: 'Future' }]
+			},
+			'2026-11-05'
+		),
+		[recent, variation, snack]
 	);
 });

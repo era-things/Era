@@ -80,8 +80,15 @@ for reverse-proxy and deployment configuration.
 - The selected day's Reminders section has a + button for quickly adding a
   one-off reminder by name. Enter adds it and closes the field;
   Escape closes the field. These items use the same Done/Undo controls and storage.
+- Each day has a compact Silkdown Markdown editor among its widgets, above the
+  add button. Notes save while typing and are independent per day. Markdown
+  headings, emphasis, links, lists, tasks and code blocks render inline; tables
+  remain Markdown source. The active line reveals its Markdown markers.
+  Ctrl+B / Ctrl+I toggle bold / italic, and Markdown can be pasted directly.
+  Notes are stored and exported as the original Markdown text. The unpublished
+  Silkdown core is pinned in `vendor/silkdown`; see its README for provenance.
 - Settings exports day emojis, measure definitions and daily values, nutrition
-  entries, and reminders with completion history to a dated JSON file, including
+  entries, notes, and reminders with completion history to a dated JSON file, including
   dates outside the visible calendar range.
 - Today shows yesterday, today, and tomorrow side by side, with independent day
   editors for emojis, measures, and reminders. The columns scroll horizontally

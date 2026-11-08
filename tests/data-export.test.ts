@@ -4,6 +4,7 @@ import { serializeDataExport, type CalendarData } from '../src/lib/data-export.t
 
 test('export preserves all dates, zero/false values, emoji and reminder completion history', () => {
 	const data: CalendarData = {
+		notes: { '2000-01-01': 'First line\nSecond line', '2040-12-31': '  Keep spacing  ' },
 		emojis: { '2000-01-01': '🎉', '2040-12-31': '⭐' },
 		measures: {
 			definitions: [
@@ -42,6 +43,7 @@ test('export preserves all dates, zero/false values, emoji and reminder completi
 		JSON.parse(
 			serializeDataExport(
 				{
+					notes: {},
 					emojis: {},
 					measures: { definitions: [], days: {} },
 					reminders: [],
