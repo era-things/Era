@@ -1,42 +1,17 @@
 # Era
 
-A broad view of time, one square per day. Rebuilt from scratch with Svelte 5,
-SvelteKit 3, TypeScript, and a standalone Node server.
+A personal calendar with a SvelteKit UI and a Bun server. Notes, emojis, measures, nutrition and reminders are saved in SQLite. Each browser remembers its own view and scroll position.
 
 ## Development
 
-Requires Node.js 22.18 or newer (a currently supported Node LTS is recommended).
+Use Bun 1.4.4. Run `bun install --frozen-lockfile`, then `bun run dev`.
+Run `bun run check`, `bun run test`, `bun run test:browser`, and `bun run build` to verify changes.
 
-```sh
-npm ci
-npm run dev
-```
+## Data and deployment
 
-Open the local URL printed by Vite.
+Run `bun run build` and `bun run start` on the home server. Set `ERA_DB` to an absolute path on persistent local storage (default `data/era.sqlite` in the working directory). Keep the service on a private, access-controlled network. Anyone who can access Era can read and edit its data.
 
-## Checks
-
-```sh
-npm run check
-npm test
-npm run test:browser
-npm run format:check
-npm run build
-```
-
-Browser tests use the locally installed Google Chrome and start their own Vite server.
-
-## Production
-
-```sh
-npm run build
-npm start
-```
-
-The Node adapter writes to `build/` and serves HTTP on port 3000 by default.
-Set `HOST` and `PORT` in your deployment environment as needed. See the
-[official Node adapter documentation](https://svelte.dev/docs/kit/adapter-node)
-for reverse-proxy and deployment configuration.
+To populate an empty database from a browser export, run `bun run import "path/to/export.json"` with the same `ERA_DB`. The importer validates every section and checks an exact round trip inside one transaction. Settings exports the current server data. For a live database backup use SQLite's online backup facility or `VACUUM INTO`; keep a copy off the server.
 
 ## Initial scope
 
@@ -65,7 +40,7 @@ for reverse-proxy and deployment configuration.
   a pale-colored card with a number input or boolean checkbox. Newly added values
   default to 0 for numbers and false for booleans. Numbers may be
   blank or non-negative safe integers; zero, false, and absence stay distinct.
-  Values save immediately in browser-local storage and are independent per day.
+  Values save to the server and are independent per day.
 - The Reminders tab creates, edits, and deletes reminders with text, a starting
   date, and a one-time, weekly, monthly, or yearly period. The day panel
   lists reminders due on its selected date in a separate section. Dates before
@@ -76,7 +51,7 @@ for reverse-proxy and deployment configuration.
   and yearly repeats. Each saved reminder has
   its own compact drawer, collapsed by default, with independent editable settings.
   Columns are capped at 480px wide and stack with One-off first on narrow screens.
-  Reminders are saved in browser-local storage.
+  Reminders are saved on the server.
 - The selected day's Reminders section has a + button for quickly adding a
   one-off reminder by name. Enter adds it and closes the field;
   Escape closes the field. These items use the same Done/Undo controls and storage.
@@ -116,7 +91,7 @@ for reverse-proxy and deployment configuration.
 - An emoji button at the top of the day panel opens the full picker with search,
   categories, skin tones, its built-in history, and Clear. The button shows the
   day's assigned emoji, or a picker icon when empty. Assignments start empty,
-  appear in both views, scale with zoom, and are saved in this browser.
+  appear in both views, scale with zoom, and are saved on the server.
 - The full picker uses [emoji-picker-element](https://github.com/nolanlawson/emoji-picker-element),
   initialized in the background when the day panel mounts and kept mounted for
   fast reopening. The closed dialog stays laid out with `visibility: hidden` so
@@ -127,11 +102,6 @@ for reverse-proxy and deployment configuration.
 - Keyboard movement scrolls only when needed. Range changes preserve the viewport
   and the selected month/day (February 29 becomes February 28 in a non-leap year).
 - Fixed toolbar and date readout; the grid scrolls on both axes on narrow screens.
-
-This is a regular fullstack SvelteKit application. `+page.server.ts` provides the
-initial date and the overview is server-rendered; Svelte 5 runes handle browser
-interaction. The Node adapter builds a runnable server, rather than a static
-export or browser extension. No database is needed for this first slice.
 
 Calendar arithmetic uses date-only keys and UTC to avoid daylight saving errors.
 The server initially seeds today in UTC. After hydration the browser uses its
@@ -150,7 +120,6 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/MeasuresManager.svelte`: global measure creation and management.
 - `src/lib/components/NutritionPanel.svelte`: daily totals and nutrition item table.
 - `src/lib/components/NutritionItemRow.svelte`: inline editing and quantity controls.
-- `src/lib/browser-storage.ts`: shared browser persistence and cross-tab synchronization.
 - `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
 - `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
 - `src/lib/components/RemindersManager.svelte`: reminder creation and management.
@@ -160,11 +129,11 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayReminders.svelte`: reminders due on the selected day.
 - `src/lib/reminders.ts`: recurrence rules and saved-reminder validation.
 - `src/lib/view-state.ts`: validation of saved browser view state.
-- `src/lib/day-emojis.ts`: emoji validation and browser-local day assignments.
+- `src/lib/day-emojis.ts`: emoji validation and day emoji assignments.
 - `src/app.css`: shared visual styles.
 - `tests/calendar.test.ts`: leap-year, date-boundary, and timezone-safe arithmetic checks.
 
 The [original project overview](docs/original-project.md) records the previous
 implementation and useful historical commits. The old application remains in
-Git history. Tags, tasks, an agenda, accounts, and server-side data persistence
+Git history. Tags, tasks, an agenda, and accounts
 are outside this first rebuild.

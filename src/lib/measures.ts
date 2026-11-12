@@ -1,6 +1,5 @@
 import { asDate, type DateKey } from './calendar.ts';
 
-export const MEASURES_STORAGE_KEY = 'era:measures:v1';
 export const PALETTES = [
 	{ id: 'green', name: 'Green', faint: '#e7efe4', medium: '#9abb8b', bright: '#397440' },
 	{ id: 'blue', name: 'Blue', faint: '#e5edf6', medium: '#91b5d9', bright: '#326ca8' },

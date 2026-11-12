@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { localToday } from '../calendar';
 	import { serializeDataExport, type CalendarData } from '../data-export';
-	let { data }: { data: CalendarData } = $props();
+	let { readExport }: { readExport: () => Promise<CalendarData> } = $props();
 	let error = $state('');
-	function exportData() {
+	async function exportData() {
 		try {
-			const blob = new Blob([serializeDataExport(data)], { type: 'application/json' });
+			const blob = new Blob([serializeDataExport(await readExport())], {
+				type: 'application/json'
+			});
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement('a');
 			link.href = url;

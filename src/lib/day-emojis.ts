@@ -1,6 +1,5 @@
 import { asDate, type DateKey } from './calendar.ts';
 
-export const DAY_EMOJIS_STORAGE_KEY = 'era:day-emojis:v1';
 export type DayEmojis = Record<DateKey, string>;
 const segments = new Intl.Segmenter('en', { granularity: 'grapheme' });
 

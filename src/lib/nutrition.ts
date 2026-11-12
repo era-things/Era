@@ -1,6 +1,5 @@
 import { isDateKey, type DateKey } from './calendar.ts';
 
-export const NUTRITION_STORAGE_KEY = 'era:nutrition';
 export const NUTRIENTS = [
 	{ key: 'kcal', label: 'kcal', shortLabel: 'kcal', color: 'var(--ink)' },
 	{ key: 'protein', label: 'Protein', shortLabel: 'P', color: '#286394' },

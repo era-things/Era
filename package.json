@@ -4,25 +4,27 @@
 	"private": true,
 	"type": "module",
 	"engines": {
-		"node": ">=22.18"
+		"bun": ">=1.4.0"
 	},
 	"scripts": {
-		"dev": "vite dev --host 127.0.0.1",
-		"build": "vite build",
-		"preview": "vite preview --host 127.0.0.1",
-		"start": "node build",
+		"dev": "bun --bun vite dev --host 127.0.0.1",
+		"build": "bun --bun vite build",
+		"preview": "bun --bun vite preview --host 127.0.0.1",
+		"start": "bun build/index.js",
 		"prepare": "svelte-kit sync",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"test": "node --experimental-strip-types --test tests/*.test.ts",
+		"test": "bun test tests/*.test.ts",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"test:browser": "playwright test"
+		"test:browser": "bun run build && playwright test",
+		"import": "bun scripts/import.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.65.0",
-		"@sveltejs/adapter-node": "^6.0.1",
+		"@sveltejs/adapter-bun": "^1.0.1",
 		"@sveltejs/kit": "^3.1.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/bun": "^1.4.4",
 		"@types/node": "^22.20.5",
 		"prettier": "^3.9.10",
 		"prettier-plugin-svelte": "^4.1.1",
@@ -44,5 +46,6 @@
 		"@silkdown/core": "file:vendor/silkdown",
 		"emoji-picker-element": "^1.29.1",
 		"emoji-picker-element-data": "^1.8.0"
-	}
+	},
+	"packageManager": "bun@1.4.4"
 }

@@ -17,7 +17,6 @@
 		onNavigate,
 		emoji,
 		onEmojiChange,
-		saveError,
 		measures,
 		measureValues,
 		onAddMeasure,
@@ -43,7 +42,6 @@
 		onNavigate?: (key: DateKey, offset: number) => void;
 		emoji: string;
 		onEmojiChange: (emoji: string) => void;
-		saveError: string;
 		measures: Measure[];
 		measureValues: Record<string, MeasureValue>;
 		onAddMeasure: (measure: Measure) => void;
@@ -113,7 +111,6 @@
 			<span class="panel-relative" aria-live="polite">{relativeDay(selected, today)}</span>
 		</nav>
 	{/if}
-	{#if saveError}<p class="emoji-error" role="alert">{saveError}</p>{/if}
 	{#key selected}
 		{#if nutritionEnabled}<NutritionPanel
 				items={nutritionItems}

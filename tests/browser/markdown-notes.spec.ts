@@ -70,10 +70,8 @@ test('Lists render bullets and support continuation, nesting and exiting', async
 	const note = page
 		.getByRole('complementary', { name: 'Today', exact: true })
 		.getByRole('textbox', { name: 'Notes', exact: true });
-	const saved = () =>
-		page.evaluate(
-			() => Object.values(JSON.parse(localStorage.getItem('era:day-notes') || '{}'))[0] ?? ''
-		);
+	const saved = async () =>
+		Object.values((await (await page.request.get('/api/calendar')).json()).notes)[0] ?? '';
 	await note.fill('- First');
 	await note.press('Control+End');
 	await note.press('Enter');

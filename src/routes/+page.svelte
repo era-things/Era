@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { browserStorage } from '../lib/browser-storage';
-	import {
-		DAY_NOTES_STORAGE_KEY,
-		parseDayNotes,
-		setDayNote,
-		type DayNotes
-	} from '../lib/day-notes';
+	import { untrack } from 'svelte';
+	import { changes, type Section, type Change } from '../lib/calendar-records';
+	import type { CalendarData } from '../lib/data-export';
+	import { setDayNote } from '../lib/day-notes';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
@@ -14,33 +11,19 @@
 	import MeasuresManager from '../lib/components/MeasuresManager.svelte';
 	import RemindersManager from '../lib/components/RemindersManager.svelte';
 	import SettingsPanel from '../lib/components/SettingsPanel.svelte';
+	import { previousNutritionItems, setNutritionItems, type FoodItem } from '../lib/nutrition';
 	import {
-		NUTRITION_STORAGE_KEY,
-		emptyNutrition,
-		previousNutritionItems,
-		parseNutrition,
-		setNutritionItems,
-		type FoodItem,
-		type NutritionState
-	} from '../lib/nutrition';
-	import {
-		REMINDERS_STORAGE_KEY,
 		createReminder,
-		parseReminders,
 		reminderOccursOn,
 		reminderOverridesEmoji,
 		setReminderCompleted,
 		type Reminder
 	} from '../lib/reminders';
 	import {
-		MEASURES_STORAGE_KEY,
-		emptyMeasures,
-		parseMeasures,
 		removeMeasure,
 		validMeasureValue,
 		type Measure,
-		type MeasureValue,
-		type MeasuresState
+		type MeasureValue
 	} from '../lib/measures';
 	import {
 		addDays,
@@ -50,12 +33,7 @@
 		yearOf,
 		type DateKey
 	} from '../lib/calendar';
-	import {
-		DAY_EMOJIS_STORAGE_KEY,
-		normalizeEmoji,
-		parseDayEmojis,
-		type DayEmojis
-	} from '../lib/day-emojis';
+	import { normalizeEmoji, type DayEmojis } from '../lib/day-emojis';
 	import {
 		parseSavedView,
 		VIEW_STORAGE_KEY,
@@ -71,55 +49,79 @@
 	let restored = $state(false);
 	let mode = $state<ViewMode>('vertical');
 	let zoom = $state<ZoomLevel>(100);
-	let emojis = $state<DayEmojis>({});
-	let emojiSaveError = $state('');
+	let calendarData = $state<CalendarData>(untrack(() => data.calendar));
+	const emojis = $derived(calendarData.emojis),
+		notes = $derived(calendarData.notes),
+		reminders = $derived(calendarData.reminders),
+		measures = $derived(calendarData.measures),
+		nutrition = $derived(calendarData.nutrition);
 	let section = $state<'calendar' | 'today' | 'measures' | 'reminders' | 'settings'>('calendar');
-	let measures = $state<MeasuresState>(emptyMeasures());
-	let measureSaveError = $state('');
-	let nutrition = $state<NutritionState>(emptyNutrition());
-	let nutritionSaveError = $state('');
-	let reminders = $state<Reminder[]>([]);
-	let reminderSaveError = $state('');
-	let notes = $state<DayNotes>({});
-	let noteSaveError = $state('');
-	const noteStorage = browserStorage<DayNotes>({
-		key: DAY_NOTES_STORAGE_KEY,
-		label: 'Notes',
-		parse: parseDayNotes,
-		apply: (value) => (notes = value),
-		error: (message) => (noteSaveError = message)
-	});
-	const emojiStorage = browserStorage<DayEmojis>({
-		key: DAY_EMOJIS_STORAGE_KEY,
-		label: 'Day emojis',
-		parse: parseDayEmojis,
-		serialize: (days) => JSON.stringify({ version: 1, days }),
-		apply: (value) => (emojis = value),
-		error: (message) => (emojiSaveError = message)
-	});
-	const measureStorage = browserStorage<MeasuresState>({
-		key: MEASURES_STORAGE_KEY,
-		label: 'Measures',
-		parse: parseMeasures,
-		serialize: (value) => JSON.stringify({ version: 1, ...value }),
-		apply: (value) => (measures = value),
-		error: (message) => (measureSaveError = message)
-	});
-	const nutritionStorage = browserStorage<NutritionState>({
-		key: NUTRITION_STORAGE_KEY,
-		label: 'Nutrition',
-		parse: parseNutrition,
-		apply: (value) => (nutrition = value),
-		error: (message) => (nutritionSaveError = message)
-	});
-	const reminderStorage = browserStorage<Reminder[]>({
-		key: REMINDERS_STORAGE_KEY,
-		label: 'Reminders',
-		parse: parseReminders,
-		serialize: (reminders) => JSON.stringify({ version: 1, reminders }),
-		apply: (value) => (reminders = value),
-		error: (message) => (reminderSaveError = message)
-	});
+	let saveError = $state('');
+	let conflict = $state(false);
+	const queue: Change[][] = [];
+	let pending: Promise<void> | undefined;
+	let generation = 0;
+	let channel: BroadcastChannel | undefined;
+	async function refresh() {
+		if (queue.length) return;
+		const ticket = ++generation;
+		try {
+			const response = await fetch('/api/calendar', { cache: 'no-store' });
+			if (!response.ok) return;
+			const next = await response.json();
+			if (ticket === generation && !queue.length) calendarData = next;
+		} catch {
+			/* Retry on next focus. */
+		}
+	}
+	function flush() {
+		return (pending ??= send().finally(() => {
+			pending = undefined;
+		}));
+	}
+	async function readExport() {
+		await flush();
+		if (queue.length) throw new Error('Unsaved edits');
+		const response = await fetch('/api/calendar', { cache: 'no-store' });
+		if (!response.ok) throw new Error('Export unavailable');
+		return (await response.json()) as CalendarData;
+	}
+	async function send() {
+		if (conflict || !queue.length) return;
+		try {
+			while (queue.length) {
+				const body = JSON.stringify(queue[0]);
+				const res = await fetch('/api/calendar', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body,
+					keepalive: body.length < 16000
+				});
+				if (!res.ok) {
+					conflict = res.status === 409;
+					throw new Error();
+				}
+				queue.shift();
+			}
+			saveError = '';
+			channel?.postMessage('saved');
+		} catch {
+			saveError = conflict
+				? 'This record changed on another device. Copy your unsaved edits before reloading.'
+				: 'Changes are waiting to be saved.';
+		}
+	}
+	function save<K extends Section>(key: K, value: CalendarData[K]): boolean {
+		const next = { ...calendarData, [key]: value };
+		const edits = changes(calendarData, next);
+		if (edits.length) {
+			generation++;
+			calendarData = next;
+			queue.push(edits);
+			void flush();
+		}
+		return true;
+	}
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -144,6 +146,7 @@
 		try {
 			localStorage.setItem(
 				VIEW_STORAGE_KEY,
+
 				JSON.stringify({
 					version: 3,
 					mode,
@@ -178,13 +181,16 @@
 			browserToday = localToday();
 		};
 		refreshToday();
-		const disconnectStorage = [
-			emojiStorage,
-			measureStorage,
-			nutritionStorage,
-			reminderStorage,
-			noteStorage
-		].map((storage) => storage.connect());
+		channel = new BroadcastChannel('era-saves');
+		channel.onmessage = refresh;
+		window.addEventListener('focus', refresh);
+		const warn = (event: BeforeUnloadEvent) => {
+			if (queue.length) {
+				event.preventDefault();
+				event.returnValue = '';
+			}
+		};
+		window.addEventListener('beforeunload', warn);
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -215,7 +221,9 @@
 		window.addEventListener('pagehide', saveView);
 		return () => {
 			saveView();
-			disconnectStorage.forEach((disconnect) => disconnect());
+			channel?.close();
+			window.removeEventListener('focus', refresh);
+			window.removeEventListener('beforeunload', warn);
 			active = false;
 			clearTimeout(saveTimer);
 			window.clearInterval(timer);
@@ -320,7 +328,8 @@
 	}
 
 	function saveReminder(reminder: Reminder): boolean {
-		return reminderStorage.save(
+		return save(
+			'reminders',
 			reminders.some((r) => r.id === reminder.id)
 				? reminders.map((r) => (r.id === reminder.id ? reminder : r))
 				: [...reminders, reminder]
@@ -328,7 +337,8 @@
 	}
 
 	function completeReminder(day: DateKey, id: string, completed: boolean) {
-		reminderStorage.save(
+		save(
+			'reminders',
 			reminders.map((r) => (r.id === id ? setReminderCompleted(r, day, completed) : r))
 		);
 	}
@@ -336,7 +346,7 @@
 	function saveMeasure(measure: Measure): boolean {
 		const previous = measures.definitions.find((m) => m.id === measure.id);
 		if (previous && previous.type !== measure.type) return false;
-		return measureStorage.save({
+		return save('measures', {
 			...measures,
 			definitions: previous
 				? measures.definitions.map((m) => (m.id === measure.id ? measure : m))
@@ -345,13 +355,13 @@
 	}
 
 	function updateNutrition(day: DateKey, items: FoodItem[]): boolean {
-		return nutritionStorage.save(setNutritionItems(nutrition, day, items));
+		return save('nutrition', setNutritionItems(nutrition, day, items));
 	}
 
 	function setMeasureValue(day: DateKey, id: string, value: MeasureValue) {
 		const definition = measures.definitions.find((m) => m.id === id);
 		if (!definition || !validMeasureValue(definition.type, value)) return;
-		measureStorage.save({
+		save('measures', {
 			...measures,
 			days: { ...measures.days, [day]: { ...measures.days[day], [id]: value } }
 		});
@@ -363,7 +373,7 @@
 		delete values[id];
 		if (Object.keys(values).length) days[day] = values;
 		else delete days[day];
-		measureStorage.save({ ...measures, days });
+		save('measures', { ...measures, days });
 	}
 
 	async function setZoom(next: ZoomLevel) {
@@ -420,7 +430,7 @@
 		const next = { ...emojis };
 		if (emoji) next[day] = emoji;
 		else delete next[day];
-		emojiStorage.save(next);
+		save('emojis', next);
 	}
 </script>
 
@@ -439,7 +449,6 @@
 		onNavigate={navigation ? (key, offset) => navigateDay(key, offset, false) : undefined}
 		emoji={emojis[day] ?? ''}
 		onEmojiChange={(value) => setEmoji(day, value)}
-		saveError={emojiSaveError}
 		measures={measures.definitions}
 		measureValues={measures.days[day] ?? {}}
 		onAddMeasure={(measure) =>
@@ -456,7 +465,7 @@
 		nutritionHistory={previousNutritionItems(nutrition.days, day)}
 		onNutritionChange={(items) => updateNutrition(day, items)}
 		note={notes[day] ?? ''}
-		onNoteChange={(text) => noteStorage.save(setDayNote(notes, day, text))}
+		onNoteChange={(text) => save('notes', setDayNote(notes, day, text))}
 	/>
 {/snippet}
 
@@ -574,10 +583,12 @@
 			>Today</button
 		>
 	</header>
-	{#if measureSaveError}<p class="measure-save-error" role="alert">{measureSaveError}</p>{/if}
-	{#if nutritionSaveError}<p class="measure-save-error" role="alert">{nutritionSaveError}</p>{/if}
-	{#if noteSaveError}<p class="measure-save-error" role="alert">{noteSaveError}</p>{/if}
-	{#if reminderSaveError}<p class="measure-save-error" role="alert">{reminderSaveError}</p>{/if}
+	{#if saveError}<p role="alert">
+			{saveError}
+			{#if conflict}<button onclick={() => window.location.reload()}>Reload</button>{:else}<button
+					onclick={flush}>Retry</button
+				>{/if}
+		</p>{/if}
 	<div class="calendar-content" hidden={section !== 'calendar'}>
 		{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
 		<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
@@ -620,9 +631,9 @@
 		<MeasuresManager
 			measures={measures.definitions}
 			nutritionEnabled={nutrition.enabled}
-			onNutritionEnabledChange={(enabled) => nutritionStorage.save({ ...nutrition, enabled })}
+			onNutritionEnabledChange={(enabled) => save('nutrition', { ...nutrition, enabled })}
 			onsave={saveMeasure}
-			ondelete={(id) => measureStorage.save(removeMeasure(measures, id))}
+			ondelete={(id) => save('measures', removeMeasure(measures, id))}
 		/>
 	{/if}
 	{#if section === 'reminders'}
@@ -631,10 +642,14 @@
 			{selected}
 			{today}
 			onsave={saveReminder}
-			ondelete={(id) => reminderStorage.save(reminders.filter((r) => r.id !== id))}
+			ondelete={(id) =>
+				save(
+					'reminders',
+					reminders.filter((r) => r.id !== id)
+				)}
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel data={{ emojis, measures, reminders, nutrition, notes }} />
+		<SettingsPanel {readExport} />
 	{/if}
 </main>

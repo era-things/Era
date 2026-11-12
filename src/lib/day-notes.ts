@@ -1,6 +1,5 @@
 import { isDateKey, type DateKey } from './calendar.ts';
 
-export const DAY_NOTES_STORAGE_KEY = 'era:day-notes';
 export type DayNotes = Record<DateKey, string>;
 
 export function parseDayNotes(raw: string | null): DayNotes {

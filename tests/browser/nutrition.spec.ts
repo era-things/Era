@@ -1,3 +1,4 @@
+import { changes } from '../../src/lib/calendar-records';
 import { test, expect } from '@playwright/test';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
@@ -87,7 +88,7 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 test('copy a previous nutrition item with fresh identity and quantity one', async ({
 	page
 }, testInfo) => {
-	await page.addInitScript(() => {
+	{
 		const key = (offset: number) => {
 			const date = new Date();
 			date.setDate(date.getDate() + offset);
@@ -102,19 +103,22 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 			fat: 6,
 			carbs: 35
 		};
-		if (!localStorage.getItem('era:nutrition'))
-			localStorage.setItem(
-				'era:nutrition',
-				JSON.stringify({
-					enabled: true,
-					days: {
-						[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
-						[key(-1)]: [item],
-						[key(1)]: [{ ...item, id: 'future', name: 'Future food' }]
-					}
-				})
-			);
-	});
+		const before = await (await page.request.get('/api/calendar')).json();
+		const next = {
+			...before,
+			nutrition: {
+				enabled: true,
+				days: {
+					[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
+					[key(-1)]: [item],
+					[key(1)]: [{ ...item, id: 'future', name: 'Future food' }]
+				}
+			}
+		};
+		expect((await page.request.post('/api/calendar', { data: changes(before, next) })).ok()).toBe(
+			true
+		);
+	}
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
@@ -144,7 +148,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 			today.getByRole('spinbutton', { name: `${label} of Porridge`, exact: true })
 		).toHaveValue(value);
 	}
-	const days = await page.evaluate(() => JSON.parse(localStorage.getItem('era:nutrition')!).days);
+	const days = (await (await page.request.get('/api/calendar')).json()).nutrition.days;
 	const copied = Object.values(days)
 		.flat()
 		.find(

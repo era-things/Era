@@ -1,6 +1,5 @@
 import { asDate, daysBetween, isDateKey, type DateKey } from './calendar.ts';
 
-export const REMINDERS_STORAGE_KEY = 'era:reminders:v1';
 export const PERIODIC_PERIODS = [
 	{ value: 'weekly', label: 'Weekly' },
 	{ value: 'monthly', label: 'Monthly' },
