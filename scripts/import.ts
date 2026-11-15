@@ -16,7 +16,7 @@ try {
 			if (!isDeepStrictEqual(store.read(), data)) throw new Error('Import did not round-trip');
 		})
 		.immediate();
-	console.log('Imported and verified all five sections.');
+	console.log('Imported and verified all sections.');
 } finally {
 	store.db.close();
 }

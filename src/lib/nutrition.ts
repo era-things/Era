@@ -8,8 +8,8 @@ export const NUTRIENTS = [
 ] as const;
 export type Nutrients = { kcal: number; protein: number; fat: number; carbs: number };
 export type FoodItem = Nutrients & { id: string; name: string; quantity: number };
-export type NutritionState = { enabled: boolean; days: Record<DateKey, FoodItem[]> };
-export const emptyNutrition = (): NutritionState => ({ enabled: false, days: {} });
+export type NutritionState = { pinned: boolean; days: Record<DateKey, FoodItem[]> };
+export const emptyNutrition = (): NutritionState => ({ pinned: false, days: {} });
 
 export function validFoodItem(value: unknown): value is FoodItem {
 	if (!value || typeof value !== 'object') return false;
@@ -47,8 +47,7 @@ export function setNutritionItems(
 	items: FoodItem[]
 ): NutritionState {
 	const days = { ...state.days };
-	if (items.length) days[day] = items;
-	else delete days[day];
+	days[day] = items;
 	return { ...state, days };
 }
 
@@ -57,7 +56,7 @@ export function parseNutrition(raw: string | null): NutritionState {
 		const saved = JSON.parse(raw ?? 'null');
 		if (
 			!saved ||
-			typeof saved.enabled !== 'boolean' ||
+			typeof saved.pinned !== 'boolean' ||
 			!saved.days ||
 			typeof saved.days !== 'object' ||
 			Array.isArray(saved.days)
@@ -72,9 +71,9 @@ export function parseNutrition(raw: string | null): NutritionState {
 				ids.add(item.id);
 				return true;
 			});
-			if (items.length) days[day] = items;
+			days[day] = items;
 		}
-		return { enabled: saved.enabled, days };
+		return { pinned: saved.pinned, days };
 	} catch {
 		return emptyNutrition();
 	}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { paletteFor, type Measure, type MeasureValue } from '../measures';
+	import type { BUILT_IN_MEASURES, BuiltInMeasureId } from '../built-in-measures';
 	let {
 		measures,
 		values,
@@ -8,7 +9,9 @@
 		onchange,
 		onremove,
 		onmanage,
-		children
+		children,
+		availableBuiltIns,
+		onaddBuiltIn
 	}: {
 		measures: Measure[];
 		values: Record<string, MeasureValue>;
@@ -17,6 +20,8 @@
 		onremove: (id: string) => void;
 		onmanage: () => void;
 		children: Snippet;
+		availableBuiltIns: readonly (typeof BUILT_IN_MEASURES)[number][];
+		onaddBuiltIn: (id: BuiltInMeasureId) => void;
 	} = $props();
 	const inputId = $props.id();
 	let choosing = $state(false);
@@ -147,6 +152,17 @@
 	{@render children()}
 	{#if choosing}
 		<div class="measure-chooser">
+			{#each availableBuiltIns as measure (measure.id)}
+				<button
+					type="button"
+					onclick={() => {
+						onaddBuiltIn(measure.id);
+						choosing = false;
+					}}
+				>
+					{measure.name}
+				</button>
+			{/each}
 			{#each available as measure (measure.id)}
 				<button
 					type="button"
@@ -158,9 +174,7 @@
 					></span>{measure.name}</button
 				>
 			{/each}
-			{#if !available.length}<p>
-					{measures.length ? 'All measures added.' : 'No measures yet.'}
-				</p>{/if}
+			{#if !available.length && !availableBuiltIns.length}<p>All measures added.</p>{/if}
 			<button type="button" class="manage-button" onclick={onmanage}>Manage measures</button>
 		</div>
 	{/if}

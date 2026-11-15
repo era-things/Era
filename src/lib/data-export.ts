@@ -3,6 +3,7 @@ import type { MeasuresState } from './measures';
 import type { Reminder } from './reminders';
 import type { NutritionState } from './nutrition';
 import type { DayNotes } from './day-notes';
+import type { CountersState } from './counters';
 
 export type CalendarData = {
 	emojis: DayEmojis;
@@ -10,6 +11,7 @@ export type CalendarData = {
 	reminders: Reminder[];
 	nutrition: NutritionState;
 	notes: DayNotes;
+	counters: CountersState;
 };
 
 export function serializeDataExport(data: CalendarData, now = new Date()): string {

@@ -2,6 +2,7 @@ import type { CalendarData } from './data-export';
 import type { Measure, MeasureValue } from './measures';
 import type { FoodItem } from './nutrition';
 import type { Reminder } from './reminders';
+import { COUNTERS, emptyCounters, type CounterId } from './counters';
 
 export type Section = keyof CalendarData;
 export type Change = { key: string; before: string | null; after: string | null };
@@ -9,7 +10,8 @@ export const emptyCalendar = (): CalendarData => ({
 	emojis: {},
 	notes: {},
 	measures: { definitions: [], days: {} },
-	nutrition: { enabled: false, days: {} },
+	nutrition: { pinned: false, days: {} },
+	counters: emptyCounters(),
 	reminders: []
 });
 
@@ -23,9 +25,14 @@ export function records(data: CalendarData) {
 	for (const def of data.measures.definitions) put(def, 'measure', def.id);
 	for (const [day, values] of Object.entries(data.measures.days))
 		for (const [id, value] of Object.entries(values)) put(value, 'value', day, id);
-	if (data.nutrition.enabled) put(true, 'nutrition');
-	for (const [day, items] of Object.entries(data.nutrition.days))
+	if (data.nutrition.pinned) put(true, 'nutrition');
+	for (const { id } of COUNTERS) if (data.counters.pinned[id]) put(true, 'counter', id);
+	for (const [day, values] of Object.entries(data.counters.days))
+		for (const [id, value] of Object.entries(values)) put(value, 'counter-value', day, id);
+	for (const [day, items] of Object.entries(data.nutrition.days)) {
+		put(true, 'nutrition-day', day);
 		for (const item of items) put(item, 'food', day, item.id);
+	}
 	for (const r of data.reminders) put(r, 'reminder', r.id);
 	return rows;
 }
@@ -59,8 +66,18 @@ export function decode(rows: { key: string; value: string }[]): CalendarData {
 			case 'food':
 				(data.nutrition.days[day] ??= []).push(value as FoodItem);
 				break;
+			case 'nutrition-day':
+				if (value !== true) throw new Error('Invalid nutrition day');
+				data.nutrition.days[day] ??= [];
+				break;
 			case 'nutrition':
-				data.nutrition.enabled = value;
+				data.nutrition.pinned = value;
+				break;
+			case 'counter':
+				data.counters.pinned[day as CounterId] = value;
+				break;
+			case 'counter-value':
+				(data.counters.days[day] ??= {})[id as CounterId] = value;
 				break;
 			case 'reminder':
 				data.reminders.push(value as Reminder);

@@ -9,6 +9,7 @@ import { parseMeasures } from '../measures';
 import { parseDayEmojis } from '../day-emojis';
 import { parseDayNotes } from '../day-notes';
 import { parseNutrition } from '../nutrition';
+import { parseCounters } from '../counters';
 
 export function validate(data: CalendarData) {
 	const canonical = {
@@ -16,6 +17,7 @@ export function validate(data: CalendarData) {
 		emojis: parseDayEmojis(JSON.stringify({ version: 1, days: data.emojis })),
 		measures: parseMeasures(JSON.stringify({ version: 1, ...data.measures })),
 		nutrition: parseNutrition(JSON.stringify(data.nutrition)),
+		counters: parseCounters(JSON.stringify(data.counters)),
 		reminders: parseReminders(JSON.stringify({ version: 1, reminders: data.reminders }))
 	};
 	if (!isDeepStrictEqual(canonical, data)) throw new Error('Invalid calendar data');

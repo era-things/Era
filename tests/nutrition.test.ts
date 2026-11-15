@@ -82,20 +82,20 @@ test('food values must be finite and non-negative; blank names, zero and decimal
 	assert.equal(validFoodItem({ ...lunch, name: '' }), true);
 });
 
-test('day updates preserve other dates and remove empty dates', () => {
-	const first = setNutritionItems({ ...emptyNutrition(), enabled: true }, '2026-11-05', [lunch]);
+test('day updates preserve other dates and keep empty widgets attached', () => {
+	const first = setNutritionItems({ ...emptyNutrition(), pinned: true }, '2026-11-05', [lunch]);
 	const second = setNutritionItems(first, '2026-11-06', [snack]);
 	const removed = setNutritionItems(second, '2026-11-05', []);
-	assert.deepEqual(removed.days, { '2026-11-06': [snack] });
+	assert.deepEqual(removed.days, { '2026-11-05': [], '2026-11-06': [snack] });
 	assert.deepEqual(first.days, { '2026-11-05': [lunch] });
 });
 
-test('nutrition storage preserves blank rows, quantities and disabled history, filtering invalid entries', () => {
+test('nutrition storage preserves blank rows, quantities and unpinned history, filtering invalid entries', () => {
 	assert.deepEqual(parseNutrition('{'), emptyNutrition());
 	assert.deepEqual(
 		parseNutrition(
 			JSON.stringify({
-				enabled: false,
+				pinned: false,
 				days: {
 					'2026-02-30': [lunch],
 					'2026-11-05': [lunch, lunch, { ...snack, kcal: -1 }, snack, blank],
@@ -104,7 +104,7 @@ test('nutrition storage preserves blank rows, quantities and disabled history, f
 			})
 		),
 		{
-			enabled: false,
+			pinned: false,
 			days: { '2026-11-05': [lunch, snack, blank], '2026-11-06': [{ ...lunch, quantity: 2 }] }
 		}
 	);

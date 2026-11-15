@@ -105,7 +105,6 @@
 		--nutrition-surface: #f5eddb;
 		--nutrition-hover: #e8dfca;
 		--nutrition-row-height: 28px;
-		margin-top: 24px;
 		padding: 10px;
 		background: var(--nutrition-surface);
 		border-radius: 4px;

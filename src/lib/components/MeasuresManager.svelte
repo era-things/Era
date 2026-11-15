@@ -1,17 +1,23 @@
 <script lang="ts">
 	import { PALETTES, paletteFor, type Measure, type PaletteId } from '../measures';
+	import type { CounterId, CountersState } from '../counters';
+	import { BUILT_IN_MEASURES } from '../built-in-measures';
 	let {
 		measures,
 		onsave,
 		ondelete,
-		nutritionEnabled,
-		onNutritionEnabledChange
+		nutritionPinned,
+		onNutritionPinnedChange,
+		countersPinned,
+		onCounterPinnedChange
 	}: {
 		measures: Measure[];
 		onsave: (measure: Measure) => boolean;
 		ondelete: (id: string) => boolean;
-		nutritionEnabled: boolean;
-		onNutritionEnabledChange: (enabled: boolean) => void;
+		nutritionPinned: boolean;
+		onNutritionPinnedChange: (pinned: boolean) => void;
+		countersPinned: CountersState['pinned'];
+		onCounterPinnedChange: (id: CounterId, pinned: boolean) => void;
 	} = $props();
 	let editing = $state<string | null>(null);
 	let creating = $state(false);
@@ -54,13 +60,37 @@
 <div class="measures-manager" id="measures-panel" role="tabpanel" aria-labelledby="tab-measures">
 	<section class="built-in-measures" aria-label="Built-in measures">
 		<h2>Built-in measures</h2>
-		<label class="nutrition-toggle"
-			><input
-				type="checkbox"
-				checked={nutritionEnabled}
-				onchange={(event) => onNutritionEnabledChange(event.currentTarget.checked)}
-			/><span>Nutrition</span></label
-		>
+		{#each BUILT_IN_MEASURES as measure}
+			{@const pinned = measure.id === 'nutrition' ? nutritionPinned : countersPinned[measure.id]}
+			<div class="built-in-row">
+				<span>{measure.name}</span>
+				<button
+					type="button"
+					class="pin-button"
+					aria-label={'Pin ' + measure.name}
+					aria-pressed={pinned}
+					title={pinned ? 'Unpin ' + measure.name : 'Pin ' + measure.name}
+					onclick={() =>
+						measure.id === 'nutrition'
+							? onNutritionPinnedChange(!pinned)
+							: onCounterPinnedChange(measure.id, !pinned)}
+				>
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 24 24"
+						width="16"
+						height="16"
+						fill={pinned ? 'currentColor' : 'none'}
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" />
+					</svg>
+				</button>
+			</div>
+		{/each}
 	</section>
 	<div class="manager-heading">
 		<h2>Custom measures</h2>
@@ -160,20 +190,27 @@
 	.built-in-measures {
 		margin-bottom: 28px;
 	}
-	.nutrition-toggle {
+	.built-in-row {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 8px;
 		padding-block: 14px;
 		border-bottom: 1px solid var(--line);
 		font-size: 14px;
-		cursor: pointer;
 	}
-	.nutrition-toggle input {
-		width: 16px;
-		height: 16px;
-		margin: 0;
-		accent-color: var(--accent);
+	.pin-button {
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		color: var(--muted);
+	}
+	.pin-button[aria-pressed='true'] {
+		color: var(--accent);
+		background: #dfe7da;
+		border-color: var(--accent);
 	}
 	.manager-heading {
 		display: flex;

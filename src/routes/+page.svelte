@@ -4,6 +4,7 @@
 	import { changes, type Section, type Change } from '../lib/calendar-records';
 	import type { CalendarData } from '../lib/data-export';
 	import { setDayNote } from '../lib/day-notes';
+	import { setCounterValue } from '../lib/counters';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
@@ -446,6 +447,17 @@
 		{firstYear}
 		{lastYear}
 		{label}
+		counters={calendarData.counters}
+		nutritionAttached={Object.hasOwn(nutrition.days, day)}
+		onAddBuiltIn={(id) =>
+			id === 'nutrition'
+				? save('nutrition', setNutritionItems(nutrition, day, []))
+				: save(
+						'counters',
+						setCounterValue(calendarData.counters, day, id, id === 'steps' ? 0 : null)
+					)}
+		onCounterChange={(id, value) =>
+			save('counters', setCounterValue(calendarData.counters, day, id, value))}
 		onNavigate={navigation ? (key, offset) => navigateDay(key, offset, false) : undefined}
 		emoji={emojis[day] ?? ''}
 		onEmojiChange={(value) => setEmoji(day, value)}
@@ -460,7 +472,7 @@
 		onManageReminders={showReminders}
 		onCompleteReminder={(id, completed) => completeReminder(day, id, completed)}
 		onAddReminder={(text) => saveReminder(createReminder(text, day))}
-		nutritionEnabled={nutrition.enabled}
+		nutritionPinned={nutrition.pinned}
 		nutritionItems={nutrition.days[day] ?? []}
 		nutritionHistory={previousNutritionItems(nutrition.days, day)}
 		onNutritionChange={(items) => updateNutrition(day, items)}
@@ -629,9 +641,15 @@
 	{/if}
 	{#if section === 'measures'}
 		<MeasuresManager
+			countersPinned={calendarData.counters.pinned}
+			onCounterPinnedChange={(id, pinned) =>
+				save('counters', {
+					...calendarData.counters,
+					pinned: { ...calendarData.counters.pinned, [id]: pinned }
+				})}
 			measures={measures.definitions}
-			nutritionEnabled={nutrition.enabled}
-			onNutritionEnabledChange={(enabled) => save('nutrition', { ...nutrition, enabled })}
+			nutritionPinned={nutrition.pinned}
+			onNutritionPinnedChange={(pinned) => save('nutrition', { ...nutrition, pinned })}
 			onsave={saveMeasure}
 			ondelete={(id) => save('measures', removeMeasure(measures, id))}
 		/>

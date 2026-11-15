@@ -7,7 +7,7 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
-	await page.getByRole('checkbox', { name: 'Nutrition', exact: true }).check();
+	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await today.getByText('Items 0', { exact: true }).click();
@@ -62,11 +62,11 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(quantity).toHaveText('×2');
 	await expect(today.getByRole('columnheader', { name: 'Protein', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
-	await page.getByRole('checkbox', { name: 'Nutrition', exact: true }).uncheck();
+	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: true }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await expect(today.getByRole('table', { name: 'Nutrition items' })).toHaveCount(0);
+	await expect(today.getByText('Items 1', { exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
-	await page.getByRole('checkbox', { name: 'Nutrition', exact: true }).check();
+	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await selected.getByText('Items 1', { exact: true }).click();
@@ -107,7 +107,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 		const next = {
 			...before,
 			nutrition: {
-				enabled: true,
+				pinned: true,
 				days: {
 					[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
 					[key(-1)]: [item],
