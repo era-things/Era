@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { snapshot } from '$app/navigation';
+	import { capturePosition, restorePosition } from '../lib/timeline-position';
 	import { untrack } from 'svelte';
 	import { changes, type Section, type Change } from '../lib/calendar-records';
 	import type { CalendarData } from '../lib/data-export';
@@ -33,6 +35,7 @@
 		parseSavedView,
 		VIEW_STORAGE_KEY,
 		ZOOM_LEVELS,
+		type SavedView,
 		type ViewMode,
 		type ZoomLevel
 	} from '../lib/view-state';
@@ -137,28 +140,72 @@
 	});
 	const displayedEmojis = $derived({ ...emojis, ...reminderEmojis });
 
-	function saveView() {
-		if (!restored || !viewport || section !== 'calendar') return;
-		try {
-			localStorage.setItem(
-				VIEW_STORAGE_KEY,
+	let views: Partial<Record<ViewMode, SavedView>> = {};
+	let positioning = 0;
+	let historyRestored = false;
 
-				JSON.stringify({
-					version: 3,
-					mode,
-					zoom,
-					firstYear,
-					selected,
-					scrollTop: viewport.scrollTop,
-					scrollLeft: viewport.scrollLeft
-				})
-			);
+	function rememberView() {
+		if (!restored || !viewport || section !== 'calendar') return;
+		const position = capturePosition(viewport);
+		if (position) views[mode] = { version: 4, mode, zoom, firstYear, selected, position };
+	}
+
+	function saveView() {
+		rememberView();
+		const view = views[mode];
+		if (!view) return;
+		try {
+			localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(view));
 		} catch {
 			/* The timeline works when browser storage is unavailable. */
 		}
 	}
 
+	function applyView(view: SavedView) {
+		rangeStart = view.firstYear;
+		selection = view.selected;
+		mode = view.mode;
+		zoom = view.zoom;
+	}
+
+	async function positionView(view?: SavedView) {
+		const ticket = ++positioning;
+		restored = false;
+		clearTimeout(saveTimer);
+		if (view) applyView(view);
+		await tick();
+		if (ticket !== positioning) return;
+		restorePosition(
+			viewport,
+			view?.position ?? { day: selected, x: -cellSize / 2, y: -cellSize / 2 }
+		);
+		restored = true;
+		saveView();
+	}
+
+	snapshot({
+		id: 'timeline-v4',
+		capture: () => {
+			saveView();
+			return { views, mode, section };
+		},
+		restore: (value) => {
+			historyRestored = true;
+			views = value.views;
+			mode = value.mode;
+			section = value.section;
+			// Hidden calendars have no layout. Position them when opened instead.
+			const view = views[mode];
+			if (section === 'calendar') void positionView(view);
+			else {
+				if (view) applyView(view);
+				restored = true;
+			}
+		}
+	});
+
 	function scheduleSave() {
+		rememberView();
 		clearTimeout(saveTimer);
 		saveTimer = setTimeout(saveView, 120);
 	}
@@ -172,7 +219,6 @@
 	});
 
 	onMount(() => {
-		let active = true;
 		const refreshToday = () => {
 			browserToday = localToday();
 		};
@@ -193,25 +239,14 @@
 		} catch {
 			/* Use today. */
 		}
-		if (saved) {
-			rangeStart = saved.firstYear;
-			selection = saved.selected;
-			mode = saved.mode;
-			zoom = saved.zoom;
-		}
-		const initialView = saved;
-		void tick().then(() => {
-			if (!active) return;
-			if (initialView) {
-				viewport.scrollTop = initialView.scrollTop;
-				viewport.scrollLeft = initialView.scrollLeft;
-			} else {
-				document
-					.getElementById('day-' + today)
-					?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+		if (!historyRestored) void positionView(saved ?? undefined);
+		const resizeObserver = new ResizeObserver(() => {
+			if (restored && section === 'calendar' && views[mode]) {
+				restorePosition(viewport, views[mode]!.position);
 			}
-			restored = true;
 		});
+		resizeObserver.observe(viewport);
+
 		const timer = window.setInterval(refreshToday, 60_000);
 		window.addEventListener('focus', refreshToday);
 		window.addEventListener('pagehide', saveView);
@@ -220,7 +255,8 @@
 			channel?.close();
 			window.removeEventListener('focus', refresh);
 			window.removeEventListener('beforeunload', warn);
-			active = false;
+			positioning++;
+			resizeObserver.disconnect();
 			clearTimeout(saveTimer);
 			window.clearInterval(timer);
 			window.removeEventListener('focus', refreshToday);
@@ -271,16 +307,14 @@
 	}
 
 	async function changeMode(next: ViewMode) {
-		const wasCalendar = section === 'calendar';
-		section = 'calendar';
-		if (mode === next && wasCalendar) return;
-		clearTimeout(saveTimer);
-		mode = next;
-		await tick();
-		document
-			.getElementById('day-' + selected)
-			?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+		if (mode === next && section === 'calendar') return;
 		saveView();
+		section = 'calendar';
+		mode = next;
+		const view = views[next];
+		await positionView(
+			view && view.firstYear === firstYear && view.zoom === zoom ? { ...view, selected } : undefined
+		);
 	}
 
 	async function navigateTabs(event: KeyboardEvent) {
@@ -562,6 +596,7 @@
 		<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
 			<div
 				class={['timeline-scroll', mode]}
+				style:visibility={restored ? 'visible' : 'hidden'}
 				id="timeline-panel"
 				bind:this={viewport}
 				onscroll={scheduleSave}
