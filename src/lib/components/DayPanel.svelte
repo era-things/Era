@@ -1,16 +1,10 @@
 <script lang="ts">
+	import Chevron from './Chevron.svelte';
 	import { formatDate, relativeDay, type DateKey } from '../calendar';
 	import EmojiSelector from './EmojiSelector.svelte';
-	import DayMeasures from './DayMeasures.svelte';
-	import type { Measure, MeasureValue } from '../measures';
+	import type { Snippet } from 'svelte';
 	import DayReminders from './DayReminders.svelte';
 	import type { Reminder } from '../reminders';
-	import NutritionPanel from './NutritionPanel.svelte';
-	import type { FoodItem } from '../nutrition';
-	import MarkdownNote from './MarkdownNote.svelte';
-	import CounterWidget from './CounterWidget.svelte';
-	import { COUNTERS, type CounterId, type CountersState } from '../counters';
-	import { BUILT_IN_MEASURES, type BuiltInMeasureId } from '../built-in-measures';
 	let {
 		selected,
 		today,
@@ -20,26 +14,11 @@
 		onNavigate,
 		emoji,
 		onEmojiChange,
-		measures,
-		measureValues,
-		onAddMeasure,
-		onMeasureChange,
-		onRemoveMeasure,
-		onManageMeasures,
 		reminders,
 		onManageReminders,
 		onCompleteReminder,
 		onAddReminder,
-		nutritionPinned,
-		nutritionItems,
-		nutritionHistory,
-		onNutritionChange,
-		note,
-		onNoteChange,
-		counters,
-		onCounterChange,
-		nutritionAttached,
-		onAddBuiltIn
+		children
 	}: {
 		selected: DateKey;
 		today: DateKey;
@@ -49,38 +28,12 @@
 		onNavigate?: (key: DateKey, offset: number) => void;
 		emoji: string;
 		onEmojiChange: (emoji: string) => void;
-		measures: Measure[];
-		measureValues: Record<string, MeasureValue>;
-		onAddMeasure: (measure: Measure) => void;
-		onMeasureChange: (id: string, value: MeasureValue) => void;
-		onRemoveMeasure: (id: string) => void;
-		onManageMeasures: () => void;
 		reminders: Reminder[];
 		onManageReminders: () => void;
 		onCompleteReminder: (id: string, completed: boolean) => void;
 		onAddReminder: (text: string) => boolean;
-		nutritionPinned: boolean;
-		nutritionItems: FoodItem[];
-		nutritionHistory: FoodItem[];
-		onNutritionChange: (items: FoodItem[]) => boolean;
-		note: string;
-		onNoteChange: (text: string) => void;
-		counters: CountersState;
-		onCounterChange: (id: CounterId, value: number | null) => void;
-		nutritionAttached: boolean;
-		onAddBuiltIn: (id: BuiltInMeasureId) => void;
+		children: Snippet;
 	} = $props();
-	const showNutrition = $derived(nutritionPinned || nutritionAttached);
-	const visibleCounters = $derived(
-		COUNTERS.filter(
-			({ id }) => counters.pinned[id] || Object.hasOwn(counters.days[selected] ?? {}, id)
-		)
-	);
-	const availableBuiltIns = $derived(
-		BUILT_IN_MEASURES.filter(({ id }) =>
-			id === 'nutrition' ? !showNutrition : !visibleCounters.some((counter) => counter.id === id)
-		)
-	);
 </script>
 
 <aside class="day-panel" aria-label={label}>
@@ -99,17 +52,7 @@
 				disabled={selected <= firstYear + '-01-01'}
 				onclick={() => onNavigate(selected, -1)}
 			>
-				<svg
-					aria-hidden="true"
-					viewBox="0 0 16 16"
-					width="16"
-					height="16"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					stroke-linejoin="round"><path d="m9.5 4-4 4 4 4" /></svg
-				>
+				<Chevron direction="left" />
 			</button>
 			<button
 				type="button"
@@ -118,55 +61,12 @@
 				disabled={selected >= lastYear + '-12-31'}
 				onclick={() => onNavigate(selected, 1)}
 			>
-				<svg
-					aria-hidden="true"
-					viewBox="0 0 16 16"
-					width="16"
-					height="16"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					stroke-linejoin="round"><path d="m6.5 4 4 4-4 4" /></svg
-				>
+				<Chevron />
 			</button>
 			<span class="panel-relative" aria-live="polite">{relativeDay(selected, today)}</span>
 		</nav>
 	{/if}
-	{#key selected}
-		{#if showNutrition || visibleCounters.length}
-			<div class="day-widgets">
-				{#if showNutrition}<div class="full-widget">
-						<NutritionPanel
-							items={nutritionItems}
-							history={nutritionHistory}
-							onchange={onNutritionChange}
-						/>
-					</div>{/if}
-				{#each visibleCounters as counter (counter.id)}
-					<div class="compact-widget">
-						<CounterWidget
-							{counter}
-							value={counters.days[selected]?.[counter.id]}
-							onchange={(value) => onCounterChange(counter.id, value)}
-						/>
-					</div>
-				{/each}
-			</div>
-		{/if}
-		<DayMeasures
-			{availableBuiltIns}
-			onaddBuiltIn={onAddBuiltIn}
-			{measures}
-			values={measureValues}
-			onadd={onAddMeasure}
-			onchange={onMeasureChange}
-			onremove={onRemoveMeasure}
-			onmanage={onManageMeasures}
-		>
-			<MarkdownNote value={note} onchange={onNoteChange} />
-		</DayMeasures>
-	{/key}
+	{#key selected}{@render children()}{/key}
 	{#key selected}
 		<DayReminders
 			{reminders}
@@ -177,20 +77,3 @@
 		/>
 	{/key}
 </aside>
-
-<style>
-	.day-widgets {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		margin-top: 24px;
-	}
-	.full-widget {
-		flex: 0 0 100%;
-		min-width: 0;
-	}
-	.compact-widget {
-		flex: 1 1 calc((100% - 20px) / 3);
-		min-width: min(120px, 100%);
-	}
-</style>

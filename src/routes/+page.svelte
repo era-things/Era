@@ -3,16 +3,15 @@
 	import { untrack } from 'svelte';
 	import { changes, type Section, type Change } from '../lib/calendar-records';
 	import type { CalendarData } from '../lib/data-export';
-	import { setDayNote } from '../lib/day-notes';
-	import { setCounterValue } from '../lib/counters';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
 	import DayPanel from '../lib/components/DayPanel.svelte';
-	import MeasuresManager from '../lib/components/MeasuresManager.svelte';
+	import DayWidgets from '../lib/components/DayWidgets.svelte';
+	import { setWidgetSettings } from '../lib/widgets';
+	import LayoutManager from '../lib/components/LayoutManager.svelte';
 	import RemindersManager from '../lib/components/RemindersManager.svelte';
 	import SettingsPanel from '../lib/components/SettingsPanel.svelte';
-	import { previousNutritionItems, setNutritionItems, type FoodItem } from '../lib/nutrition';
 	import {
 		createReminder,
 		reminderOccursOn,
@@ -20,12 +19,7 @@
 		setReminderCompleted,
 		type Reminder
 	} from '../lib/reminders';
-	import {
-		removeMeasure,
-		validMeasureValue,
-		type Measure,
-		type MeasureValue
-	} from '../lib/measures';
+	import { removeMeasure, type Measure } from '../lib/measures';
 	import {
 		addDays,
 		daysInRange,
@@ -54,9 +48,8 @@
 	const emojis = $derived(calendarData.emojis),
 		notes = $derived(calendarData.notes),
 		reminders = $derived(calendarData.reminders),
-		measures = $derived(calendarData.measures),
-		nutrition = $derived(calendarData.nutrition);
-	let section = $state<'calendar' | 'today' | 'measures' | 'reminders' | 'settings'>('calendar');
+		measures = $derived(calendarData.measures);
+	let section = $state<'calendar' | 'today' | 'layout' | 'reminders' | 'settings'>('calendar');
 	let saveError = $state('');
 	let conflict = $state(false);
 	const queue: Change[][] = [];
@@ -113,7 +106,9 @@
 		}
 	}
 	function save<K extends Section>(key: K, value: CalendarData[K]): boolean {
-		const next = { ...calendarData, [key]: value };
+		return saveData({ ...calendarData, [key]: value });
+	}
+	function saveData(next: CalendarData): boolean {
 		const edits = changes(calendarData, next);
 		if (edits.length) {
 			generation++;
@@ -291,7 +286,7 @@
 	async function navigateTabs(event: KeyboardEvent) {
 		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
-		const tabs = ['horizontal', 'vertical', 'today', 'measures', 'reminders', 'settings'] as const;
+		const tabs = ['horizontal', 'vertical', 'today', 'layout', 'reminders', 'settings'] as const;
 		const index = tabs.indexOf(section === 'calendar' ? mode : section);
 		const next =
 			event.key === 'Home'
@@ -300,7 +295,7 @@
 					? tabs[tabs.length - 1]
 					: tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
 		if (next === 'today') showToday();
-		else if (next === 'measures') showMeasures();
+		else if (next === 'layout') showLayout();
 		else if (next === 'reminders') showReminders();
 		else if (next === 'settings') showSettings();
 		else await changeMode(next);
@@ -313,9 +308,9 @@
 		section = 'today';
 	}
 
-	function showMeasures() {
+	function showLayout() {
 		saveView();
-		section = 'measures';
+		section = 'layout';
 	}
 
 	function showReminders() {
@@ -353,28 +348,6 @@
 				? measures.definitions.map((m) => (m.id === measure.id ? measure : m))
 				: [...measures.definitions, measure]
 		});
-	}
-
-	function updateNutrition(day: DateKey, items: FoodItem[]): boolean {
-		return save('nutrition', setNutritionItems(nutrition, day, items));
-	}
-
-	function setMeasureValue(day: DateKey, id: string, value: MeasureValue) {
-		const definition = measures.definitions.find((m) => m.id === id);
-		if (!definition || !validMeasureValue(definition.type, value)) return;
-		save('measures', {
-			...measures,
-			days: { ...measures.days, [day]: { ...measures.days[day], [id]: value } }
-		});
-	}
-
-	function removeDayMeasure(day: DateKey, id: string) {
-		const days = { ...measures.days };
-		const values = { ...days[day] };
-		delete values[id];
-		if (Object.keys(values).length) days[day] = values;
-		else delete days[day];
-		save('measures', { ...measures, days });
 	}
 
 	async function setZoom(next: ZoomLevel) {
@@ -447,38 +420,21 @@
 		{firstYear}
 		{lastYear}
 		{label}
-		counters={calendarData.counters}
-		nutritionAttached={Object.hasOwn(nutrition.days, day)}
-		onAddBuiltIn={(id) =>
-			id === 'nutrition'
-				? save('nutrition', setNutritionItems(nutrition, day, []))
-				: save(
-						'counters',
-						setCounterValue(calendarData.counters, day, id, id === 'steps' ? 0 : null)
-					)}
-		onCounterChange={(id, value) =>
-			save('counters', setCounterValue(calendarData.counters, day, id, value))}
 		onNavigate={navigation ? (key, offset) => navigateDay(key, offset, false) : undefined}
 		emoji={emojis[day] ?? ''}
 		onEmojiChange={(value) => setEmoji(day, value)}
-		measures={measures.definitions}
-		measureValues={measures.days[day] ?? {}}
-		onAddMeasure={(measure) =>
-			setMeasureValue(day, measure.id, measure.type === 'uint' ? 0 : false)}
-		onMeasureChange={(id, value) => setMeasureValue(day, id, value)}
-		onRemoveMeasure={(id) => removeDayMeasure(day, id)}
-		onManageMeasures={showMeasures}
 		reminders={reminders.filter((reminder) => reminderOccursOn(reminder, day))}
 		onManageReminders={showReminders}
 		onCompleteReminder={(id, completed) => completeReminder(day, id, completed)}
 		onAddReminder={(text) => saveReminder(createReminder(text, day))}
-		nutritionPinned={nutrition.pinned}
-		nutritionItems={nutrition.days[day] ?? []}
-		nutritionHistory={previousNutritionItems(nutrition.days, day)}
-		onNutritionChange={(items) => updateNutrition(day, items)}
-		note={notes[day] ?? ''}
-		onNoteChange={(text) => save('notes', setDayNote(notes, day, text))}
-	/>
+	>
+		<DayWidgets
+			data={calendarData}
+			{day}
+			onmanage={showLayout}
+			onchange={(data) => saveData({ ...calendarData, ...data })}
+		/>
+	</DayPanel>
 {/snippet}
 
 <main class="app" aria-label="Era timeline" aria-busy={!restored} style:--cell={cellSize + 'px'}>
@@ -535,12 +491,12 @@
 			<button
 				type="button"
 				role="tab"
-				id="tab-measures"
+				id="tab-layout"
 				onkeydown={navigateTabs}
-				aria-selected={section === 'measures'}
-				aria-controls="measures-panel"
-				tabindex={section === 'measures' ? 0 : -1}
-				onclick={showMeasures}>Measures</button
+				aria-selected={section === 'layout'}
+				aria-controls="layout-panel"
+				tabindex={section === 'layout' ? 0 : -1}
+				onclick={showLayout}>Layout</button
 			>
 			<button
 				type="button"
@@ -639,17 +595,11 @@
 			</div>
 		</div>
 	{/if}
-	{#if section === 'measures'}
-		<MeasuresManager
-			countersPinned={calendarData.counters.pinned}
-			onCounterPinnedChange={(id, pinned) =>
-				save('counters', {
-					...calendarData.counters,
-					pinned: { ...calendarData.counters.pinned, [id]: pinned }
-				})}
+	{#if section === 'layout'}
+		<LayoutManager
+			layout={calendarData.layout}
 			measures={measures.definitions}
-			nutritionPinned={nutrition.pinned}
-			onNutritionPinnedChange={(pinned) => save('nutrition', { ...nutrition, pinned })}
+			onsettings={(id, patch) => save('layout', setWidgetSettings(calendarData.layout, id, patch))}
 			onsave={saveMeasure}
 			ondelete={(id) => save('measures', removeMeasure(measures, id))}
 		/>

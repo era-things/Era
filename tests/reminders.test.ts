@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-	parseReminders,
+	normalizeReminders,
 	createReminder,
 	reminderOccursOn,
 	reminderOverridesEmoji,
@@ -25,10 +25,7 @@ test('new reminders share defaults across quick-add and periodic creation', () =
 	assert.deepEqual({ ...once, id: 'test' }, reminder('once', '2026-11-20'));
 	assert.equal(periodic.period, 'monthly');
 	assert.notEqual(once.id, periodic.id);
-	assert.deepEqual(parseReminders(JSON.stringify({ version: 1, reminders: [once, periodic] })), [
-		once,
-		periodic
-	]);
+	assert.deepEqual(normalizeReminders([once, periodic]), [once, periodic]);
 });
 test('reminders never occur before their start', () => {
 	for (const period of ['weekly', 'monthly', 'yearly', 'once'] as const) {
@@ -64,27 +61,22 @@ test('yearly leap-day reminders use February 28 in non-leap years', () => {
 });
 test('saved reminders round-trip and invalid entries are discarded', () => {
 	const r = reminder('once');
-	assert.deepEqual(parseReminders(JSON.stringify({ version: 1, reminders: [r] })), [r]);
+	assert.deepEqual(normalizeReminders([r]), [r]);
 	assert.deepEqual(
-		parseReminders(
-			JSON.stringify({
-				version: 1,
-				reminders: [
-					r,
-					r,
-					{ ...r, id: 'bad-date', start: '2026-02-30' },
-					{ ...r, id: 'bad-period', period: 'hourly' },
-					{ ...r, id: 'blank', text: '  ' },
-					{ ...r, id: 'missing-override', overrideEmoji: undefined },
-					{ ...r, id: 'missing-lead', leadDays: undefined },
-					{ ...r, id: 'invalid-lead', leadDays: -1 },
-					{ ...r, id: 'missing-completion', completedDates: undefined }
-				]
-			})
-		),
+		normalizeReminders([
+			r,
+			r,
+			{ ...r, id: 'bad-date', start: '2026-02-30' },
+			{ ...r, id: 'bad-period', period: 'hourly' },
+			{ ...r, id: 'blank', text: '  ' },
+			{ ...r, id: 'missing-override', overrideEmoji: undefined },
+			{ ...r, id: 'missing-lead', leadDays: undefined },
+			{ ...r, id: 'invalid-lead', leadDays: -1 },
+			{ ...r, id: 'missing-completion', completedDates: undefined }
+		]),
 		[r]
 	);
-	assert.deepEqual(parseReminders('{'), []);
+	assert.deepEqual(normalizeReminders('{'), []);
 });
 
 test('completion dates are validated and deduplicated', () => {
@@ -94,7 +86,7 @@ test('completion dates are validated and deduplicated', () => {
 		leadDays: 'always',
 		completedDates: ['2026-10-31', '2026-10-31', 'bad', '2026-02-30']
 	};
-	assert.deepEqual(parseReminders(JSON.stringify({ version: 1, reminders: [r] }))[0], {
+	assert.deepEqual(normalizeReminders([r])[0], {
 		...r,
 		completedDates: ['2026-10-31']
 	});
@@ -121,5 +113,5 @@ test('Done suppresses just one occurrence; Undo restores its override', () => {
 	assert.deepEqual(setReminderCompleted(done, r.start, false), r);
 	assert.deepEqual(setReminderCompleted(r, '2026-11-01', true), r);
 	assert.deepEqual(r.completedDates, []);
-	assert.deepEqual(parseReminders(JSON.stringify({ version: 1, reminders: [done] })), [done]);
+	assert.deepEqual(normalizeReminders([done]), [done]);
 });

@@ -1,23 +1,19 @@
 <script lang="ts">
 	import { PALETTES, paletteFor, type Measure, type PaletteId } from '../measures';
-	import type { CounterId, CountersState } from '../counters';
-	import { BUILT_IN_MEASURES } from '../built-in-measures';
+	import { WIDGETS, type LayoutState, type WidgetId, type WidgetSettings } from '../widgets';
+	import WidgetPreview from './WidgetPreview.svelte';
 	let {
 		measures,
 		onsave,
 		ondelete,
-		nutritionPinned,
-		onNutritionPinnedChange,
-		countersPinned,
-		onCounterPinnedChange
+		layout,
+		onsettings
 	}: {
 		measures: Measure[];
 		onsave: (measure: Measure) => boolean;
 		ondelete: (id: string) => boolean;
-		nutritionPinned: boolean;
-		onNutritionPinnedChange: (pinned: boolean) => void;
-		countersPinned: CountersState['pinned'];
-		onCounterPinnedChange: (id: CounterId, pinned: boolean) => void;
+		layout: LayoutState;
+		onsettings: (id: WidgetId, patch: Partial<WidgetSettings>) => void;
 	} = $props();
 	let editing = $state<string | null>(null);
 	let creating = $state(false);
@@ -27,6 +23,24 @@
 	let error = $state('');
 	let deleting = $state<string | null>(null);
 	let nameInput = $state<HTMLInputElement>();
+	let masonryReady = $state(false);
+	function masonry(node: HTMLDivElement) {
+		const update = (card: HTMLElement) => {
+			card.style.setProperty(
+				'--card-rows',
+				String(Math.ceil(card.getBoundingClientRect().height + 12))
+			);
+		};
+		const observer = new ResizeObserver((entries) => {
+			for (const entry of entries) update(entry.target as HTMLElement);
+		});
+		for (const card of node.children) {
+			update(card as HTMLElement);
+			observer.observe(card);
+		}
+		masonryReady = true;
+		return { destroy: () => observer.disconnect() };
+	}
 	function edit(measure?: Measure) {
 		editing = measure?.id ?? null;
 		creating = true;
@@ -57,40 +71,46 @@
 	}
 </script>
 
-<div class="measures-manager" id="measures-panel" role="tabpanel" aria-labelledby="tab-measures">
-	<section class="built-in-measures" aria-label="Built-in measures">
-		<h2>Built-in measures</h2>
-		{#each BUILT_IN_MEASURES as measure}
-			{@const pinned = measure.id === 'nutrition' ? nutritionPinned : countersPinned[measure.id]}
-			<div class="built-in-row">
-				<span>{measure.name}</span>
-				<button
-					type="button"
-					class="pin-button"
-					aria-label={'Pin ' + measure.name}
-					aria-pressed={pinned}
-					title={pinned ? 'Unpin ' + measure.name : 'Pin ' + measure.name}
-					onclick={() =>
-						measure.id === 'nutrition'
-							? onNutritionPinnedChange(!pinned)
-							: onCounterPinnedChange(measure.id, !pinned)}
-				>
-					<svg
-						aria-hidden="true"
-						viewBox="0 0 24 24"
-						width="16"
-						height="16"
-						fill={pinned ? 'currentColor' : 'none'}
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" />
-					</svg>
-				</button>
-			</div>
-		{/each}
+<div class="layout-manager" id="layout-panel" role="tabpanel" aria-labelledby="tab-layout">
+	<section class="built-in-measures" aria-label="Built-in widgets">
+		<h2>Built-in widgets</h2>
+		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
+			{#each WIDGETS as definition}
+				{@const settings = layout.widgets[definition.id]}
+				<div class="built-in-row" class:pinned={settings.pinned}>
+					<div class="built-in-controls">
+						<span>{definition.name}</span>
+						<button
+							type="button"
+							class="pin-button"
+							aria-label={'Pin ' + definition.name}
+							aria-pressed={settings.pinned}
+							title={(settings.pinned ? 'Unpin ' : 'Pin ') + definition.name}
+							onclick={() => onsettings(definition.id, { pinned: !settings.pinned })}
+						>
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+								width="16"
+								height="16"
+								fill={settings.pinned ? 'currentColor' : 'none'}
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" />
+							</svg>
+						</button>
+					</div>
+					<WidgetPreview
+						{definition}
+						{settings}
+						onchange={(skin) => onsettings(definition.id, { skin })}
+					/>
+				</div>
+			{/each}
+		</div>
 	</section>
 	<div class="manager-heading">
 		<h2>Custom measures</h2>
@@ -175,7 +195,7 @@
 </div>
 
 <style>
-	.measures-manager {
+	.layout-manager {
 		flex: 1;
 		overflow: auto;
 		padding: 24px;
@@ -190,15 +210,50 @@
 	.built-in-measures {
 		margin-bottom: 28px;
 	}
+	.built-in-measures > h2 {
+		margin-bottom: 16px;
+	}
+	.built-in-cards {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-auto-flow: dense;
+		column-gap: 12px;
+		row-gap: 12px;
+		align-items: start;
+	}
+	.built-in-cards[data-masonry='true'] {
+		grid-auto-rows: 1px;
+		row-gap: 0;
+	}
 	.built-in-row {
+		display: grid;
+		width: 100%;
+		grid-row-end: span var(--card-rows, 1);
+		grid-template-columns: minmax(0, 1fr);
+		align-content: start;
+		gap: 6px;
+		min-width: 0;
+		padding: 12px;
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		background: var(--paper);
+		font-size: 14px;
+	}
+	.built-in-row.pinned {
+		border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+	}
+	.built-in-controls {
+		width: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		padding-block: 14px;
-		border-bottom: 1px solid var(--line);
-		font-size: 14px;
 	}
+	.built-in-controls > span {
+		flex: 1;
+		font-weight: 600;
+	}
+
 	.pin-button {
 		display: grid;
 		place-items: center;
@@ -340,8 +395,20 @@
 		color: #a02d2d;
 		font-size: 12px;
 	}
+	@media (max-width: 700px) {
+		.built-in-cards {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.built-in-cards[data-masonry='true'] {
+			grid-auto-rows: auto;
+			row-gap: 12px;
+		}
+		.built-in-row {
+			grid-row-end: auto;
+		}
+	}
 	@media (max-width: 560px) {
-		.measures-manager {
+		.layout-manager {
 			padding: 16px;
 		}
 		.palette-options {

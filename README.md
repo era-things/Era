@@ -11,6 +11,11 @@ Run `bun run check`, `bun run test`, `bun run test:browser`, and `bun run build`
 
 Run `bun run build` and `bun run start` on the home server. Set `ERA_DB` to an absolute path on persistent local storage (default `data/era.sqlite` in the working directory). Keep the service on a private, access-controlled network. Anyone who can access Era can read and edit its data.
 
+When deploying this widget-layout refactor over a schema-1 database, stop the old
+service and run `bun scripts/upgrade-widget-layout.ts "path/to/era.sqlite"` once.
+The converter creates and verifies a SQLite backup before changing widget settings;
+daily records are preserved. The application reads only schema 2.
+
 To populate an empty database from a browser export, run `bun run import "path/to/export.json"` with the same `ERA_DB`. The importer validates every section and checks an exact round trip inside one transaction. Settings exports the current server data. For a live database backup use SQLite's online backup facility or `VACUUM INTO`; keep a copy off the server.
 
 ## Initial scope
@@ -32,11 +37,11 @@ To populate an empty database from a browser export, run `bun run import "path/t
 - Switching view modes retains the selected date and brings it into view.
 - Grid view reserves a narrower right-hand panel for the selected date, with
   previous/next-day controls. The grid scrolls independently of the panel.
-- The Measures tab manages global definitions with a name, unsigned-integer or
+- The Layout tab manages widget pinning, appearance, and custom measure definitions with a name, unsigned-integer or
   boolean type, and one of six faint-to-bright color palettes. Names and palettes
   can be edited; types stay fixed after creation. Deleting a definition also
   removes its day values, after an inline confirmation.
-- Use the day panel's Measures (+) button to attach definitions. Each appears in
+- Use the day panel's widget (+) button to attach definitions. Each appears in
   a pale-colored card with a number input or boolean checkbox. Newly added values
   default to 0 for numbers and false for booleans. Numbers may be
   blank or non-negative safe integers; zero, false, and absence stay distinct.
@@ -68,8 +73,9 @@ To populate an empty database from a browser export, run `bun run import "path/t
 - Today shows yesterday, today, and tomorrow side by side, with independent day
   editors for emojis, measures, and reminders. The columns scroll horizontally
   on narrow screens.
-- Measures lists built-in measures before custom measures. Enable Nutrition to
-  show daily kcal, protein, fat, and carb totals with an expandable food log in
+- Layout previews built-in widgets and their skins before custom measures.
+  Pinned widgets appear on every day; unpinned widgets can be added through +.
+  Nutrition shows daily kcal, protein, fat, and carb totals with an expandable food log in
   each day editor. Food entries accept decimal values and can be added, edited,
   or removed. Each item has quantity controls starting at ×1; its nutrient values
   are displayed per item, and the day totals include the quantity.
@@ -77,7 +83,7 @@ To populate an empty database from a browser export, run `bun run import "path/t
   saves it, and Escape cancels the change.
   The + button adds a blank row and focuses its name. Click the quantity to reveal
   decrease/increase controls. At ×1, the decrease control becomes delete.
-  Disabling Nutrition hides it while preserving the entries.
+  Unpinning keeps entries on their days and hides the widget on untouched days.
 - The reminder date picker distinguishes past and future dates and marks today.
   Past dates remain selectable. Dates can also be typed as YYYY-MM-DD; arrow keys
   move between days, Page Up/Down changes months, and Escape closes the picker.
@@ -117,10 +123,15 @@ local calendar date, refreshing every minute and on window focus.
 - `src/lib/components/DayDetail.svelte`: compact selected-day readout.
 - `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
 - `src/lib/components/EmojiSelector.svelte`: reusable emoji button and full picker dialog.
-- `src/lib/components/MeasuresManager.svelte`: global measure creation and management.
+- `src/lib/widgets.ts`: widget definitions, typed settings, defaults, and day lifecycle.
+- `src/lib/components/DayWidgets.svelte`: day widget rendering and add menu.
+- `src/lib/components/BuiltInWidget.svelte`: shared day/preview renderer.
+- `src/lib/components/WidgetPreview.svelte`: live previews and animated skin selection.
+- `src/lib/validation.ts`: shared object and date-map normalization.
+- `src/lib/components/LayoutManager.svelte`: widget settings, previews, and custom measure management.
 - `src/lib/components/NutritionPanel.svelte`: daily totals and nutrition item table.
 - `src/lib/components/NutritionItemRow.svelte`: inline editing and quantity controls.
-- `src/lib/components/DayMeasures.svelte`: day measure selection and value cards.
+- `src/lib/components/DayMeasures.svelte`: custom measurement value cards.
 - `src/lib/measures.ts`: palettes, measure types, storage validation, and deletion.
 - `src/lib/components/RemindersManager.svelte`: reminder creation and management.
 - `src/lib/components/ReminderEditor.svelte`: saved reminder drawer and deletion controls.

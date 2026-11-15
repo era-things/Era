@@ -1,4 +1,5 @@
-import { asDate, type DateKey } from './calendar.ts';
+import type { DateKey } from './calendar.ts';
+import { normalizeDays } from './validation';
 
 export type DayEmojis = Record<DateKey, string>;
 const segments = new Intl.Segmenter('en', { granularity: 'grapheme' });
@@ -17,27 +18,7 @@ export function normalizeEmoji(value: string): string | null {
 	return null;
 }
 
-export function parseDayEmojis(raw: string | null): DayEmojis {
-	try {
-		if (!raw) return {};
-		const saved = JSON.parse(raw);
-		if (
-			saved?.version !== 1 ||
-			!saved.days ||
-			typeof saved.days !== 'object' ||
-			Array.isArray(saved.days)
-		)
-			return {};
-		const days: DayEmojis = {};
-		for (const [key, value] of Object.entries(saved.days)) {
-			if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || typeof value !== 'string') continue;
-			const date = asDate(key);
-			if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== key) continue;
-			const emoji = normalizeEmoji(value);
-			if (emoji) days[key] = emoji;
-		}
-		return days;
-	} catch {
-		return {};
-	}
-}
+export const normalizeDayEmojis = (value: unknown): DayEmojis =>
+	normalizeDays(value, (entry) =>
+		typeof entry === 'string' ? normalizeEmoji(entry) || undefined : undefined
+	);

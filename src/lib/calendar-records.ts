@@ -2,7 +2,7 @@ import type { CalendarData } from './data-export';
 import type { Measure, MeasureValue } from './measures';
 import type { FoodItem } from './nutrition';
 import type { Reminder } from './reminders';
-import { COUNTERS, emptyCounters, type CounterId } from './counters';
+import { WIDGETS, emptyLayout, type WidgetId, type CounterId } from './widgets';
 
 export type Section = keyof CalendarData;
 export type Change = { key: string; before: string | null; after: string | null };
@@ -10,8 +10,9 @@ export const emptyCalendar = (): CalendarData => ({
 	emojis: {},
 	notes: {},
 	measures: { definitions: [], days: {} },
-	nutrition: { pinned: false, days: {} },
-	counters: emptyCounters(),
+	nutrition: {},
+	counters: {},
+	layout: emptyLayout(),
 	reminders: []
 });
 
@@ -25,11 +26,14 @@ export function records(data: CalendarData) {
 	for (const def of data.measures.definitions) put(def, 'measure', def.id);
 	for (const [day, values] of Object.entries(data.measures.days))
 		for (const [id, value] of Object.entries(values)) put(value, 'value', day, id);
-	if (data.nutrition.pinned) put(true, 'nutrition');
-	for (const { id } of COUNTERS) if (data.counters.pinned[id]) put(true, 'counter', id);
-	for (const [day, values] of Object.entries(data.counters.days))
+	for (const widget of WIDGETS) {
+		const settings = data.layout.widgets[widget.id];
+		for (const field of ['pinned', 'skin'] as const)
+			if (settings[field] !== widget[field]) put(settings[field], 'widget', widget.id, field);
+	}
+	for (const [day, values] of Object.entries(data.counters))
 		for (const [id, value] of Object.entries(values)) put(value, 'counter-value', day, id);
-	for (const [day, items] of Object.entries(data.nutrition.days)) {
+	for (const [day, items] of Object.entries(data.nutrition)) {
 		put(true, 'nutrition-day', day);
 		for (const item of items) put(item, 'food', day, item.id);
 	}
@@ -64,20 +68,17 @@ export function decode(rows: { key: string; value: string }[]): CalendarData {
 				(data.measures.days[day] ??= {})[id] = value as MeasureValue;
 				break;
 			case 'food':
-				(data.nutrition.days[day] ??= []).push(value as FoodItem);
+				(data.nutrition[day] ??= []).push(value as FoodItem);
 				break;
 			case 'nutrition-day':
 				if (value !== true) throw new Error('Invalid nutrition day');
-				data.nutrition.days[day] ??= [];
+				data.nutrition[day] ??= [];
 				break;
-			case 'nutrition':
-				data.nutrition.pinned = value;
-				break;
-			case 'counter':
-				data.counters.pinned[day as CounterId] = value;
+			case 'widget':
+				Object.assign(data.layout.widgets[day as WidgetId], { [id]: value });
 				break;
 			case 'counter-value':
-				(data.counters.days[day] ??= {})[id as CounterId] = value;
+				(data.counters[day] ??= {})[id as CounterId] = value;
 				break;
 			case 'reminder':
 				data.reminders.push(value as Reminder);

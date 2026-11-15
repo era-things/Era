@@ -73,39 +73,34 @@ export function reminderOccursOn(reminder: Reminder, day: DateKey): boolean {
 	return date.getUTCDate() === Math.min(start.getUTCDate(), monthEnd.getUTCDate());
 }
 
-export function parseReminders(raw: string | null): Reminder[] {
-	try {
-		const saved = JSON.parse(raw ?? 'null');
-		if (saved?.version !== 1 || !Array.isArray(saved.reminders)) return [];
-		const reminders: Reminder[] = [];
-		for (const item of saved.reminders) {
-			if (
-				!item ||
-				typeof item.id !== 'string' ||
-				!/^[a-zA-Z0-9-]{1,80}$/.test(item.id) ||
-				reminders.some((r) => r.id === item.id) ||
-				typeof item.text !== 'string' ||
-				!item.text.trim() ||
-				item.text.trim().length > 500 ||
-				!(item.period === 'once' || PERIODIC_PERIODS.some((p) => p.value === item.period)) ||
-				!isDateKey(item.start) ||
-				typeof item.overrideEmoji !== 'boolean' ||
-				!isReminderLeadDays(item.leadDays) ||
-				!Array.isArray(item.completedDates)
-			)
-				continue;
-			reminders.push({
-				id: item.id,
-				text: item.text.trim(),
-				period: item.period,
-				start: item.start,
-				overrideEmoji: item.overrideEmoji,
-				leadDays: item.leadDays,
-				completedDates: [...new Set<DateKey>(item.completedDates.filter(isDateKey))]
-			});
-		}
-		return reminders;
-	} catch {
-		return [];
+export function normalizeReminders(saved: unknown): Reminder[] {
+	if (!Array.isArray(saved)) return [];
+	const reminders: Reminder[] = [];
+	for (const item of saved) {
+		if (
+			!item ||
+			typeof item.id !== 'string' ||
+			!/^[a-zA-Z0-9-]{1,80}$/.test(item.id) ||
+			reminders.some((r) => r.id === item.id) ||
+			typeof item.text !== 'string' ||
+			!item.text.trim() ||
+			item.text.trim().length > 500 ||
+			!(item.period === 'once' || PERIODIC_PERIODS.some((p) => p.value === item.period)) ||
+			!isDateKey(item.start) ||
+			typeof item.overrideEmoji !== 'boolean' ||
+			!isReminderLeadDays(item.leadDays) ||
+			!Array.isArray(item.completedDates)
+		)
+			continue;
+		reminders.push({
+			id: item.id,
+			text: item.text.trim(),
+			period: item.period,
+			start: item.start,
+			overrideEmoji: item.overrideEmoji,
+			leadDays: item.leadDays,
+			completedDates: [...new Set<DateKey>(item.completedDates.filter(isDateKey))]
+		});
 	}
+	return reminders;
 }

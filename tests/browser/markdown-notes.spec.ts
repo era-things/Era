@@ -12,6 +12,8 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const note = today.getByRole('textbox', { name: 'Notes', exact: true });
 	await expect(note).toBeVisible();
+	const date = (await today.locator('time').getAttribute('datetime'))!;
+	await note.fill('');
 	const markdown =
 		'# Heading\n\n**Bold** and *italic* with [link](https://example.com)\n\n- [ ] Task\n\n```js\nconst x = 1;\n```\n\n| A | B |\n| - | - |\n| 1 | 2 |';
 	await page.evaluate((text) => navigator.clipboard.writeText(text), markdown);
@@ -34,7 +36,7 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	const path = testInfo.outputPath('notes-export.json');
 	await download.saveAs(path);
 	const exported = JSON.parse(await readFile(path, 'utf8'));
-	const saved = Object.values(exported.notes)[0] as string;
+	const saved = exported.notes[date] as string;
 	expect(saved).toBe(markdown.replace('- [ ] Task', '- [x] Task'));
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -70,8 +72,12 @@ test('Lists render bullets and support continuation, nesting and exiting', async
 	const note = page
 		.getByRole('complementary', { name: 'Today', exact: true })
 		.getByRole('textbox', { name: 'Notes', exact: true });
+	const date = (await page
+		.getByRole('complementary', { name: 'Today', exact: true })
+		.locator('time')
+		.getAttribute('datetime'))!;
 	const saved = async () =>
-		Object.values((await (await page.request.get('/api/calendar')).json()).notes)[0] ?? '';
+		(await (await page.request.get('/api/calendar')).json()).notes[date] ?? '';
 	await note.fill('- First');
 	await note.press('Control+End');
 	await note.press('Enter');

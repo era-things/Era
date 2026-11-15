@@ -1,3 +1,4 @@
+import { setWidgetSettings } from '../../src/lib/widgets';
 import { changes } from '../../src/lib/calendar-records';
 import { test, expect } from '@playwright/test';
 
@@ -6,11 +7,18 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 }, testInfo) => {
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
+	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
-	await today.getByText('Items 0', { exact: true }).click();
+	const itemToggle = today.getByRole('button', { name: '0 items', exact: true });
+	await expect(itemToggle).toHaveAttribute('aria-expanded', 'false');
+	await itemToggle.click();
+	await expect(itemToggle).toHaveAttribute('aria-expanded', 'true');
+	await itemToggle.press('Space');
+	await expect(itemToggle).toHaveAttribute('aria-expanded', 'false');
+	await itemToggle.press('Enter');
+	await expect(itemToggle).toHaveAttribute('aria-expanded', 'true');
 	await today.getByRole('button', { name: 'Add item', exact: true }).click();
 	const name = today.getByRole('textbox', { name: 'Name of new item', exact: true });
 	await expect(name).toBeFocused();
@@ -57,31 +65,31 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await today.getByText('Items 1', { exact: true }).click();
+	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(kcal).toHaveValue('100');
 	await expect(quantity).toHaveText('×2');
 	await expect(today.getByRole('columnheader', { name: 'Protein', exact: true })).toBeVisible();
-	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
+	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: true }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await expect(today.getByText('Items 1', { exact: true })).toBeVisible();
-	await page.getByRole('tab', { name: 'Measures', exact: true }).click();
+	await expect(today.getByRole('button', { name: '1 item', exact: true })).toBeVisible();
+	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
-	await selected.getByText('Items 1', { exact: true }).click();
+	await selected.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(
 		selected.getByRole('spinbutton', { name: 'kcal of Lunch', exact: true })
 	).toHaveValue('100');
 	await page.screenshot({ path: testInfo.outputPath('nutrition-grid.png') });
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await today.getByText('Items 1', { exact: true }).click();
+	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await quantity.click();
 	await today.getByRole('button', { name: 'Decrease quantity of Lunch', exact: true }).click();
 	await expect(quantity).toHaveText('×1');
 	await expect(kcal).toHaveValue('100');
 	await today.getByRole('button', { name: 'Remove Lunch', exact: true }).click();
-	await expect(today.getByText('Items 0', { exact: true })).toBeVisible();
+	await expect(today.getByRole('button', { name: '0 items', exact: true })).toBeVisible();
 	await expect(totals).not.toContainText('100');
 });
 
@@ -106,13 +114,11 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 		const before = await (await page.request.get('/api/calendar')).json();
 		const next = {
 			...before,
+			layout: setWidgetSettings(before.layout, 'nutrition', { pinned: true }),
 			nutrition: {
-				pinned: true,
-				days: {
-					[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
-					[key(-1)]: [item],
-					[key(1)]: [{ ...item, id: 'future', name: 'Future food' }]
-				}
+				[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
+				[key(-1)]: [item],
+				[key(1)]: [{ ...item, id: 'future', name: 'Future food' }]
 			}
 		};
 		expect((await page.request.post('/api/calendar', { data: changes(before, next) })).ok()).toBe(
@@ -123,7 +129,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
-	await today.getByText('Items 0', { exact: true }).click();
+	await today.getByRole('button', { name: '0 items', exact: true }).click();
 	const history = today.getByRole('button', { name: 'Add previous item', exact: true });
 	await history.click();
 	const menu = today.getByRole('dialog', { name: 'Previous nutrition items' });
@@ -148,7 +154,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 			today.getByRole('spinbutton', { name: `${label} of Porridge`, exact: true })
 		).toHaveValue(value);
 	}
-	const days = (await (await page.request.get('/api/calendar')).json()).nutrition.days;
+	const days = (await (await page.request.get('/api/calendar')).json()).nutrition;
 	const copied = Object.values(days)
 		.flat()
 		.find(
@@ -166,7 +172,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await today.getByText('Items 1', { exact: true }).click();
+	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(
 		today.getByRole('spinbutton', { name: 'kcal of Porridge', exact: true })
 	).toHaveValue('250');

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-	parseMeasures,
+	normalizeMeasures,
 	removeMeasure,
 	validMeasureValue,
 	type MeasuresState
@@ -15,7 +15,7 @@ const state: MeasuresState = {
 	days: { '2026-10-30': { steps: 0, read: false }, '2026-10-31': { steps: null } }
 };
 test('measure persistence distinguishes empty numbers, zero and false', () => {
-	assert.deepEqual(parseMeasures(JSON.stringify({ version: 1, ...state })), state);
+	assert.deepEqual(normalizeMeasures(state), state);
 });
 test('unsigned values must be safe non-negative integers', () => {
 	for (const value of [-1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1, '12', true])
@@ -27,7 +27,6 @@ test('unsigned values must be safe non-negative integers', () => {
 });
 test('invalid saved entries and orphaned day values are discarded', () => {
 	const saved = {
-		version: 1,
 		definitions: [
 			...state.definitions,
 			{ id: '__proto__', name: 'Bad', type: 'uint', palette: 'green' },
@@ -39,11 +38,11 @@ test('invalid saved entries and orphaned day values are discarded', () => {
 			'2026-10-31': { steps: 3, read: true }
 		}
 	};
-	assert.deepEqual(parseMeasures(JSON.stringify(saved)), {
+	assert.deepEqual(normalizeMeasures(saved), {
 		definitions: state.definitions,
 		days: { '2026-10-31': { steps: 3, read: true } }
 	});
-	assert.deepEqual(parseMeasures('{'), { definitions: [], days: {} });
+	assert.deepEqual(normalizeMeasures('{'), { definitions: [], days: {} });
 });
 test('deleting a definition removes all its day values and empty dates', () => {
 	assert.deepEqual(removeMeasure(state, 'steps'), {

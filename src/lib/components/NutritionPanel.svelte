@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Chevron from './Chevron.svelte';
 	import { NUTRIENTS, nutritionTotals, type FoodItem } from '../nutrition';
 	import NutritionHistory from './NutritionHistory.svelte';
 	import NutritionItemRow from './NutritionItemRow.svelte';
@@ -10,6 +11,8 @@
 		$props();
 	let expanded = $state<string | null>(null);
 	let focusId = $state<string | null>(null);
+	let itemsOpen = $state(false);
+	const itemsId = $props.id();
 	const totals = $derived(nutritionTotals(items));
 	const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 	function add(source?: FoodItem) {
@@ -40,7 +43,20 @@
 </script>
 
 <section class="nutrition" aria-label="Nutrition">
-	<h3>Nutrition</h3>
+	<div class="nutrition-heading">
+		<h3>Nutrition</h3>
+		<button
+			class="items-toggle"
+			type="button"
+			aria-expanded={itemsOpen}
+			aria-controls={itemsId}
+			onclick={() => (itemsOpen = !itemsOpen)}
+		>
+			<Chevron direction={itemsOpen ? 'down' : 'right'} size={10} />
+			{items.length}
+			{items.length === 1 ? 'item' : 'items'}
+		</button>
+	</div>
 	<dl class="totals" aria-label="Day nutrition totals">
 		{#each NUTRIENTS as nutrient (nutrient.key)}
 			<div class:kcal={nutrient.key === 'kcal'} style:--nutrient-color={nutrient.color}>
@@ -49,8 +65,7 @@
 			</div>
 		{/each}
 	</dl>
-	<details class="items">
-		<summary>Items <span>{items.length}</span></summary>
+	<div class="items" id={itemsId} hidden={!itemsOpen}>
 		{#if items.length}
 			<table aria-label="Nutrition items">
 				<colgroup>
@@ -97,7 +112,7 @@
 			>
 			<NutritionHistory items={history} onselect={add} />
 		</div>
-	</details>
+	</div>
 </section>
 
 <style>
@@ -107,17 +122,40 @@
 		--nutrition-row-height: 28px;
 		padding: 10px;
 		background: var(--nutrition-surface);
+		border: 1px solid #d8c8a7;
 		border-radius: 4px;
 	}
 	h3 {
-		margin: 0 0 10px;
+		margin: 0;
 		font-size: 12px;
 		font-weight: 600;
+	}
+	.nutrition-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+	.items-toggle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-height: 24px;
+		padding: 2px 4px;
+		border: 0;
+		border-radius: 3px;
+		background: transparent;
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.items-toggle:hover {
+		background: var(--nutrition-hover);
 	}
 	.totals {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
+		align-items: baseline;
 		gap: 8px 10px;
 		margin: 0;
 	}
@@ -141,6 +179,7 @@
 		font-size: 14px;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
+		text-align: center;
 	}
 	.totals > .kcal {
 		padding-inline: 0;
@@ -152,18 +191,14 @@
 		width: auto;
 	}
 	.kcal dd {
-		font-size: 18px;
+		font-size: 22px;
+		text-align: left;
+	}
+	.kcal dt {
+		color: var(--muted);
 	}
 	.items {
 		margin-top: 12px;
-	}
-	summary {
-		cursor: pointer;
-		font-size: 12px;
-	}
-	summary span {
-		margin-left: 4px;
-		color: var(--muted);
 	}
 	table {
 		width: 100%;

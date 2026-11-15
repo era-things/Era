@@ -1,32 +1,18 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import Chevron from './Chevron.svelte';
 	import { paletteFor, type Measure, type MeasureValue } from '../measures';
-	import type { BUILT_IN_MEASURES, BuiltInMeasureId } from '../built-in-measures';
 	let {
 		measures,
 		values,
-		onadd,
 		onchange,
-		onremove,
-		onmanage,
-		children,
-		availableBuiltIns,
-		onaddBuiltIn
+		onremove
 	}: {
 		measures: Measure[];
 		values: Record<string, MeasureValue>;
-		onadd: (measure: Measure) => void;
 		onchange: (id: string, value: MeasureValue) => void;
 		onremove: (id: string) => void;
-		onmanage: () => void;
-		children: Snippet;
-		availableBuiltIns: readonly (typeof BUILT_IN_MEASURES)[number][];
-		onaddBuiltIn: (id: BuiltInMeasureId) => void;
 	} = $props();
 	const inputId = $props.id();
-	let choosing = $state(false);
-	const attached = $derived(measures.filter((m) => Object.hasOwn(values, m.id)));
-	const available = $derived(measures.filter((m) => !Object.hasOwn(values, m.id)));
 	function numberInput(event: Event, id: string) {
 		const input = event.currentTarget as HTMLInputElement;
 		input.setCustomValidity('');
@@ -55,144 +41,76 @@
 	}
 </script>
 
-<section class="day-measures" aria-label="Day measures">
-	{#if attached.length}
-		<div class="measure-cards">
-			{#each attached as measure (measure.id)}
-				{@const p = paletteFor(measure.palette)}
-				<article
-					class="measure-card"
-					style:--measure-faint={p.faint}
-					style:--measure-bright={p.bright}
-					aria-label={measure.name}
+<section class="day-measures" aria-label="Custom measurements">
+	{#each measures as measure (measure.id)}
+		{@const p = paletteFor(measure.palette)}
+		<article
+			class="measure-card"
+			style:--measure-faint={p.faint}
+			style:--measure-bright={p.bright}
+			aria-label={measure.name}
+		>
+			<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
+				{#if measure.type === 'boolean'}
+					<label class="boolean-value">
+						<input
+							id={inputId + '-' + measure.id}
+							type="checkbox"
+							checked={values[measure.id] === true}
+							onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
+						/>
+						<span>{measure.name}</span>
+					</label>
+				{:else}
+					<label for={inputId + '-' + measure.id}>{measure.name}</label>
+				{/if}
+				<button
+					type="button"
+					aria-label={'Remove ' + measure.name + ' from day'}
+					title="Remove from day"
+					onclick={() => onremove(measure.id)}>×</button
 				>
-					<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
-						{#if measure.type === 'boolean'}
-							<label class="boolean-value">
-								<input
-									id={inputId + '-' + measure.id}
-									type="checkbox"
-									checked={values[measure.id] === true}
-									onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
-								/>
-								<span>{measure.name}</span>
-							</label>
-						{:else}
-							<label for={inputId + '-' + measure.id}>{measure.name}</label>
-						{/if}
-						<button
-							type="button"
-							aria-label={'Remove ' + measure.name + ' from day'}
-							title="Remove from day"
-							onclick={() => onremove(measure.id)}>×</button
-						>
+			</div>
+			{#if measure.type === 'uint'}
+				<div class="number-control">
+					<input
+						id={inputId + '-' + measure.id}
+						type="number"
+						min="0"
+						max={Number.MAX_SAFE_INTEGER}
+						step="1"
+						inputmode="numeric"
+						placeholder="—"
+						value={values[measure.id] ?? ''}
+						oninput={(event) => numberInput(event, measure.id)}
+						onchange={(event) => event.currentTarget.reportValidity()}
+					/>
+					<div class="step-controls">
+						{#each [1, -1] as direction}
+							<button
+								type="button"
+								class="step-button"
+								aria-label={(direction > 0 ? 'Increase ' : 'Decrease ') + measure.name}
+								aria-controls={inputId + '-' + measure.id}
+								disabled={direction > 0
+									? values[measure.id] === Number.MAX_SAFE_INTEGER
+									: Number(values[measure.id] ?? 0) <= 0}
+								onclick={(event) => adjustNumber(event, measure.id, direction)}
+							>
+								<Chevron direction={direction > 0 ? 'up' : 'down'} size={12} />
+							</button>
+						{/each}
 					</div>
-					{#if measure.type === 'uint'}
-						<div class="number-control">
-							<input
-								id={inputId + '-' + measure.id}
-								type="number"
-								min="0"
-								max={Number.MAX_SAFE_INTEGER}
-								step="1"
-								inputmode="numeric"
-								placeholder="—"
-								value={values[measure.id] ?? ''}
-								oninput={(event) => numberInput(event, measure.id)}
-								onchange={(event) => event.currentTarget.reportValidity()}
-							/>
-							<div class="step-controls">
-								<button
-									type="button"
-									class="step-button"
-									aria-label={'Increase ' + measure.name}
-									aria-controls={inputId + '-' + measure.id}
-									disabled={values[measure.id] === Number.MAX_SAFE_INTEGER}
-									onclick={(event) => adjustNumber(event, measure.id, 1)}
-								>
-									<svg
-										aria-hidden="true"
-										viewBox="0 0 16 16"
-										width="12"
-										height="12"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.75"
-										stroke-linecap="round"
-										stroke-linejoin="round"><path d="m4 10 4-4 4 4" /></svg
-									>
-								</button>
-								<button
-									type="button"
-									class="step-button"
-									aria-label={'Decrease ' + measure.name}
-									aria-controls={inputId + '-' + measure.id}
-									disabled={Number(values[measure.id] ?? 0) <= 0}
-									onclick={(event) => adjustNumber(event, measure.id, -1)}
-								>
-									<svg
-										aria-hidden="true"
-										viewBox="0 0 16 16"
-										width="12"
-										height="12"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.75"
-										stroke-linecap="round"
-										stroke-linejoin="round"><path d="m4 6 4 4 4-4" /></svg
-									>
-								</button>
-							</div>
-						</div>
-					{/if}
-				</article>
-			{/each}
-		</div>
-	{/if}
-	{@render children()}
-	{#if choosing}
-		<div class="measure-chooser">
-			{#each availableBuiltIns as measure (measure.id)}
-				<button
-					type="button"
-					onclick={() => {
-						onaddBuiltIn(measure.id);
-						choosing = false;
-					}}
-				>
-					{measure.name}
-				</button>
-			{/each}
-			{#each available as measure (measure.id)}
-				<button
-					type="button"
-					onclick={() => {
-						onadd(measure);
-						choosing = false;
-					}}
-					><span class="swatch" style:background={paletteFor(measure.palette).bright}
-					></span>{measure.name}</button
-				>
-			{/each}
-			{#if !available.length && !availableBuiltIns.length}<p>All measures added.</p>{/if}
-			<button type="button" class="manage-button" onclick={onmanage}>Manage measures</button>
-		</div>
-	{/if}
-	<button
-		class="add-button"
-		type="button"
-		aria-label="Add measure"
-		aria-expanded={choosing}
-		onclick={() => (choosing = !choosing)}>+</button
-	>
+				</div>
+			{/if}
+		</article>
+	{/each}
 </section>
 
 <style>
 	.day-measures {
-		--widget-gap: 10px;
 		display: grid;
-		gap: var(--widget-gap);
-		margin-top: var(--widget-gap);
+		gap: 10px;
 	}
 	.card-heading {
 		display: flex;
@@ -204,51 +122,6 @@
 		border: 0;
 		background: transparent;
 		border-radius: 3px;
-	}
-	.add-button {
-		width: 100%;
-		height: 28px;
-		border-radius: 3px 3px 10px 10px;
-		font-size: 20px;
-		font-weight: 700;
-		color: color-mix(in srgb, var(--muted) 55%, transparent);
-		background: #e9ede6;
-	}
-	button:hover {
-		background: #dfe7da;
-	}
-	.measure-chooser {
-		border: 1px solid var(--line);
-		border-radius: 4px;
-		padding: 4px;
-	}
-	.measure-chooser button {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		width: 100%;
-		text-align: left;
-		padding: 8px;
-		font-size: 12px;
-		overflow-wrap: anywhere;
-	}
-	.swatch {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-	.measure-chooser p {
-		margin: 8px;
-		font-size: 12px;
-		color: var(--muted);
-	}
-	.manage-button {
-		color: var(--muted);
-	}
-	.measure-cards {
-		display: grid;
-		gap: var(--widget-gap);
 	}
 	.measure-card {
 		padding: 10px 12px;

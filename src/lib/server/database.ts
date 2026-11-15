@@ -3,22 +3,26 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { CalendarData } from '../data-export';
+import { isRecord } from '../validation';
 import { decode, records, type Change } from '../calendar-records';
-import { parseReminders } from '../reminders';
-import { parseMeasures } from '../measures';
-import { parseDayEmojis } from '../day-emojis';
-import { parseDayNotes } from '../day-notes';
-import { parseNutrition } from '../nutrition';
-import { parseCounters } from '../counters';
+import { normalizeReminders } from '../reminders';
+import { normalizeMeasures } from '../measures';
+import { normalizeDayEmojis } from '../day-emojis';
+import { normalizeDayNotes } from '../day-notes';
+import { normalizeNutrition } from '../nutrition';
+import { normalizeCounters } from '../counters';
+import { normalizeLayout } from '../layout';
 
-export function validate(data: CalendarData) {
+export function validate(data: unknown): asserts data is CalendarData {
+	if (!isRecord(data)) throw new Error('Invalid calendar data');
 	const canonical = {
-		notes: parseDayNotes(JSON.stringify(data.notes)),
-		emojis: parseDayEmojis(JSON.stringify({ version: 1, days: data.emojis })),
-		measures: parseMeasures(JSON.stringify({ version: 1, ...data.measures })),
-		nutrition: parseNutrition(JSON.stringify(data.nutrition)),
-		counters: parseCounters(JSON.stringify(data.counters)),
-		reminders: parseReminders(JSON.stringify({ version: 1, reminders: data.reminders }))
+		notes: normalizeDayNotes(data.notes),
+		emojis: normalizeDayEmojis(data.emojis),
+		measures: normalizeMeasures(data.measures),
+		nutrition: normalizeNutrition(data.nutrition),
+		counters: normalizeCounters(data.counters),
+		layout: normalizeLayout(data.layout),
+		reminders: normalizeReminders(data.reminders)
 	};
 	if (!isDeepStrictEqual(canonical, data)) throw new Error('Invalid calendar data');
 }
@@ -32,10 +36,10 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 	if (version.user_version === 0)
 		db.transaction(() => {
 			db.exec(
-				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=1'
+				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=2'
 			);
 		})();
-	else if (version.user_version !== 1) throw new Error('Unknown database version');
+	else if (version.user_version !== 2) throw new Error('Unknown database version');
 	const list = db.query<{ key: string; value: string }, []>(
 		'SELECT key,value FROM records ORDER BY rowid'
 	);

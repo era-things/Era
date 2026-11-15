@@ -1,4 +1,5 @@
-import { isDateKey, type DateKey } from './calendar.ts';
+import type { DateKey } from './calendar.ts';
+import { normalizeDays } from './validation';
 
 export const NUTRIENTS = [
 	{ key: 'kcal', label: 'kcal', shortLabel: 'kcal', color: 'var(--ink)' },
@@ -8,8 +9,7 @@ export const NUTRIENTS = [
 ] as const;
 export type Nutrients = { kcal: number; protein: number; fat: number; carbs: number };
 export type FoodItem = Nutrients & { id: string; name: string; quantity: number };
-export type NutritionState = { pinned: boolean; days: Record<DateKey, FoodItem[]> };
-export const emptyNutrition = (): NutritionState => ({ pinned: false, days: {} });
+export type NutritionDays = Record<DateKey, FoodItem[]>;
 
 export function validFoodItem(value: unknown): value is FoodItem {
 	if (!value || typeof value !== 'object') return false;
@@ -41,46 +41,25 @@ export function nutritionTotals(items: FoodItem[]): Nutrients {
 	return totals;
 }
 
-export function setNutritionItems(
-	state: NutritionState,
+export const setNutritionItems = (
+	days: NutritionDays,
 	day: DateKey,
 	items: FoodItem[]
-): NutritionState {
-	const days = { ...state.days };
-	days[day] = items;
-	return { ...state, days };
-}
-
-export function parseNutrition(raw: string | null): NutritionState {
-	try {
-		const saved = JSON.parse(raw ?? 'null');
-		if (
-			!saved ||
-			typeof saved.pinned !== 'boolean' ||
-			!saved.days ||
-			typeof saved.days !== 'object' ||
-			Array.isArray(saved.days)
-		)
-			return emptyNutrition();
-		const days: NutritionState['days'] = {};
-		for (const [day, entries] of Object.entries(saved.days)) {
-			if (!isDateKey(day) || !Array.isArray(entries)) continue;
-			const ids = new Set<string>();
-			const items = entries.filter((item): item is FoodItem => {
-				if (!validFoodItem(item) || ids.has(item.id)) return false;
-				ids.add(item.id);
-				return true;
-			});
-			days[day] = items;
-		}
-		return { pinned: saved.pinned, days };
-	} catch {
-		return emptyNutrition();
-	}
+): NutritionDays => ({ ...days, [day]: items });
+export function normalizeNutrition(value: unknown): NutritionDays {
+	return normalizeDays(value, (entries) => {
+		if (!Array.isArray(entries)) return;
+		const ids = new Set<string>();
+		return entries.filter((item): item is FoodItem => {
+			if (!validFoodItem(item) || ids.has(item.id)) return false;
+			ids.add(item.id);
+			return true;
+		});
+	});
 }
 
 /** Most recent unique recipes before this day; quantity does not define a recipe. */
-export function previousNutritionItems(days: NutritionState['days'], before: DateKey): FoodItem[] {
+export function previousNutritionItems(days: NutritionDays, before: DateKey): FoodItem[] {
 	const seen = new Set<string>();
 	return Object.keys(days)
 		.filter((day) => day < before)

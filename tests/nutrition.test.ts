@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-	emptyNutrition,
 	nutritionTotals,
 	previousNutritionItems,
-	parseNutrition,
+	normalizeNutrition,
 	setNutritionItems,
 	validFoodItem,
 	type FoodItem
@@ -83,29 +82,26 @@ test('food values must be finite and non-negative; blank names, zero and decimal
 });
 
 test('day updates preserve other dates and keep empty widgets attached', () => {
-	const first = setNutritionItems({ ...emptyNutrition(), pinned: true }, '2026-11-05', [lunch]);
+	const first = setNutritionItems({}, '2026-11-05', [lunch]);
 	const second = setNutritionItems(first, '2026-11-06', [snack]);
 	const removed = setNutritionItems(second, '2026-11-05', []);
-	assert.deepEqual(removed.days, { '2026-11-05': [], '2026-11-06': [snack] });
-	assert.deepEqual(first.days, { '2026-11-05': [lunch] });
+	assert.deepEqual(removed, { '2026-11-05': [], '2026-11-06': [snack] });
+	assert.deepEqual(first, { '2026-11-05': [lunch] });
 });
 
-test('nutrition storage preserves blank rows, quantities and unpinned history, filtering invalid entries', () => {
-	assert.deepEqual(parseNutrition('{'), emptyNutrition());
+test('nutrition normalization preserves empty days, blank rows and quantities, filtering invalid entries', () => {
+	assert.deepEqual(normalizeNutrition(null), {});
 	assert.deepEqual(
-		parseNutrition(
-			JSON.stringify({
-				pinned: false,
-				days: {
-					'2026-02-30': [lunch],
-					'2026-11-05': [lunch, lunch, { ...snack, kcal: -1 }, snack, blank],
-					'2026-11-06': [{ ...lunch, quantity: 2 }]
-				}
-			})
-		),
+		normalizeNutrition({
+			'2026-02-30': [lunch],
+			'2026-11-05': [lunch, lunch, { ...snack, kcal: -1 }, snack, blank],
+			'2026-11-06': [{ ...lunch, quantity: 2 }],
+			'2026-11-07': []
+		}),
 		{
-			pinned: false,
-			days: { '2026-11-05': [lunch, snack, blank], '2026-11-06': [{ ...lunch, quantity: 2 }] }
+			'2026-11-05': [lunch, snack, blank],
+			'2026-11-06': [{ ...lunch, quantity: 2 }],
+			'2026-11-07': []
 		}
 	);
 });
