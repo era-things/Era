@@ -61,68 +61,64 @@
 			<path d="M17 3a9 9 0 1 0 4 15A9 9 0 0 1 17 3Z" fill="currentColor" fill-opacity=".12" />
 		{:else}<path d="M20.2 14.2A8.5 8.5 0 0 1 9.8 3.8a8.5 8.5 0 1 0 10.4 10.4Z" />{/if}
 	</svg>
-	<div class="sleep-readout">
-		<div class="sleep-duration" role="group" aria-label="Sleep duration">
-			<label
-				><input
-					class="sleep-hours"
-					type="number"
-					aria-label="Sleep hours"
-					min="0"
-					max="23"
-					step="1"
-					placeholder="—"
-					value={hours}
-					onchange={(event) => durationChange(event, 'hours')}
-				/><span>h</span></label
-			>
-			<label
-				><input
-					type="number"
-					aria-label="Sleep minutes"
-					min="0"
-					max="59"
-					step="1"
-					placeholder="—"
-					value={minutes}
-					onchange={(event) => durationChange(event, 'minutes')}
-				/><span>m</span></label
-			>
-		</div>
-		<div class="sleep-times">
-			{#each ['start', 'end'] as field, index}
-				<input
-					type="text"
-					inputmode="numeric"
-					aria-label={field === 'start' ? 'Sleep start time' : 'Sleep wake-up time'}
-					placeholder="--:--"
-					value={formatSleepTime(value[field as 'start' | 'end'])}
-					maxlength="5"
-					spellcheck="false"
-					oninput={(event) => event.currentTarget.setCustomValidity('')}
-					onfocus={(event) => event.currentTarget.select()}
-					onchange={(event) => timeChange(event, field as 'start' | 'end')}
-					onkeydown={(event) => {
-						if (event.key === 'Enter') event.currentTarget.blur();
-					}}
-				/>
-				{#if skin === 'lunar-seal' && index === 0}<span aria-hidden="true">→</span>{/if}
-			{/each}
-		</div>
+	<div class="sleep-duration" role="group" aria-label="Sleep duration">
+		<label
+			><input
+				class="sleep-hours"
+				type="number"
+				aria-label="Sleep hours"
+				min="0"
+				max="23"
+				step="1"
+				placeholder="—"
+				value={hours}
+				onchange={(event) => durationChange(event, 'hours')}
+			/><span>h</span></label
+		>
+		<label
+			><input
+				type="number"
+				aria-label="Sleep minutes"
+				min="0"
+				max="59"
+				step="1"
+				placeholder="—"
+				value={minutes}
+				onchange={(event) => durationChange(event, 'minutes')}
+			/><span>m</span></label
+		>
+	</div>
+	<div class="sleep-times">
+		{#each ['start', 'end'] as field, index}
+			<input
+				type="text"
+				inputmode="numeric"
+				aria-label={field === 'start' ? 'Sleep start time' : 'Sleep wake-up time'}
+				placeholder="--:--"
+				value={formatSleepTime(value[field as 'start' | 'end'])}
+				maxlength="5"
+				spellcheck="false"
+				oninput={(event) => event.currentTarget.setCustomValidity('')}
+				onfocus={(event) => event.currentTarget.select()}
+				onchange={(event) => timeChange(event, field as 'start' | 'end')}
+				onkeydown={(event) => {
+					if (event.key === 'Enter') event.currentTarget.blur();
+				}}
+			/>
+			{#if index === 0}<span aria-hidden="true">→</span>{/if}
+		{/each}
 	</div>
 </section>
 
 <style>
-	.sleep-readout {
-		display: contents;
-	}
 	.sleep-widget {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		width: 100%;
 		min-width: 0;
-		height: 52px;
-		padding: 8px;
+		height: 26px;
+		padding: 2px 7px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
 		background: #e9ede6;
@@ -132,23 +128,22 @@
 		border-color: var(--accent);
 	}
 	svg {
-		flex-shrink: 0;
+		flex: 0 0 16px;
+		width: 16px;
+		height: 16px;
 		color: var(--muted);
-		transform: translateY(1px);
 	}
 	.sleep-duration {
 		display: flex;
 		align-items: baseline;
+		flex-shrink: 0;
 		gap: 3px;
-		flex: 1;
-		min-width: 0;
-		height: 30px;
+		height: 20px;
 	}
 	.sleep-duration label {
 		display: flex;
 		align-items: baseline;
 		gap: 1px;
-		min-width: 0;
 	}
 	.sleep-duration span {
 		font-size: 10px;
@@ -156,6 +151,7 @@
 	}
 	input {
 		min-width: 0;
+		padding: 0;
 		border: 0;
 		border-radius: 2px;
 		background: transparent;
@@ -165,11 +161,10 @@
 	}
 	.sleep-duration input {
 		width: 2ch;
-		height: 30px;
-		padding: 0;
-		font-size: 20px;
-		line-height: 30px;
-		text-align: right;
+		height: 20px;
+		font-size: 16px;
+		line-height: 20px;
+		text-align: left;
 		appearance: textfield;
 		-moz-appearance: textfield;
 	}
@@ -186,7 +181,7 @@
 	}
 	input:focus-visible {
 		outline: 2px solid var(--accent);
-		outline-offset: 1px;
+		outline-offset: 0;
 	}
 	input:invalid {
 		outline: 2px solid #a02d2d;
@@ -196,39 +191,41 @@
 		opacity: 1;
 	}
 	.sleep-times {
-		display: grid;
+		display: flex;
+		align-items: center;
 		flex-shrink: 0;
-		gap: 0;
+		gap: 5px;
+		margin-left: auto;
+		color: var(--muted);
+		font-size: 10px;
 	}
 	.sleep-times input {
 		width: 5ch;
-		height: 17px;
-		padding: 0;
+		height: 18px;
 		font-size: 11px;
-		line-height: 17px;
-		text-align: right;
+		line-height: 18px;
 		color: var(--muted);
 	}
 	.sleep-times input:focus {
 		color: var(--ink);
 	}
-
 	.lunar-seal {
 		--ink: #f4efdc;
 		--muted: #bdcbdc;
 		--accent: #e6d399;
 		position: relative;
 		isolation: isolate;
-		gap: 10px;
-		padding: 5px 7px;
 		border-color: #4a5d7a;
-		border-radius: 5px;
 		background: #263750;
 		color: var(--ink);
 	}
 	.lunar-seal > :not(.sky) {
 		position: relative;
 		z-index: 1;
+	}
+	.lunar-seal svg {
+		color: var(--accent);
+		stroke-width: 1.3;
 	}
 	.sky {
 		position: absolute;
@@ -246,46 +243,10 @@
 		position: absolute;
 		width: 84px;
 		height: 84px;
-		top: -12px;
+		top: -24px;
 		left: 144px;
 		border: 1px solid #e6d39924;
 		border-radius: 50%;
-	}
-	.lunar-seal svg {
-		width: 32px;
-		height: 32px;
-		color: var(--accent);
-		stroke-width: 1.3;
-		transform: none;
-	}
-	.lunar-seal .sleep-readout {
-		display: grid;
-		align-content: center;
-		flex: 1;
-		min-width: 0;
-		gap: 0;
-	}
-	.lunar-seal .sleep-duration {
-		flex: none;
-		height: 24px;
-	}
-	.lunar-seal .sleep-duration input {
-		height: 24px;
-		font-size: 22px;
-		line-height: 24px;
-		text-align: left;
-	}
-	.lunar-seal .sleep-times {
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		color: #8fa1b7;
-		font-size: 10px;
-	}
-	.lunar-seal .sleep-times input {
-		height: 16px;
-		line-height: 16px;
-		text-align: left;
 	}
 	.lunar-seal input:invalid {
 		outline-color: #ff8c8c;

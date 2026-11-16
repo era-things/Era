@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('compact sleep edits, pinning and records survive reload', async ({ page }, testInfo) => {
+test('full-row sleep edits, pinning and records survive reload', async ({ page }, testInfo) => {
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
@@ -31,12 +31,24 @@ test('compact sleep edits, pinning and records survive reload', async ({ page },
 	const durationBox = (await widget.getByRole('group', { name: 'Sleep duration' }).boundingBox())!;
 	expect(endBox.y).toBe(startBox.y);
 	expect(endBox.x).toBeGreaterThan(startBox.x + startBox.width);
-	expect(startBox.y).toBeGreaterThanOrEqual(durationBox.y + durationBox.height);
-	expect((await widget.boundingBox())!.height).toBe(52);
+	expect(startBox.x).toBeGreaterThanOrEqual(durationBox.x + durationBox.width);
+	expect(
+		Math.abs(startBox.y + startBox.height / 2 - (durationBox.y + durationBox.height / 2))
+	).toBeLessThan(1);
+	expect((await widget.boundingBox())!.height).toBe(26);
 	expect((await widget.boundingBox())!.width).toBe(
 		(await today.locator('.day-widgets').boundingBox())!.width
 	);
 	expect(await widget.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false);
+	for (const name of ['Weight', 'Steps']) {
+		await today.getByRole('button', { name: 'Add widget', exact: true }).click();
+		const choice = today.getByRole('button', { name, exact: true });
+		if (await choice.count()) await choice.click();
+		else await today.getByRole('button', { name: 'Add widget', exact: true }).click();
+	}
+	expect((await widget.boundingBox())!.width).toBe(
+		(await today.locator('.day-widgets').boundingBox())!.width
+	);
 	await edit(hours, '8');
 	await expect(end).toHaveValue('08:00');
 	await edit(minutes, '15');

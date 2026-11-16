@@ -8,6 +8,7 @@
 	} from '../widgets';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import Chevron from './Chevron.svelte';
+	import { isDayTimeWidget } from '../time';
 	let {
 		definition,
 		settings,
@@ -40,6 +41,7 @@
 <div
 	class="appearance-selector"
 	class:has-skins={hasSkins}
+	class:time-preview={isDayTimeWidget(definition.id)}
 	role="group"
 	aria-label={definition.name + ' appearance'}
 >
@@ -69,13 +71,16 @@
 
 <style>
 	.appearance-selector {
+		--preview-height: 52px;
 		display: grid;
-		grid-template-rows: minmax(52px, auto);
-		width: min(300px, 100%);
-		justify-self: center;
+		grid-template-rows: minmax(var(--preview-height), auto);
+		width: 100%;
 	}
 	.has-skins {
-		grid-template-rows: minmax(52px, auto) 32px;
+		grid-template-rows: minmax(var(--preview-height), auto) 32px;
+	}
+	.time-preview {
+		--preview-height: 26px;
 	}
 	.measure-preview {
 		min-width: 0;
@@ -85,7 +90,7 @@
 		position: relative;
 		display: grid;
 		align-items: center;
-		min-height: 52px;
+		min-height: var(--preview-height);
 		overflow: hidden;
 	}
 	.preview-slide {

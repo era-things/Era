@@ -12,6 +12,7 @@
 	import { paletteFor, setDayMeasure, type MeasureValue } from '../measures';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import DayMeasures from './DayMeasures.svelte';
+	import { isDayTimeWidget } from '../time';
 	let {
 		data,
 		day,
@@ -25,6 +26,7 @@
 	} = $props();
 	let choosing = $state(false);
 	const visible = $derived(WIDGETS.filter(({ id }) => isVisible(data, day, id)));
+	const timeWidgets = $derived(visible.filter(({ id }) => isDayTimeWidget(id)));
 	const history = $derived(previousNutritionItems(data.nutrition, day));
 	const measureValues = $derived(data.measures.days[day] ?? {});
 	const attached = $derived(
@@ -54,12 +56,8 @@
 <section class="day-widget-stack" aria-label="Day widgets">
 	{#if visible.some(({ id }) => id !== 'note')}
 		<div class="day-widgets">
-			{#each visible.filter(({ id }) => id !== 'note') as definition (definition.id)}
-				<div
-					class:compact-widget={definition.compact}
-					class:full-widget={!definition.compact}
-					class:sleep-compact={definition.id === 'sleep'}
-				>
+			{#each visible.filter(({ id }) => id !== 'note' && !isDayTimeWidget(id)) as definition (definition.id)}
+				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
 					<BuiltInWidget
 						widget={dayWidget(data, day, definition.id)}
 						{history}
@@ -67,6 +65,18 @@
 					/>
 				</div>
 			{/each}
+			{#if timeWidgets.length}
+				<div class="full-widget time-widget-block" role="group" aria-label="Hours in a day">
+					{#each timeWidgets as definition (definition.id)}
+						<div class="time-widget-row">
+							<BuiltInWidget
+								widget={dayWidget(data, day, definition.id)}
+								onchange={(value) => onchange(setWidgetValue(data, day, definition.id, value))}
+							/>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 	{#if attached.length}<DayMeasures
@@ -122,8 +132,13 @@
 		flex: 1 1 calc((100% - 20px) / 3);
 		min-width: min(120px, 100%);
 	}
-	.sleep-compact {
-		min-width: min(148px, 100%);
+	.time-widget-block {
+		overflow: clip;
+		border-radius: 4px;
+	}
+	.time-widget-row :global(.sleep-widget),
+	.time-widget-row :global(.time-widget) {
+		border-radius: 0;
 	}
 	button {
 		border: 0;

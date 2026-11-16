@@ -3,6 +3,7 @@ import type { Measure, MeasureValue } from './measures';
 import type { FoodItem } from './nutrition';
 import type { Reminder } from './reminders';
 import { WIDGETS, emptyLayout, type WidgetId, type CounterId } from './widgets';
+import type { TimeId } from './time';
 
 export type Section = keyof CalendarData;
 export type Change = { key: string; before: string | null; after: string | null };
@@ -13,6 +14,7 @@ export const emptyCalendar = (): CalendarData => ({
 	nutrition: {},
 	counters: {},
 	sleep: {},
+	time: {},
 	layout: emptyLayout(),
 	reminders: []
 });
@@ -24,6 +26,8 @@ export function records(data: CalendarData) {
 		rows.set(JSON.stringify(path), JSON.stringify(value));
 	for (const [day, value] of Object.entries(data.notes)) put(value, 'note', day);
 	for (const [day, value] of Object.entries(data.sleep)) put(value, 'sleep', day);
+	for (const [day, values] of Object.entries(data.time))
+		for (const [id, value] of Object.entries(values)) put(value, 'time-value', day, id);
 	for (const [day, value] of Object.entries(data.emojis)) put(value, 'emoji', day);
 	for (const def of data.measures.definitions) put(def, 'measure', def.id);
 	for (const [day, values] of Object.entries(data.measures.days))
@@ -57,6 +61,9 @@ export function decode(rows: { key: string; value: string }[]): CalendarData {
 		const [kind, day, id] = JSON.parse(row.key);
 		const value = JSON.parse(row.value);
 		switch (kind) {
+			case 'time-value':
+				(data.time[day] ??= {})[id as TimeId] = value;
+				break;
 			case 'sleep':
 				data.sleep[day] = value;
 				break;

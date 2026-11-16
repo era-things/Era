@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>Era · Hours in a day</title>
+		<style>
+			:root {
+				font:
+					13px 'Segoe UI',
+					sans-serif;
+				background: #f5f6f3;
+				color: #28352f;
+				font-synthesis: none;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 12px;
+			}
+			.time-block {
+				width: 100%;
+				border: 1px solid #c2cbc5;
+				border-radius: 5px;
+				overflow: clip;
+			}
+			.time-entry {
+				--ink: #28352f;
+				--muted: #626e66;
+				--accent: #23695b;
+				color: var(--ink);
+				background: #e9ede6;
+			}
+			.time-entry + .time-entry {
+				border-top: 1px solid #ffffff24;
+			}
+			.time-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				height: 26px;
+				padding: 2px 7px;
+				font-variant-numeric: tabular-nums;
+			}
+			.activity-icon {
+				display: block;
+				width: 16px;
+				height: 16px;
+				flex: 0 0 16px;
+				color: var(--accent);
+			}
+			.duration {
+				flex: 0 0 65px;
+				display: flex;
+				align-items: baseline;
+				gap: 3px;
+				height: 20px;
+			}
+			.duration label {
+				display: flex;
+				align-items: baseline;
+				gap: 1px;
+			}
+			.duration input {
+				width: 2ch;
+				height: 20px;
+				padding: 0;
+				border: 0;
+				border-radius: 2px;
+				background: transparent;
+				color: var(--ink);
+				font: inherit;
+				font-size: 16px;
+				line-height: 20px;
+				text-align: left;
+				font-variant-numeric: tabular-nums;
+				appearance: textfield;
+				-moz-appearance: textfield;
+			}
+			.duration .hours {
+				width: auto;
+				min-width: 1ch;
+				max-width: 2ch;
+				field-sizing: content;
+			}
+			.duration span {
+				font-size: 10px;
+				color: var(--muted);
+			}
+			input::-webkit-inner-spin-button,
+			input::-webkit-outer-spin-button {
+				-webkit-appearance: none;
+				margin: 0;
+			}
+			.info {
+				display: flex;
+				align-items: center;
+				justify-content: flex-end;
+				flex: 1;
+				gap: 5px;
+				min-width: 0;
+				color: var(--muted);
+				font-size: 11px;
+			}
+			.info input {
+				width: 5ch;
+				min-width: 0;
+				padding: 0;
+				border: 0;
+				border-radius: 2px;
+				background: transparent;
+				color: var(--muted);
+				font: inherit;
+				font-variant-numeric: tabular-nums;
+			}
+			input:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 0;
+			}
+			input:invalid {
+				outline: 2px solid #db6868;
+			}
+			.sleep {
+				--ink: #f4efdc;
+				--muted: #bdcbdc;
+				--accent: #e6d399;
+				background: #263750;
+			}
+			.phone {
+				--ink: #edeaf5;
+				--muted: #beb7d2;
+				--accent: #b7abd6;
+				background: #393449;
+			}
+			.gym {
+				--ink: #e5efe9;
+				--muted: #b4cabe;
+				--accent: #a7c9ad;
+				background: #334c45;
+			}
+			.reading {
+				--ink: #3f4c3f;
+				--muted: #5f715d;
+				--accent: #506c4f;
+				background: #e5eadc;
+			}
+			.movie {
+				--ink: #f2e8e9;
+				--muted: #d2bfc7;
+				--accent: #e0b6c4;
+				background: #513d49;
+			}
+			.steam {
+				--ink: #ebf4fa;
+				--muted: #a9c8dc;
+				--accent: #b0d7ed;
+				background: #233e52;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="time-block" aria-label="Hours in a day">
+			<section class="time-entry sleep" aria-label="Sleep">
+				<div class="time-row">
+					<svg
+						class="activity-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M17 3a9 9 0 1 0 4 15A9 9 0 0 1 17 3Z" fill="currentColor" fill-opacity=".12" />
+					</svg>
+					<div class="duration" role="group" aria-label="Sleep">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Sleep hours"
+								min="0"
+								max="23"
+								step="1"
+								value="7"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Sleep minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="30"
+							/><span>m</span></label
+						>
+					</div>
+					<div class="info">
+						<input
+							name="start"
+							type="text"
+							inputmode="numeric"
+							aria-label="Sleep start time"
+							maxlength="5"
+							value="23:00"
+						/><span aria-hidden="true">→</span
+						><input
+							name="end"
+							type="text"
+							inputmode="numeric"
+							aria-label="Sleep wake-up time"
+							maxlength="5"
+							value="06:30"
+						/>
+					</div>
+				</div>
+			</section>
+			<section class="time-entry phone" aria-label="Phone screen time">
+				<div class="time-row">
+					<svg
+						class="activity-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<rect x="6" y="2" width="12" height="20" rx="2.5" />
+						<path d="M10 5h4M11 19h2" />
+						<path d="M9 9h6v6H9Z" stroke-opacity=".45" />
+					</svg>
+					<div class="duration" role="group" aria-label="Phone screen time">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Phone screen time hours"
+								min="0"
+								max="23"
+								step="1"
+								value="2"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Phone screen time minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="15"
+							/><span>m</span></label
+						>
+					</div>
+				</div>
+			</section>
+			<section class="time-entry gym" aria-label="Gym time">
+				<div class="time-row">
+					<svg
+						class="activity-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M7 12h10M3 9v6m4-9v12M21 9v6m-4-9v12M3 12h4m10 0h4" stroke-width="2" />
+					</svg>
+					<div class="duration" role="group" aria-label="Gym time">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Gym time hours"
+								min="0"
+								max="23"
+								step="1"
+								value="1"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Gym time minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="10"
+							/><span>m</span></label
+						>
+					</div>
+				</div>
+			</section>
+			<section class="time-entry reading" aria-label="Reading time">
+				<div class="time-row">
+					<svg
+						class="activity-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path
+							d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15M5 7h3M5 10h3m8-3h3m-3 3h3"
+						/>
+					</svg>
+					<div class="duration" role="group" aria-label="Reading time">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Reading time hours"
+								min="0"
+								max="23"
+								step="1"
+								value="0"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Reading time minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="45"
+							/><span>m</span></label
+						>
+					</div>
+				</div>
+			</section>
+			<section class="time-entry movie" aria-label="Movie time">
+				<div class="time-row">
+					<svg
+						class="activity-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<rect x="2" y="4" width="20" height="16" rx="1.5" />
+						<path d="M6 4v16m12-16v16M2 8h4m-4 4h4m-4 4h4m12-8h4m-4 4h4m-4 4h4" />
+						<path d="m10 9 5 3-5 3Z" fill="currentColor" stroke="none" />
+					</svg>
+					<div class="duration" role="group" aria-label="Movie time">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Movie time hours"
+								min="0"
+								max="23"
+								step="1"
+								value="1"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Movie time minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="56"
+							/><span>m</span></label
+						>
+					</div>
+				</div>
+			</section>
+			<section class="time-entry steam" aria-label="Steam game time">
+				<div class="time-row">
+					<svg
+						class="activity-icon steam-logo"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+						aria-hidden="true"
+					>
+						<path
+							d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"
+						/>
+					</svg>
+					<div class="duration" role="group" aria-label="Steam game time">
+						<label
+							><input
+								class="hours"
+								type="number"
+								aria-label="Steam game time hours"
+								min="0"
+								max="23"
+								step="1"
+								value="1"
+							/><span>h</span></label
+						><label
+							><input
+								class="minutes"
+								type="number"
+								aria-label="Steam game time minutes"
+								min="0"
+								max="59"
+								step="1"
+								value="30"
+							/><span>m</span></label
+						>
+					</div>
+				</div>
+			</section>
+		</div>
+		<script>
+			for (const entry of document.querySelectorAll('.time-entry')) {
+				for (const input of entry.querySelectorAll('.duration input')) {
+					input.addEventListener('focus', () => input.select());
+					input.addEventListener('change', () => {
+						if (!input.validity.valid) input.reportValidity();
+					});
+				}
+			}
+			// Sleep demonstrates the established linked endpoint behavior.
+			const sleep = document.querySelector('.sleep');
+			if (sleep) {
+				const start = sleep.querySelector('[name=start]'),
+					end = sleep.querySelector('[name=end]');
+				const hours = sleep.querySelector('.hours'),
+					mins = sleep.querySelector('.minutes');
+				let startMinutes = 1380,
+					endMinutes = 390;
+				const fmt = (n) =>
+					`${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+				for (const field of [start, end]) {
+					field.addEventListener('focus', () => field.select());
+					field.addEventListener('input', () => field.setCustomValidity(''));
+					field.addEventListener('change', () => {
+						const m = /^(\d{1,2}):?([0-5]\d)$/.exec(field.value.trim());
+						if (!m || +m[1] > 23) {
+							field.setCustomValidity('Enter a time from 0000 to 2359.');
+							field.reportValidity();
+							return;
+						}
+						const n = +m[1] * 60 + +m[2];
+						if (field === start) startMinutes = n;
+						else endMinutes = n;
+						field.value = fmt(n);
+						const duration = (endMinutes - startMinutes + 1440) % 1440;
+						hours.value = Math.floor(duration / 60);
+						mins.value = String(duration % 60).padStart(2, '0');
+					});
+				}
+				for (const field of [hours, mins])
+					field.addEventListener('change', () => {
+						if (!hours.value || !mins.value || !hours.validity.valid || !mins.validity.valid)
+							return;
+						endMinutes = (startMinutes + +hours.value * 60 + +mins.value) % 1440;
+						end.value = fmt(endMinutes);
+					});
+			}
+		</script>
+	</body>
+</html>

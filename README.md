@@ -2,6 +2,13 @@
 
 A personal calendar with a SvelteKit UI and a Bun server. Notes, emojis, measures, nutrition and reminders are saved in SQLite. Each browser remembers its own view and scroll position.
 
+UI conventions and widget patterns are documented in [DESIGN.md](DESIGN.md).
+
+Sleep, phone screen time, gym, reading, movies, and Steam game time appear together
+as 26px rows. Add them per day through + or pin them in Layout. Activity durations
+are stored as whole minutes (up to 24 hours); clearing a value keeps its widget
+attached. Phone, Gym, Reading, Movie, and Steam show only an icon and duration.
+
 ## Development
 
 Use Bun 1.4.4. Run `bun install --frozen-lockfile`, then `bun run dev`.

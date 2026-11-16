@@ -77,7 +77,11 @@
 		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
 			{#each WIDGETS as definition}
 				{@const settings = layout.widgets[definition.id]}
-				<div class="built-in-row" class:pinned={settings.pinned}>
+				<div
+					class="built-in-row"
+					class:pinned={settings.pinned}
+					class:has-skins={definition.skins.length > 1}
+				>
 					<div class="built-in-controls">
 						<span>{definition.name}</span>
 						<button
@@ -91,8 +95,8 @@
 							<svg
 								aria-hidden="true"
 								viewBox="0 0 24 24"
-								width="16"
-								height="16"
+								width="14"
+								height="14"
 								fill={settings.pinned ? 'currentColor' : 'none'}
 								stroke="currentColor"
 								stroke-width="1.5"
@@ -198,7 +202,7 @@
 	.layout-manager {
 		flex: 1;
 		overflow: auto;
-		padding: 24px;
+		padding: 18px 24px 24px;
 	}
 	.manager-heading,
 	.built-in-measures,
@@ -208,10 +212,10 @@
 		margin-inline: auto;
 	}
 	.built-in-measures {
-		margin-bottom: 28px;
+		margin-bottom: 20px;
 	}
 	.built-in-measures > h2 {
-		margin-bottom: 16px;
+		margin-bottom: 12px;
 	}
 	.built-in-cards {
 		display: grid;
@@ -233,7 +237,7 @@
 		align-content: start;
 		gap: 6px;
 		min-width: 0;
-		padding: 12px;
+		padding: 6px 12px 8px;
 		border: 1px solid var(--line);
 		border-radius: 8px;
 		background: var(--paper);
@@ -242,25 +246,32 @@
 	.built-in-row.pinned {
 		border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
 	}
+	.built-in-row.has-skins {
+		padding-bottom: 4px;
+	}
 	.built-in-controls {
 		width: 100%;
-		display: flex;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 24px;
 		align-items: center;
-		justify-content: space-between;
 		gap: 8px;
 	}
 	.built-in-controls > span {
-		flex: 1;
 		font-weight: 600;
+		line-height: 24px;
 	}
 
 	.pin-button {
 		display: grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
+		width: 24px;
+		height: 24px;
 		padding: 0;
 		color: var(--muted);
+		justify-self: end;
+	}
+	.pin-button svg {
+		display: block;
 	}
 	.pin-button[aria-pressed='true'] {
 		color: var(--accent);
