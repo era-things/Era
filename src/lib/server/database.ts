@@ -12,6 +12,7 @@ import { normalizeDayNotes } from '../day-notes';
 import { normalizeNutrition } from '../nutrition';
 import { normalizeCounters } from '../counters';
 import { normalizeLayout } from '../layout';
+import { normalizeSleep } from '../sleep';
 
 export function validate(data: unknown): asserts data is CalendarData {
 	if (!isRecord(data)) throw new Error('Invalid calendar data');
@@ -21,6 +22,7 @@ export function validate(data: unknown): asserts data is CalendarData {
 		measures: normalizeMeasures(data.measures),
 		nutrition: normalizeNutrition(data.nutrition),
 		counters: normalizeCounters(data.counters),
+		sleep: normalizeSleep(data.sleep),
 		layout: normalizeLayout(data.layout),
 		reminders: normalizeReminders(data.reminders)
 	};

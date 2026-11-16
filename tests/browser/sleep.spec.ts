@@ -1,0 +1,77 @@
+import { test, expect } from '@playwright/test';
+
+test('compact sleep edits, pinning and records survive reload', async ({ page }, testInfo) => {
+	await page.goto('/');
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	await page.getByRole('tab', { name: 'Today', exact: true }).click();
+	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	await today.getByRole('button', { name: 'Add widget', exact: true }).click();
+	await today.getByRole('button', { name: 'Sleep', exact: true }).click();
+	const widget = today.getByRole('region', { name: 'Sleep', exact: true });
+	const start = widget.getByRole('textbox', { name: 'Sleep start time' });
+	const end = widget.getByRole('textbox', { name: 'Sleep wake-up time' });
+	const hours = widget.getByRole('spinbutton', { name: 'Sleep hours' });
+	const minutes = widget.getByRole('spinbutton', { name: 'Sleep minutes' });
+	async function edit(field: typeof start, text: string) {
+		await field.fill(text);
+		await field.press('Tab');
+	}
+	await expect(start).toHaveValue('');
+	await expect(hours).toHaveValue('7');
+	await expect(minutes).toHaveValue('30');
+	await edit(start, '2315');
+	await expect(start).toHaveValue('23:15');
+	await expect(end).toHaveValue('06:45');
+	await edit(end, '700');
+	await expect(end).toHaveValue('07:00');
+	await expect(hours).toHaveValue('7');
+	await expect(minutes).toHaveValue('45');
+	const startBox = (await start.boundingBox())!;
+	const endBox = (await end.boundingBox())!;
+	const durationBox = (await widget.getByRole('group', { name: 'Sleep duration' }).boundingBox())!;
+	expect(endBox.y).toBe(startBox.y);
+	expect(endBox.x).toBeGreaterThan(startBox.x + startBox.width);
+	expect(startBox.y).toBeGreaterThanOrEqual(durationBox.y + durationBox.height);
+	expect((await widget.boundingBox())!.height).toBe(52);
+	expect((await widget.boundingBox())!.width).toBe(
+		(await today.locator('.day-widgets').boundingBox())!.width
+	);
+	expect(await widget.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false);
+	await edit(hours, '8');
+	await expect(end).toHaveValue('08:00');
+	await edit(minutes, '15');
+	await expect(end).toHaveValue('07:30');
+	await edit(start, '22:15');
+	await expect(hours).toHaveValue('9');
+	await edit(end, '06:00');
+	await expect(hours).toHaveValue('7');
+	await expect(minutes).toHaveValue('45');
+	await edit(start, '24:00');
+	expect(await start.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(false);
+	await edit(start, '22:15');
+	await page.reload();
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	await page.getByRole('tab', { name: 'Today', exact: true }).click();
+	await expect(start).toHaveValue('22:15');
+	await expect(end).toHaveValue('06:00');
+	await expect(hours).toHaveValue('7');
+	await expect(minutes).toHaveValue('45');
+	await page.screenshot({ path: testInfo.outputPath('sleep-compact.png') });
+	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+	const preview = page.getByRole('group', { name: 'Sleep appearance', exact: true });
+	await expect(preview.getByText('Lunar seal', { exact: true })).toBeVisible();
+	await preview.getByRole('button', { name: 'Next Sleep appearance' }).click();
+	await expect(preview.getByText('Simple', { exact: true })).toBeVisible();
+	await preview.getByRole('button', { name: 'Next Sleep appearance' }).click();
+	await expect(preview.getByText('Lunar seal', { exact: true })).toBeVisible();
+	const pin = page.getByRole('button', { name: 'Pin Sleep', exact: true });
+	await pin.click();
+	await expect(pin).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
+	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
+	await selected.getByRole('button', { name: 'Next day', exact: true }).click();
+	await expect(selected.getByRole('region', { name: 'Sleep', exact: true })).toBeVisible();
+	await expect(selected.getByRole('textbox', { name: 'Sleep start time' })).toHaveValue('');
+	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+	await pin.click();
+});

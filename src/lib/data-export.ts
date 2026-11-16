@@ -5,6 +5,7 @@ import type { NutritionDays } from './nutrition';
 import type { DayNotes } from './day-notes';
 import type { CounterDays } from './counters';
 import type { LayoutState } from './widgets';
+import type { SleepDays } from './sleep';
 
 export type CalendarData = {
 	emojis: DayEmojis;
@@ -13,6 +14,7 @@ export type CalendarData = {
 	nutrition: NutritionDays;
 	notes: DayNotes;
 	counters: CounterDays;
+	sleep: SleepDays;
 	layout: LayoutState;
 };
 

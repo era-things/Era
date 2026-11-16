@@ -4,6 +4,7 @@
 	import NutritionPanel from './NutritionPanel.svelte';
 	import MarkdownNote from './MarkdownNote.svelte';
 	import CounterWidget from './CounterWidget.svelte';
+	import SleepWidget from './SleepWidget.svelte';
 	let {
 		widget,
 		history = [],
@@ -15,7 +16,9 @@
 	} = $props();
 </script>
 
-{#if widget.id === 'nutrition'}
+{#if widget.id === 'sleep'}
+	<SleepWidget value={widget.value} skin={widget.skin} onchange={(value) => onchange(value)} />
+{:else if widget.id === 'nutrition'}
 	<NutritionPanel items={widget.value} {history} onchange={(items) => onchange(items) !== false} />
 {:else if widget.id === 'note'}
 	<MarkdownNote value={widget.value} onchange={(text) => onchange(text)} />

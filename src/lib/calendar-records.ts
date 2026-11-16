@@ -12,6 +12,7 @@ export const emptyCalendar = (): CalendarData => ({
 	measures: { definitions: [], days: {} },
 	nutrition: {},
 	counters: {},
+	sleep: {},
 	layout: emptyLayout(),
 	reminders: []
 });
@@ -22,6 +23,7 @@ export function records(data: CalendarData) {
 	const put = (value: unknown, ...path: string[]) =>
 		rows.set(JSON.stringify(path), JSON.stringify(value));
 	for (const [day, value] of Object.entries(data.notes)) put(value, 'note', day);
+	for (const [day, value] of Object.entries(data.sleep)) put(value, 'sleep', day);
 	for (const [day, value] of Object.entries(data.emojis)) put(value, 'emoji', day);
 	for (const def of data.measures.definitions) put(def, 'measure', def.id);
 	for (const [day, values] of Object.entries(data.measures.days))
@@ -55,6 +57,9 @@ export function decode(rows: { key: string; value: string }[]): CalendarData {
 		const [kind, day, id] = JSON.parse(row.key);
 		const value = JSON.parse(row.value);
 		switch (kind) {
+			case 'sleep':
+				data.sleep[day] = value;
+				break;
 			case 'note':
 				data.notes[day] = value;
 				break;

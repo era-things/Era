@@ -55,7 +55,11 @@
 	{#if visible.some(({ id }) => id !== 'note')}
 		<div class="day-widgets">
 			{#each visible.filter(({ id }) => id !== 'note') as definition (definition.id)}
-				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
+				<div
+					class:compact-widget={definition.compact}
+					class:full-widget={!definition.compact}
+					class:sleep-compact={definition.id === 'sleep'}
+				>
 					<BuiltInWidget
 						widget={dayWidget(data, day, definition.id)}
 						{history}
@@ -117,6 +121,9 @@
 	.compact-widget {
 		flex: 1 1 calc((100% - 20px) / 3);
 		min-width: min(120px, 100%);
+	}
+	.sleep-compact {
+		min-width: min(148px, 100%);
 	}
 	button {
 		border: 0;

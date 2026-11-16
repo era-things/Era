@@ -6,6 +6,7 @@ import { emptyLayout, setWidgetSettings } from '../src/lib/widgets';
 
 test('export preserves all dates, zero/false values, emoji and reminder completion history', () => {
 	const data: CalendarData = {
+		sleep: { '2000-01-01': { start: 1395, end: 420, duration: 465 } },
 		layout: setWidgetSettings(emptyLayout(), 'weight', { pinned: true, skin: 'display' }),
 		counters: { '2000-01-01': { weight: 72.5, steps: 0 } },
 		notes: { '2000-01-01': 'First line\nSecond line', '2040-12-31': '  Keep spacing  ' },

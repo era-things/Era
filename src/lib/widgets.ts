@@ -2,6 +2,7 @@ import type { CalendarData } from './data-export';
 import { isDateKey, type DateKey } from './calendar';
 import { setNutritionItems, validFoodItem, type FoodItem } from './nutrition';
 import { setDayNote } from './day-notes';
+import { emptySleep, validSleep, type Sleep } from './sleep';
 
 export const WIDGETS = [
 	{
@@ -51,6 +52,20 @@ export const WIDGETS = [
 		sample: 8200
 	},
 	{
+		id: 'sleep',
+		name: 'Sleep',
+		kind: 'sleep',
+		compact: true,
+		pinned: false,
+		skin: 'lunar-seal',
+		skins: [
+			{ id: 'simple', name: 'Simple' },
+			{ id: 'lunar-seal', name: 'Lunar seal' }
+		],
+		initial: emptySleep(),
+		sample: { start: 1395, end: 405, duration: 450 } as Sleep
+	},
+	{
 		id: 'note',
 		name: 'Note',
 		kind: 'note',
@@ -76,6 +91,7 @@ export type LayoutState = {
 	widgets: { [K in WidgetId]: { pinned: boolean; skin: WidgetSkin<K> } };
 };
 export type WidgetValues = {
+	sleep: Sleep;
 	nutrition: FoodItem[];
 	weight: number | null;
 	steps: number | null;
@@ -86,7 +102,7 @@ export type WidgetInstance = {
 }[WidgetId];
 export type WidgetData = Pick<
 	CalendarData,
-	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures'
+	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures' | 'sleep'
 >;
 export const widgetFor = <K extends WidgetId>(id: K) =>
 	WIDGETS.find((widget) => widget.id === id)! as Extract<Widget, { id: K }>;
@@ -114,11 +130,13 @@ export function setWidgetSettings<K extends WidgetId>(
 	return { widgets: { ...layout.widgets, [id]: { ...layout.widgets[id], ...patch } } };
 }
 export function widgetValue(data: WidgetData, day: DateKey, id: WidgetId) {
-	return id === 'nutrition'
-		? data.nutrition[day]
-		: id === 'note'
-			? data.notes[day]
-			: data.counters[day]?.[id];
+	return id === 'sleep'
+		? data.sleep[day]
+		: id === 'nutrition'
+			? data.nutrition[day]
+			: id === 'note'
+				? data.notes[day]
+				: data.counters[day]?.[id];
 }
 export const isAttached = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	widgetValue(data, day, id) !== undefined;
@@ -139,12 +157,15 @@ export function setWidgetValue<T extends WidgetData, K extends WidgetId>(
 	value: WidgetValues[K]
 ): T {
 	const valid =
-		id === 'nutrition'
-			? Array.isArray(value) && value.every(validFoodItem)
-			: id === 'note'
-				? typeof value === 'string'
-				: value === null || validCounterValue(id, value);
+		id === 'sleep'
+			? validSleep(value)
+			: id === 'nutrition'
+				? Array.isArray(value) && value.every(validFoodItem)
+				: id === 'note'
+					? typeof value === 'string'
+					: value === null || validCounterValue(id, value);
 	if (!isDateKey(day) || !valid) return data;
+	if (id === 'sleep') return { ...data, sleep: { ...data.sleep, [day]: value as Sleep } };
 	if (id === 'nutrition')
 		return { ...data, nutrition: setNutritionItems(data.nutrition, day, value as FoodItem[]) };
 	if (id === 'note') return { ...data, notes: setDayNote(data.notes, day, value as string) };

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Era sleep · Catnap</title>
+		<style>
+			:root {
+				font:
+					13px 'Segoe UI',
+					sans-serif;
+				color: #28352f;
+				background: #f5f6f3;
+				font-synthesis: none;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 12px;
+			}
+			.sleep-widget {
+				--ink: #28352f;
+				--muted: #626e66;
+				--focus: #23695b;
+				position: relative;
+				isolation: isolate;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				width: 100%;
+				min-width: 124px;
+				height: 52px;
+				padding: 7px;
+				border: 1px solid;
+				border-radius: 5px;
+				font-variant-numeric: tabular-nums;
+			}
+			.sleep-widget > :not(.scenery) {
+				position: relative;
+				z-index: 1;
+			}
+			.art {
+				display: block;
+				flex: 0 0 20px;
+				width: 20px;
+				height: 24px;
+				color: var(--muted);
+			}
+			.duration {
+				display: flex;
+				align-items: baseline;
+				flex: 1;
+				min-width: 0;
+				gap: 3px;
+				height: 30px;
+			}
+			.duration label {
+				display: flex;
+				align-items: baseline;
+				gap: 1px;
+				min-width: 0;
+			}
+			.duration span {
+				font-size: 10px;
+				color: var(--muted);
+			}
+			.sleep-widget input {
+				min-width: 0;
+				padding: 0;
+				border: 0;
+				border-radius: 2px;
+				color: var(--ink);
+				background: transparent;
+				font: inherit;
+				font-variant-numeric: tabular-nums;
+			}
+			.duration input {
+				width: 2ch;
+				height: 30px;
+				font-size: 20px;
+				line-height: 30px;
+				text-align: right;
+				appearance: textfield;
+				-moz-appearance: textfield;
+			}
+			.duration .hours {
+				field-sizing: content;
+				width: auto;
+				min-width: 1ch;
+				max-width: 2ch;
+			}
+			.sleep-widget input::-webkit-inner-spin-button,
+			.sleep-widget input::-webkit-outer-spin-button {
+				-webkit-appearance: none;
+				margin: 0;
+			}
+			.times {
+				display: grid;
+				flex-shrink: 0;
+			}
+			.times input {
+				width: 5ch;
+				height: 17px;
+				font-size: 11px;
+				line-height: 17px;
+				text-align: right;
+				color: var(--muted);
+			}
+			.sleep-widget input:focus-visible {
+				outline: 2px solid var(--focus);
+				outline-offset: 1px;
+			}
+			.sleep-widget input:invalid {
+				outline: 2px solid #c94747;
+			}
+			.sleep-widget input::placeholder {
+				color: var(--muted);
+				opacity: 1;
+			}
+			.scenery {
+				position: absolute;
+				inset: 0;
+				z-index: 0;
+				pointer-events: none;
+				border-radius: inherit;
+				overflow: hidden;
+			}
+
+			.catnap {
+				--ink: #554634;
+				--muted: #7e6c56;
+				--focus: #865f38;
+				border-color: #cdbda4;
+				border-radius: 7px;
+				background: #eee5d6;
+			}
+			.catnap .scenery {
+				background-image: repeating-linear-gradient(25deg, transparent 0 3px, #aa8b6210 3px 4px);
+			}
+			.catnap .art {
+				color: #916e42;
+			}
+		</style>
+	</head>
+	<body>
+		<section class="sleep-widget catnap" aria-label="Sleep">
+			<div class="scenery" aria-hidden="true"></div>
+			<svg
+				class="art"
+				aria-hidden="true"
+				viewBox="0 0 24 28"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.3"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<path d="M3 17c-2 6 2 9 9 9s11-3 10-8c-.7-3.5-4-5-7-4" fill="#d3b689" />
+				<path d="m4 16 1-8 5 4 5-2 4 6c0 4-4 7-8 6-4-.3-7-2-7-6Z" fill="#e2cba7" />
+				<path d="m7 16 2 1 2-1m3 0 2 1 2-1M20 21c-1-4-7-4-8 0s4 5 7 2" />
+				<path d="m20 4 2-1-2-1h2" stroke-width="1" />
+			</svg>
+			<div class="duration" role="group" aria-label="Sleep duration">
+				<label
+					><input
+						class="hours"
+						name="hours"
+						type="number"
+						aria-label="Sleep hours"
+						min="0"
+						max="23"
+						step="1"
+						value="7"
+						placeholder="—"
+					/><span>h</span></label
+				>
+				<label
+					><input
+						name="minutes"
+						type="number"
+						aria-label="Sleep minutes"
+						min="0"
+						max="59"
+						step="1"
+						value="30"
+						placeholder="—"
+					/><span>m</span></label
+				>
+			</div>
+			<div class="times">
+				<input
+					name="start"
+					type="text"
+					inputmode="numeric"
+					aria-label="Sleep start time"
+					maxlength="5"
+					value="23:00"
+					placeholder="--:--"
+					spellcheck="false"
+				/>
+				<input
+					name="end"
+					type="text"
+					inputmode="numeric"
+					aria-label="Sleep wake-up time"
+					maxlength="5"
+					value="06:30"
+					placeholder="--:--"
+					spellcheck="false"
+				/>
+			</div>
+		</section>
+		<script>
+			// Prototype only: local clock intervals under 24 hours; no storage.
+			const widget = document.querySelector('.sleep-widget');
+			const fields = Object.fromEntries(
+				[...widget.querySelectorAll('input')].map((input) => [input.name, input])
+			);
+			const state = { start: 1380, end: 390, duration: 450 };
+			const wrap = (n) => ((n % 1440) + 1440) % 1440;
+			const time = (n) =>
+				n === null
+					? ''
+					: `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+			function render() {
+				fields.hours.value = state.duration === null ? '' : Math.floor(state.duration / 60);
+				fields.minutes.value =
+					state.duration === null ? '' : String(state.duration % 60).padStart(2, '0');
+				fields.start.value = time(state.start);
+				fields.end.value = time(state.end);
+			}
+			for (const input of Object.values(fields)) {
+				input.addEventListener('input', () => input.setCustomValidity(''));
+				input.addEventListener('focus', () => input.select());
+				input.addEventListener('keydown', (event) => {
+					if (event.key === 'Enter') input.blur();
+				});
+				input.addEventListener('change', () => {
+					let field = input.name,
+						value = null;
+					if (field === 'hours' || field === 'minutes') {
+						if (!input.validity.valid) {
+							input.reportValidity();
+							return;
+						}
+						if (input.value !== '')
+							value =
+								field === 'hours'
+									? input.valueAsNumber * 60 + ((state.duration ?? 0) % 60)
+									: Math.floor((state.duration ?? 0) / 60) * 60 + input.valueAsNumber;
+						field = 'duration';
+					} else if (input.value.trim()) {
+						const match = /^(\d{1,2}):?([0-5]\d)$/.exec(input.value.trim());
+						if (!match || +match[1] > 23) {
+							input.setCustomValidity('Enter a time from 0000 to 2359.');
+							input.reportValidity();
+							return;
+						}
+						value = +match[1] * 60 + +match[2];
+					}
+					state[field] = value;
+					if (value === null) {
+						if (field === 'duration') state.end = null;
+						else state.duration = null;
+					} else if (field === 'duration') {
+						if (state.start !== null) state.end = wrap(state.start + value);
+						else if (state.end !== null) state.start = wrap(state.end - value);
+					} else if (state.start !== null && state.end !== null)
+						state.duration = wrap(state.end - state.start);
+					else if (state.duration !== null) {
+						if (state.start !== null) state.end = wrap(state.start + state.duration);
+						else state.start = wrap(state.end - state.duration);
+					}
+					render();
+				});
+			}
+			render();
+		</script>
+	</body>
+</html>
