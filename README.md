@@ -9,6 +9,10 @@ as 26px rows. Add them per day through + or pin them in Layout. Activity duratio
 are stored as whole minutes (up to 24 hours); clearing a value keeps its widget
 attached. Phone, Gym, Reading, Movie, and Steam show only an icon and duration.
 
+Layout's collapsed Widget catalog holds archived widgets. Star one to return it
+to the normal widget list and day's Add widget menu. Archive beside Pin moves it
+back, unpins it, and preserves existing day entries and skin settings.
+
 ## Development
 
 Use Bun 1.4.4. Run `bun install --frozen-lockfile`, then `bun run dev`.

@@ -34,8 +34,9 @@ export function records(data: CalendarData) {
 		for (const [id, value] of Object.entries(values)) put(value, 'value', day, id);
 	for (const widget of WIDGETS) {
 		const settings = data.layout.widgets[widget.id];
-		for (const field of ['pinned', 'skin'] as const)
-			if (settings[field] !== widget[field]) put(settings[field], 'widget', widget.id, field);
+		for (const field of ['pinned', 'skin', 'archived'] as const)
+			if (settings[field] !== (field === 'archived' ? false : widget[field]))
+				put(settings[field], 'widget', widget.id, field);
 	}
 	for (const [day, values] of Object.entries(data.counters))
 		for (const [id, value] of Object.entries(values)) put(value, 'counter-value', day, id);

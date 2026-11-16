@@ -51,7 +51,11 @@ test('one-time layout conversion backs up the database and preserves daily data 
 		try {
 			const data = current.read();
 			validate(data);
-			expect(data.layout.widgets.steps).toEqual({ pinned: true, skin: 'pedometer' });
+			expect(data.layout.widgets.steps).toEqual({
+				pinned: true,
+				skin: 'pedometer',
+				archived: false
+			});
 			expect(data.layout.widgets.weight.skin).toBe('display');
 			expect(data.layout.widgets.nutrition.pinned).toBe(true);
 			expect(data.layout.widgets.note.pinned).toBe(false);

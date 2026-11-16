@@ -103,10 +103,10 @@ export type WidgetSkin<K extends WidgetId = WidgetId> = Extract<
 	Widget,
 	{ id: K }
 >['skins'][number]['id'];
-export type WidgetSettings = { pinned: boolean; skin: WidgetSkin };
+export type WidgetSettings = { pinned: boolean; archived: boolean; skin: WidgetSkin };
 export const COUNTERS = WIDGETS.filter((widget): widget is Counter => widget.kind === 'counter');
 export type LayoutState = {
-	widgets: { [K in WidgetId]: { pinned: boolean; skin: WidgetSkin<K> } };
+	widgets: { [K in WidgetId]: { pinned: boolean; archived: boolean; skin: WidgetSkin<K> } };
 };
 export type WidgetValues = {
 	sleep: Sleep;
@@ -126,7 +126,7 @@ export const widgetFor = <K extends WidgetId>(id: K) =>
 	WIDGETS.find((widget) => widget.id === id)! as Extract<Widget, { id: K }>;
 export const emptyLayout = (): LayoutState => ({
 	widgets: Object.fromEntries(
-		WIDGETS.map(({ id, pinned, skin }) => [id, { pinned, skin }])
+		WIDGETS.map(({ id, pinned, skin }) => [id, { pinned, skin, archived: false }])
 	) as LayoutState['widgets']
 });
 export const validWidgetSkin = (id: WidgetId, skin: unknown): skin is WidgetSkin =>
@@ -145,7 +145,9 @@ export function setWidgetSettings<K extends WidgetId>(
 	id: K,
 	patch: Partial<LayoutState['widgets'][K]>
 ): LayoutState {
-	return { widgets: { ...layout.widgets, [id]: { ...layout.widgets[id], ...patch } } };
+	const next = { ...layout.widgets[id], ...patch };
+	if (next.archived) next.pinned = false;
+	return { widgets: { ...layout.widgets, [id]: next } };
 }
 export function widgetValue(data: WidgetData, day: DateKey, id: WidgetId) {
 	if (isTimeId(id)) return data.time[day]?.[id];
@@ -195,4 +197,6 @@ export function setWidgetValue<T extends WidgetData, K extends WidgetId>(
 	return { ...data, counters: { ...data.counters, [day]: { ...data.counters[day], [id]: value } } };
 }
 export const attachWidget = <T extends WidgetData>(data: T, day: DateKey, id: WidgetId) =>
-	setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId]);
+	data.layout.widgets[id].archived
+		? data
+		: setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId]);

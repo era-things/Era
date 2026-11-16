@@ -36,7 +36,9 @@
 		onchange({ ...data, measures: setDayMeasure(data.measures, day, id, value) });
 	}
 	const choices = $derived([
-		...WIDGETS.filter(({ id }) => !isVisible(data, day, id)).map(({ id, name }) => ({
+		...WIDGETS.filter(
+			({ id }) => !data.layout.widgets[id].archived && !isVisible(data, day, id)
+		).map(({ id, name }) => ({
 			id: 'widget-' + id,
 			name,
 			color: '',

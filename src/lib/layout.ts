@@ -9,9 +9,14 @@ export function normalizeLayout(value: unknown): LayoutState {
 		if (
 			isRecord(settings) &&
 			typeof settings.pinned === 'boolean' &&
+			typeof settings.archived === 'boolean' &&
 			validWidgetSkin(id, settings.skin)
 		)
-			Object.assign(layout.widgets[id], { pinned: settings.pinned, skin: settings.skin });
+			Object.assign(layout.widgets[id], {
+				pinned: settings.pinned && !settings.archived,
+				archived: settings.archived,
+				skin: settings.skin
+			});
 	}
 	return layout;
 }

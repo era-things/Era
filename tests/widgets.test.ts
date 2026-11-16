@@ -45,6 +45,34 @@ test('clearing values keeps attachment and preserves other dates and widget data
 	expect(setWidgetValue(data, day, 'steps', 1.5)).toBe(data);
 });
 
+test('archiving unpins and blocks new attachments without losing existing values or skins', () => {
+	let data = setWidgetValue(emptyCalendar(), day, 'weight', 72.5);
+	data.layout = setWidgetSettings(data.layout, 'weight', { pinned: true, skin: 'display' });
+	data = { ...data, layout: setWidgetSettings(data.layout, 'weight', { archived: true }) };
+	expect(data.layout.widgets.weight).toEqual({ pinned: false, archived: true, skin: 'display' });
+	expect(isVisible(data, day, 'weight')).toBe(true);
+	expect(isVisible(data, '2026-11-16', 'weight')).toBe(false);
+	expect(attachWidget(data, '2026-11-16', 'weight')).toBe(data);
+	const store = openCalendar(':memory:');
+	try {
+		store.apply(changes(emptyCalendar(), data));
+		expect(store.read()).toEqual(data);
+		const restored = {
+			...data,
+			layout: setWidgetSettings(data.layout, 'weight', { archived: false })
+		};
+		store.apply(changes(data, restored));
+		expect(store.read().layout.widgets.weight).toEqual({
+			pinned: false,
+			archived: false,
+			skin: 'display'
+		});
+		expect(store.read().counters[day].weight).toBe(72.5);
+	} finally {
+		store.db.close();
+	}
+});
+
 test('settings, daily values and different widgets merge independently; stale settings roll back', () => {
 	const store = openCalendar(':memory:');
 	try {
@@ -70,7 +98,11 @@ test('settings, daily values and different widgets merge independently; stale se
 		store.apply(changes(initial, setWidgetValue(initial, day, 'weight', 72.65)));
 		store.apply(changes(initial, setWidgetValue(initial, day, 'steps', 0)));
 		const before = store.read();
-		expect(before.layout.widgets.weight).toEqual({ skin: 'display', pinned: true });
+		expect(before.layout.widgets.weight).toEqual({
+			skin: 'display',
+			pinned: true,
+			archived: false
+		});
 		expect(before.layout.widgets.steps.skin).toBe('pedometer');
 		store.apply(
 			changes(before, {
@@ -115,6 +147,13 @@ test('direct object validation rejects invalid settings, values, dates and unkno
 		},
 		(data: any) => {
 			data.layout.widgets.weight.pinned = 'true';
+		},
+		(data: any) => {
+			data.layout.widgets.weight.archived = 'true';
+		},
+		(data: any) => {
+			data.layout.widgets.weight.archived = true;
+			data.layout.widgets.weight.pinned = true;
 		},
 		(data: any) => {
 			data.layout.widgets.unknown = { pinned: true, skin: 'simple' };

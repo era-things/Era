@@ -1,6 +1,13 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { PALETTES, paletteFor, type Measure, type PaletteId } from '../measures';
-	import { WIDGETS, type LayoutState, type WidgetId, type WidgetSettings } from '../widgets';
+	import {
+		WIDGETS,
+		type Widget,
+		type LayoutState,
+		type WidgetId,
+		type WidgetSettings
+	} from '../widgets';
 	import WidgetPreview from './WidgetPreview.svelte';
 	let {
 		measures,
@@ -24,6 +31,20 @@
 	let deleting = $state<string | null>(null);
 	let nameInput = $state<HTMLInputElement>();
 	let masonryReady = $state(false);
+	let catalogOpen = $state(false);
+	let manager: HTMLDivElement;
+	const normalWidgets = $derived(WIDGETS.filter(({ id }) => !layout.widgets[id].archived));
+	const catalogWidgets = $derived(WIDGETS.filter(({ id }) => layout.widgets[id].archived));
+	async function moveWidget(id: WidgetId, archived: boolean) {
+		onsettings(id, { archived });
+		await tick();
+		const target = archived
+			? catalogOpen
+				? `[data-widget-id="${id}"] .star-button`
+				: '.widget-catalog summary'
+			: `[data-widget-id="${id}"] .pin-button`;
+		manager.querySelector<HTMLElement>(target)?.focus();
+	}
 	function masonry(node: HTMLDivElement) {
 		const update = (card: HTMLElement) => {
 			card.style.setProperty(
@@ -34,12 +55,30 @@
 		const observer = new ResizeObserver((entries) => {
 			for (const entry of entries) update(entry.target as HTMLElement);
 		});
-		for (const card of node.children) {
-			update(card as HTMLElement);
-			observer.observe(card);
-		}
+		const observed = new Set<Element>();
+		const sync = () => {
+			for (const card of observed)
+				if (card.parentElement !== node) {
+					observer.unobserve(card);
+					observed.delete(card);
+				}
+			for (const card of node.children)
+				if (!observed.has(card)) {
+					update(card as HTMLElement);
+					observer.observe(card);
+					observed.add(card);
+				}
+		};
+		const mutations = new MutationObserver(sync);
+		mutations.observe(node, { childList: true });
+		sync();
 		masonryReady = true;
-		return { destroy: () => observer.disconnect() };
+		return {
+			destroy: () => {
+				observer.disconnect();
+				mutations.disconnect();
+			}
+		};
 	}
 	function edit(measure?: Measure) {
 		editing = measure?.id ?? null;
@@ -71,51 +110,120 @@
 	}
 </script>
 
-<div class="layout-manager" id="layout-panel" role="tabpanel" aria-labelledby="tab-layout">
-	<section class="built-in-measures" aria-label="Built-in widgets">
-		<h2>Built-in widgets</h2>
-		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
-			{#each WIDGETS as definition}
-				{@const settings = layout.widgets[definition.id]}
-				<div
-					class="built-in-row"
-					class:pinned={settings.pinned}
-					class:has-skins={definition.skins.length > 1}
-				>
-					<div class="built-in-controls">
-						<span>{definition.name}</span>
-						<button
-							type="button"
-							class="pin-button"
-							aria-label={'Pin ' + definition.name}
-							aria-pressed={settings.pinned}
-							title={(settings.pinned ? 'Unpin ' : 'Pin ') + definition.name}
-							onclick={() => onsettings(definition.id, { pinned: !settings.pinned })}
+{#snippet widgetCard(definition: Widget, catalog: boolean)}
+	{@const settings = layout.widgets[definition.id]}
+	<div
+		class="built-in-row"
+		data-widget-id={definition.id}
+		class:pinned={settings.pinned}
+		class:has-skins={definition.skins.length > 1}
+	>
+		<div class="built-in-controls">
+			<span>{definition.name}</span>
+			<div class="widget-actions">
+				{#if catalog}
+					<button
+						type="button"
+						class="widget-action star-button"
+						aria-label={'Star ' + definition.name}
+						title={'Add ' + definition.name + ' to widgets'}
+						onclick={() => moveWidget(definition.id, false)}
+					>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							width="14"
+							height="14"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-linejoin="round"
+							><path
+								d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"
+							/></svg
 						>
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 24 24"
-								width="14"
-								height="14"
-								fill={settings.pinned ? 'currentColor' : 'none'}
-								stroke="currentColor"
-								stroke-width="1.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" />
-							</svg>
-						</button>
-					</div>
-					<WidgetPreview
-						{definition}
-						{settings}
-						onchange={(skin) => onsettings(definition.id, { skin })}
-					/>
-				</div>
-			{/each}
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="widget-action archive-button"
+						aria-label={'Archive ' + definition.name}
+						title={'Move ' + definition.name + ' to catalog'}
+						onclick={() => moveWidget(definition.id, true)}
+					>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							width="14"
+							height="14"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"><path d="M4 8h16v12H4ZM3 4h18v4H3Zm6 8h6" /></svg
+						>
+					</button>
+					<button
+						type="button"
+						class="widget-action pin-button"
+						aria-label={'Pin ' + definition.name}
+						aria-pressed={settings.pinned}
+						title={(settings.pinned ? 'Unpin ' : 'Pin ') + definition.name}
+						onclick={() => onsettings(definition.id, { pinned: !settings.pinned })}
+					>
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							width="14"
+							height="14"
+							fill={settings.pinned ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" /></svg
+						>
+					</button>
+				{/if}
+			</div>
 		</div>
+		<WidgetPreview
+			{definition}
+			{settings}
+			onchange={(skin) => onsettings(definition.id, { skin })}
+		/>
+	</div>
+{/snippet}
+
+<div
+	class="layout-manager"
+	id="layout-panel"
+	role="tabpanel"
+	aria-labelledby="tab-layout"
+	bind:this={manager}
+>
+	<section class="built-in-measures" aria-label="Widgets">
+		<h2>Widgets</h2>
+		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
+			{#each normalWidgets as definition (definition.id)}{@render widgetCard(
+					definition,
+					false
+				)}{/each}
+		</div>
+		{#if !normalWidgets.length}<p class="empty">
+				Star widgets in the catalog to add them here.
+			</p>{/if}
 	</section>
+	<details class="widget-catalog" bind:open={catalogOpen}>
+		<summary>Widget catalog <span class="catalog-count">{catalogWidgets.length}</span></summary>
+		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
+			{#each catalogWidgets as definition (definition.id)}{@render widgetCard(
+					definition,
+					true
+				)}{/each}
+		</div>
+		{#if !catalogWidgets.length}<p class="empty">No archived widgets.</p>{/if}
+	</details>
 	<div class="manager-heading">
 		<h2>Custom measures</h2>
 		<button type="button" onclick={() => edit()}>+ New measure</button>
@@ -206,6 +314,7 @@
 	}
 	.manager-heading,
 	.built-in-measures,
+	.widget-catalog,
 	.measure-list,
 	.measure-form {
 		max-width: 680px;
@@ -252,7 +361,7 @@
 	.built-in-controls {
 		width: 100%;
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 24px;
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
 		gap: 8px;
 	}
@@ -261,7 +370,12 @@
 		line-height: 24px;
 	}
 
-	.pin-button {
+	.widget-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.widget-action {
 		display: grid;
 		place-items: center;
 		width: 24px;
@@ -270,13 +384,38 @@
 		color: var(--muted);
 		justify-self: end;
 	}
-	.pin-button svg {
+	.widget-action svg {
 		display: block;
 	}
 	.pin-button[aria-pressed='true'] {
 		color: var(--accent);
 		background: #dfe7da;
 		border-color: var(--accent);
+	}
+	.widget-catalog {
+		margin-bottom: 20px;
+		padding: 0 12px 10px;
+		border: 1px solid var(--line);
+		border-radius: 8px;
+	}
+	.widget-catalog:not([open]) {
+		padding-bottom: 0;
+	}
+	.widget-catalog summary {
+		padding: 10px 0;
+		cursor: pointer;
+		font-size: 14px;
+		font-weight: 600;
+	}
+	.widget-catalog summary:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.catalog-count {
+		margin-left: 6px;
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--muted);
 	}
 	.manager-heading {
 		display: flex;

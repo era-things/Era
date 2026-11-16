@@ -53,6 +53,14 @@ widgets with saved values, optional pinning, and a shared contiguous block.
 
 ## Layout settings
 
+The normal widget list contains widgets available in the day's Add widget menu.
+A collapsed **Widget catalog** drawer contains archived widgets, using the same
+preview cards. Its star button moves a widget back to the normal list. Normal
+cards have Archive beside Pin. Archive unpins the widget and excludes it from new
+day attachments; it preserves skin settings and all existing daily entries.
+Existing day entries remain visible and editable. All current widgets start in
+the normal list. The catalog drawer starts closed on entering Layout.
+
 Keep skin previews at their real proportions. Skin selectors sit close to the
 bottom border: **4px bottom padding** on cards with a selector. Avoid empty space
 below controls that a returning user does not need.
