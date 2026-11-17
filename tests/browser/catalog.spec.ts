@@ -1,20 +1,17 @@
+import { writeData } from './api-helpers';
 import { test, expect } from '@playwright/test';
-import { changes, emptyCalendar } from '../../src/lib/calendar-records';
+import { emptyCalendar } from '../../src/lib/calendar-records';
 
 test.afterEach(async ({ request }) => {
-	const current = await (await request.get('/api/calendar')).json();
-	expect(
-		(await request.post('/api/calendar', { data: changes(current, emptyCalendar()) })).ok()
-	).toBe(true);
+	const current = await (await request.get('/api/data')).json();
+	await writeData(request, current, emptyCalendar());
 });
 
 test('catalog stars and archives persist, filter day choices, and preserve saved widgets', async ({
 	page
 }, testInfo) => {
-	const before = await (await page.request.get('/api/calendar')).json();
-	expect(
-		(await page.request.post('/api/calendar', { data: changes(before, emptyCalendar()) })).ok()
-	).toBe(true);
+	const before = await (await page.request.get('/api/data')).json();
+	await writeData(page.request, before, emptyCalendar());
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();

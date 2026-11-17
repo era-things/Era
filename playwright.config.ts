@@ -11,7 +11,12 @@ export default defineConfig({
 	webServer: {
 		command: 'bun run start',
 		url: 'http://127.0.0.1:41689',
-		env: { ERA_DB: ':memory:', PORT: '41689', HOST: '127.0.0.1' },
+		env: {
+			ERA_DB: ':memory:',
+			PORT: '41689',
+			HOST: '127.0.0.1',
+			ORIGIN: 'http://127.0.0.1:41689'
+		},
 		timeout: 90000
 	}
 });

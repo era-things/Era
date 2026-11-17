@@ -1,6 +1,6 @@
+import { writeData } from './api-helpers';
 import { test, expect } from '@playwright/test';
 import { emptyLayout } from '../../src/lib/widgets';
-import { changes } from '../../src/lib/calendar-records';
 
 test('built-in weight and steps share a row, persist, and retain values when unpinned', async ({
 	page
@@ -103,6 +103,10 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await page.getByRole('button', { name: 'Next Steps appearance' }).click();
 	const stepsPreview = page.getByRole('img', { name: 'Steps appearance preview' });
 	await expect(stepsPreview.locator('.steps-pedometer')).toHaveCount(1);
+	await expect(stepsPreview.locator('.steps-pedometer svg')).toHaveCSS(
+		'color',
+		'rgb(224, 231, 227)'
+	);
 	await expect(stepsPreview.locator('.preview-slide')).toHaveCount(1);
 	await expect(stepsPreview.locator('input')).toHaveValue('8200');
 	await page.screenshot({ path: testInfo.outputPath('display-skin.png') });
@@ -163,16 +167,14 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 test('unpinned built-ins are added per day and pinned ones appear on empty days', async ({
 	page
 }, testInfo) => {
-	const before = await (await page.request.get('/api/calendar')).json();
+	const before = await (await page.request.get('/api/data')).json();
 	const next = {
 		...before,
 		nutrition: {},
 		counters: {},
 		layout: emptyLayout()
 	};
-	expect((await page.request.post('/api/calendar', { data: changes(before, next) })).ok()).toBe(
-		true
-	);
+	await writeData(page.request, before, next);
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();

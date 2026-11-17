@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { changeDurationPart, formatDurationPart } from '../duration';
 	import type { WidgetSkin } from '../widgets';
 	import { changeSleep, formatSleepTime, parseSleepTime, type Sleep } from '../sleep';
 	let {
@@ -10,10 +11,8 @@
 		skin?: WidgetSkin<'sleep'>;
 		onchange: (value: Sleep) => boolean | void;
 	} = $props();
-	const hours = $derived(value.duration === null ? '' : Math.floor(value.duration / 60));
-	const minutes = $derived(
-		value.duration === null ? '' : String(value.duration % 60).padStart(2, '0')
-	);
+	const hours = $derived(formatDurationPart(value.duration, 'hours'));
+	const minutes = $derived(formatDurationPart(value.duration, 'minutes'));
 
 	function timeChange(event: Event, field: 'start' | 'end') {
 		const input = event.currentTarget as HTMLInputElement;
@@ -35,12 +34,11 @@
 			input.reportValidity();
 			return;
 		}
-		const duration =
-			input.value === ''
-				? null
-				: unit === 'hours'
-					? input.valueAsNumber * 60 + ((value.duration ?? 0) % 60)
-					: Math.floor((value.duration ?? 0) / 60) * 60 + input.valueAsNumber;
+		const duration = changeDurationPart(
+			value.duration,
+			unit,
+			input.value === '' ? null : input.valueAsNumber
+		);
 		if (onchange(changeSleep(value, 'duration', duration)) === false)
 			input.value = String(unit === 'hours' ? hours : minutes);
 	}

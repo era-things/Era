@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { CalendarData } from '../data-export';
 import { isRecord } from '../validation';
-import { decode, records, type Change } from '../calendar-records';
+import { changes, decode, records, type Change } from '../calendar-records';
 import { normalizeReminders } from '../reminders';
 import { normalizeMeasures } from '../measures';
 import { normalizeDayEmojis } from '../day-emojis';
@@ -70,7 +70,20 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 		const expected = records(data);
 		if (rows.some((r) => expected.get(r.key) !== r.value)) throw new Error('Invalid record');
 	});
-	return { db, read, apply: (edits: Change[]) => apply.immediate(edits) };
+	// API callers mutate the latest state under one write lock; no client versions.
+	const update = db.transaction((mutate: (data: CalendarData) => CalendarData) => {
+		const current = read();
+		const next = mutate(current);
+		validate(next);
+		apply(changes(current, next));
+		return next;
+	});
+	return {
+		db,
+		read,
+		apply: (edits: Change[]) => apply.immediate(edits),
+		update: (mutate: (data: CalendarData) => CalendarData) => update.immediate(mutate)
+	};
 }
 let connection: ReturnType<typeof openCalendar>;
 export const calendar = () => (connection ??= openCalendar());

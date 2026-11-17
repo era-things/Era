@@ -12,7 +12,6 @@
 	import { paletteFor, setDayMeasure, type MeasureValue } from '../measures';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import DayMeasures from './DayMeasures.svelte';
-	import { isDayTimeWidget } from '../time';
 	let {
 		data,
 		day,
@@ -26,7 +25,9 @@
 	} = $props();
 	let choosing = $state(false);
 	const visible = $derived(WIDGETS.filter(({ id }) => isVisible(data, day, id)));
-	const timeWidgets = $derived(visible.filter(({ id }) => isDayTimeWidget(id)));
+	const timeWidgets = $derived(visible.filter(({ placement }) => placement === 'time'));
+	const mainWidgets = $derived(visible.filter(({ placement }) => placement === 'main'));
+	const footerWidgets = $derived(visible.filter(({ placement }) => placement === 'footer'));
 	const history = $derived(previousNutritionItems(data.nutrition, day));
 	const measureValues = $derived(data.measures.days[day] ?? {});
 	const attached = $derived(
@@ -56,9 +57,9 @@
 </script>
 
 <section class="day-widget-stack" aria-label="Day widgets">
-	{#if visible.some(({ id }) => id !== 'note')}
+	{#if mainWidgets.length || timeWidgets.length}
 		<div class="day-widgets">
-			{#each visible.filter(({ id }) => id !== 'note' && !isDayTimeWidget(id)) as definition (definition.id)}
+			{#each mainWidgets as definition (definition.id)}
 				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
 					<BuiltInWidget
 						widget={dayWidget(data, day, definition.id)}
@@ -87,10 +88,12 @@
 			onchange={changeMeasure}
 			onremove={(id) => changeMeasure(id)}
 		/>{/if}
-	{#if isVisible(data, day, 'note')}<BuiltInWidget
-			widget={dayWidget(data, day, 'note')}
-			onchange={(value) => onchange(setWidgetValue(data, day, 'note', value as string))}
-		/>{/if}
+	{#each footerWidgets as definition (definition.id)}
+		<BuiltInWidget
+			widget={dayWidget(data, day, definition.id)}
+			onchange={(value) => onchange(setWidgetValue(data, day, definition.id, value))}
+		/>
+	{/each}
 	{#if choosing}<div class="widget-chooser">
 			{#each choices as choice (choice.id)}<button
 					type="button"

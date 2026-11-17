@@ -7,5 +7,6 @@ export default defineConfig({
 		fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/data/**', '**/*.sqlite*'] }
 	},
 	ssr: { external: ['bun:sqlite'] },
-	plugins: [sveltekit({ adapter: adapter() })]
+	// The JSON API checks browser origins itself and also accepts bodyless HTTP DELETEs.
+	plugins: [sveltekit({ adapter: adapter(), csrf: { trustedOrigins: ['*'] } })]
 });

@@ -3,6 +3,10 @@
 A personal calendar with a SvelteKit UI and a Bun server. Notes, emojis, measures, nutrition and reminders are saved in SQLite. Each browser remembers its own view and scroll position.
 
 UI conventions and widget patterns are documented in [DESIGN.md](DESIGN.md).
+Widget registries and API extension points are described in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+The [HTTP API](docs/API.md) supports widget discovery and settings, daily values,
+custom measures, emojis, and reminders. The app uses these same resource endpoints.
 
 Sleep, phone screen time, gym, reading, movies, and Steam game time appear together
 as 26px rows. Add them per day through + or pin them in Layout. Activity durations
@@ -21,6 +25,11 @@ Run `bun run check`, `bun run test`, `bun run test:browser`, and `bun run build`
 ## Data and deployment
 
 Run `bun run build` and `bun run start` on the home server. Set `ERA_DB` to an absolute path on persistent local storage (default `data/era.sqlite` in the working directory). Keep the service on a private, access-controlled network. Anyone who can access Era can read and edit its data.
+
+Set `ORIGIN` to the URL used to access the production server (for example,
+`http://127.0.0.1:3000` for local HTTP). The Bun adapter otherwise assumes HTTPS.
+The API allows HTTP clients without an Origin header and rejects browser writes
+from a different origin.
 
 When deploying this widget-layout refactor over a schema-1 database, stop the old
 service and run `bun scripts/upgrade-widget-layout.ts "path/to/era.sqlite"` once.

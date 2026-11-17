@@ -1,5 +1,5 @@
+import { writeData } from './api-helpers';
 import { setWidgetSettings } from '../../src/lib/widgets';
-import { changes } from '../../src/lib/calendar-records';
 import { test, expect } from '@playwright/test';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
@@ -111,7 +111,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 			fat: 6,
 			carbs: 35
 		};
-		const before = await (await page.request.get('/api/calendar')).json();
+		const before = await (await page.request.get('/api/data')).json();
 		const next = {
 			...before,
 			layout: setWidgetSettings(before.layout, 'nutrition', { pinned: true }),
@@ -121,9 +121,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 				[key(1)]: [{ ...item, id: 'future', name: 'Future food' }]
 			}
 		};
-		expect((await page.request.post('/api/calendar', { data: changes(before, next) })).ok()).toBe(
-			true
-		);
+		await writeData(page.request, before, next);
 	}
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -154,7 +152,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 			today.getByRole('spinbutton', { name: `${label} of Porridge`, exact: true })
 		).toHaveValue(value);
 	}
-	const days = (await (await page.request.get('/api/calendar')).json()).nutrition;
+	const days = (await (await page.request.get('/api/data')).json()).nutrition;
 	const copied = Object.values(days)
 		.flat()
 		.find(

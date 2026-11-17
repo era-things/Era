@@ -1,15 +1,83 @@
 import type { CalendarData } from './data-export';
 import { isDateKey, type DateKey } from './calendar';
-import { setNutritionItems, validFoodItem, type FoodItem } from './nutrition';
-import { setDayNote } from './day-notes';
+import { validFoodItem, type FoodItem } from './nutrition';
 import { emptySleep, validSleep, type Sleep } from './sleep';
-import { isTimeId, validTime, type TimeId } from './time';
+import { validTime } from './duration';
 
-const timeWidget = <K extends TimeId>(id: K, name: string, sample: number) => ({
+import { WIDGET_ICONS, type WidgetIcon } from './widget-icons';
+
+export type WidgetKindValues = {
+	sleep: Sleep;
+	nutrition: FoodItem[];
+	counter: number | null;
+	time: number | null;
+	note: string;
+};
+export type WidgetKind = keyof WidgetKindValues;
+type WidgetContract = {
+	[K in WidgetKind]: {
+		id: string;
+		name: string;
+		kind: K;
+		placement: 'main' | 'time' | 'footer';
+		storage: { section: string; key?: string };
+		valid: (value: unknown) => value is WidgetKindValues[K];
+		fields: readonly WidgetField[];
+		compact: boolean;
+		pinned: boolean;
+		skin: string;
+		skins: readonly { id: string; name: string }[];
+		icon?: WidgetIcon;
+		unit?: string;
+		integer?: boolean;
+		initial: Readonly<WidgetKindValues[K]>;
+		sample: Readonly<WidgetKindValues[K]>;
+	};
+}[WidgetKind];
+
+export type WidgetField = {
+	name: string;
+	type: 'integer' | 'number' | 'time' | 'string' | 'array';
+	nullable?: boolean;
+	min?: number;
+	max?: number;
+};
+const validNumber = (value: unknown, integer: boolean): value is number =>
+	typeof value === 'number' &&
+	Number.isFinite(value) &&
+	value >= 0 &&
+	value <= Number.MAX_SAFE_INTEGER &&
+	(!integer || Number.isSafeInteger(value));
+const counterBehavior = (integer: boolean) => ({
+	integer,
+	fields: counterFields(integer),
+	valid: (value: unknown): value is number | null => value === null || validNumber(value, integer)
+});
+
+const durationFields = [
+	{ name: 'durationMinutes', type: 'integer', nullable: true, min: 0, max: 1440 }
+] as const;
+
+const counterFields = (integer: boolean): WidgetField[] => [
+	{
+		name: 'value',
+		type: integer ? 'integer' : 'number',
+		nullable: true,
+		min: 0,
+		max: Number.MAX_SAFE_INTEGER
+	}
+];
+
+const timeWidget = <K extends keyof typeof WIDGET_ICONS>(id: K, name: string, sample: number) => ({
 	id,
 	name,
 	sample,
 	kind: 'time' as const,
+	placement: 'time' as const,
+	storage: { section: 'time', key: id } as const,
+	valid: (value: unknown): value is number | null => value === null || validTime(value),
+	icon: WIDGET_ICONS[id],
+	fields: durationFields,
 	compact: false,
 	pinned: false,
 	skin: 'simple' as const,
@@ -22,6 +90,10 @@ export const WIDGETS = [
 		id: 'nutrition',
 		name: 'Nutrition',
 		kind: 'nutrition',
+		placement: 'main',
+		storage: { section: 'nutrition' },
+		valid: (value: unknown) => Array.isArray(value) && value.every(validFoodItem),
+		fields: [{ name: 'items', type: 'array' }],
 		compact: false,
 		pinned: false,
 		skin: 'simple',
@@ -35,6 +107,10 @@ export const WIDGETS = [
 		id: 'weight',
 		name: 'Weight',
 		kind: 'counter',
+		placement: 'main',
+		...counterBehavior(false),
+		storage: { section: 'counters', key: 'weight' },
+		icon: WIDGET_ICONS.weight,
 		compact: true,
 		pinned: false,
 		skin: 'scale',
@@ -44,7 +120,6 @@ export const WIDGETS = [
 			{ id: 'display', name: 'Display' }
 		],
 		unit: 'kg',
-		integer: false,
 		initial: null,
 		sample: 72.5
 	},
@@ -52,6 +127,10 @@ export const WIDGETS = [
 		id: 'steps',
 		name: 'Steps',
 		kind: 'counter',
+		placement: 'main',
+		...counterBehavior(true),
+		storage: { section: 'counters', key: 'steps' },
+		icon: WIDGET_ICONS.steps,
 		compact: true,
 		pinned: false,
 		skin: 'simple',
@@ -60,7 +139,6 @@ export const WIDGETS = [
 			{ id: 'pedometer', name: 'Pedometer' }
 		],
 		unit: '',
-		integer: true,
 		initial: 0,
 		sample: 8200
 	},
@@ -68,6 +146,14 @@ export const WIDGETS = [
 		id: 'sleep',
 		name: 'Sleep',
 		kind: 'sleep',
+		placement: 'time',
+		storage: { section: 'sleep' },
+		valid: validSleep,
+		fields: [
+			{ name: 'startTime', type: 'time', nullable: true },
+			{ name: 'wakeUpTime', type: 'time', nullable: true },
+			{ name: 'durationMinutes', type: 'integer', nullable: true, min: 0, max: 1439 }
+		],
 		compact: false,
 		pinned: false,
 		skin: 'lunar-seal',
@@ -87,6 +173,10 @@ export const WIDGETS = [
 		id: 'note',
 		name: 'Note',
 		kind: 'note',
+		placement: 'footer',
+		storage: { section: 'notes' },
+		valid: (value: unknown) => typeof value === 'string',
+		fields: [{ name: 'text', type: 'string' }],
 		compact: false,
 		pinned: true,
 		skin: 'simple',
@@ -94,9 +184,16 @@ export const WIDGETS = [
 		initial: '',
 		sample: 'A walk after lunch.\n\n- [ ] Pick up groceries'
 	}
-] as const;
+] as const satisfies readonly WidgetContract[];
 export type Widget = (typeof WIDGETS)[number];
 export type WidgetId = Widget['id'];
+export type WidgetOfKind<K extends WidgetKind> = Extract<Widget, { kind: K }>;
+export type WidgetIdOfKind<K extends WidgetKind> = WidgetOfKind<K>['id'];
+export type TimeWidget = Extract<Widget, { kind: 'time' }>;
+export type TimeId = TimeWidget['id'];
+export const TIME_WIDGETS = WIDGETS.filter(
+	(widget): widget is TimeWidget => widget.kind === 'time'
+);
 export type Counter = Extract<Widget, { kind: 'counter' }>;
 export type CounterId = Counter['id'];
 export type WidgetSkin<K extends WidgetId = WidgetId> = Extract<
@@ -109,15 +206,28 @@ export type LayoutState = {
 	widgets: { [K in WidgetId]: { pinned: boolean; archived: boolean; skin: WidgetSkin<K> } };
 };
 export type WidgetValues = {
-	sleep: Sleep;
-	nutrition: FoodItem[];
-	weight: number | null;
-	steps: number | null;
-	note: string;
-} & Record<TimeId, number | null>;
-export type WidgetInstance = {
-	[K in WidgetId]: { id: K; skin: WidgetSkin<K>; value: WidgetValues[K] };
-}[WidgetId];
+	[K in WidgetId]: WidgetKindValues[Extract<Widget, { id: K }>['kind']];
+};
+export type WidgetInstanceFor<I extends WidgetId> = {
+	[K in I]: {
+		id: K;
+		kind: Extract<Widget, { id: K }>['kind'];
+		definition: Extract<Widget, { id: K }>;
+		skin: WidgetSkin<K>;
+		value: WidgetValues[K];
+	};
+}[I];
+export type WidgetInstance = WidgetInstanceFor<WidgetId>;
+export type WidgetInstanceOfKind<K extends WidgetKind> = Extract<WidgetInstance, { kind: K }>;
+export type WidgetHandlers<R> = {
+	[K in WidgetKind]: (widget: WidgetInstanceOfKind<K>) => R;
+};
+
+// Indexing a union loses its argument correlation in TypeScript. Keep the one
+// dispatch assertion here; every handler is checked against its own kind.
+export function widgetHandler<R>(widget: WidgetInstance, handlers: WidgetHandlers<R>) {
+	return handlers[widget.kind] as (widget: WidgetInstance) => R;
+}
 export type WidgetData = Pick<
 	CalendarData,
 	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures' | 'sleep' | 'time'
@@ -131,14 +241,14 @@ export const emptyLayout = (): LayoutState => ({
 });
 export const validWidgetSkin = (id: WidgetId, skin: unknown): skin is WidgetSkin =>
 	widgetFor(id).skins.some((option) => option.id === skin);
+export function validWidgetValue<K extends WidgetId>(
+	id: K,
+	value: unknown
+): value is WidgetValues[K] {
+	return widgetFor(id).valid(value);
+}
 export function validCounterValue(id: CounterId, value: unknown): value is number {
-	return (
-		typeof value === 'number' &&
-		Number.isFinite(value) &&
-		value >= 0 &&
-		value <= Number.MAX_SAFE_INTEGER &&
-		(!widgetFor(id).integer || Number.isSafeInteger(value))
-	);
+	return value !== null && widgetFor(id).valid(value);
 }
 export function setWidgetSettings<K extends WidgetId>(
 	layout: LayoutState,
@@ -149,15 +259,18 @@ export function setWidgetSettings<K extends WidgetId>(
 	if (next.archived) next.pinned = false;
 	return { widgets: { ...layout.widgets, [id]: next } };
 }
-export function widgetValue(data: WidgetData, day: DateKey, id: WidgetId) {
-	if (isTimeId(id)) return data.time[day]?.[id];
-	return id === 'sleep'
-		? data.sleep[day]
-		: id === 'nutrition'
-			? data.nutrition[day]
-			: id === 'note'
-				? data.notes[day]
-				: data.counters[day]?.[id];
+export function widgetValue<K extends WidgetId>(
+	data: WidgetData,
+	day: DateKey,
+	id: K
+): WidgetValues[K] | undefined {
+	const storage = widgetFor(id).storage;
+	const daily = data[storage.section][day];
+	return (
+		'key' in storage
+			? (daily as Record<string, WidgetValues[WidgetId]> | undefined)?.[storage.key]
+			: daily
+	) as WidgetValues[K] | undefined;
 }
 export const isAttached = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	widgetValue(data, day, id) !== undefined;
@@ -167,6 +280,8 @@ export function dayWidget(data: WidgetData, day: DateKey, id: WidgetId): WidgetI
 	const value = widgetValue(data, day, id);
 	return {
 		id,
+		kind: widgetFor(id).kind,
+		definition: widgetFor(id),
 		skin: data.layout.widgets[id].skin,
 		value: value === undefined ? widgetFor(id).initial : value
 	} as WidgetInstance;
@@ -177,26 +292,27 @@ export function setWidgetValue<T extends WidgetData, K extends WidgetId>(
 	id: K,
 	value: WidgetValues[K]
 ): T {
-	if (isTimeId(id)) {
-		if (!isDateKey(day) || (value !== null && !validTime(value))) return data;
-		return { ...data, time: { ...data.time, [day]: { ...data.time[day], [id]: value } } };
-	}
-	const valid =
-		id === 'sleep'
-			? validSleep(value)
-			: id === 'nutrition'
-				? Array.isArray(value) && value.every(validFoodItem)
-				: id === 'note'
-					? typeof value === 'string'
-					: value === null || validCounterValue(id, value);
-	if (!isDateKey(day) || !valid) return data;
-	if (id === 'sleep') return { ...data, sleep: { ...data.sleep, [day]: value as Sleep } };
-	if (id === 'nutrition')
-		return { ...data, nutrition: setNutritionItems(data.nutrition, day, value as FoodItem[]) };
-	if (id === 'note') return { ...data, notes: setDayNote(data.notes, day, value as string) };
-	return { ...data, counters: { ...data.counters, [day]: { ...data.counters[day], [id]: value } } };
+	const definition = widgetFor(id);
+	if (!isDateKey(day) || !definition.valid(value)) return data;
+	const storage = definition.storage;
+	const daily =
+		'key' in storage ? { ...(data[storage.section][day] as object), [storage.key]: value } : value;
+	return { ...data, [storage.section]: { ...data[storage.section], [day]: daily } };
 }
+
 export const attachWidget = <T extends WidgetData>(data: T, day: DateKey, id: WidgetId) =>
 	data.layout.widgets[id].archived
 		? data
 		: setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId]);
+
+export function removeWidgetValue<T extends WidgetData>(data: T, day: DateKey, id: WidgetId): T {
+	const storage = widgetFor(id).storage;
+	const days: Record<string, unknown> = { ...data[storage.section] };
+	if ('key' in storage) {
+		const values = { ...(days[day] as Record<string, unknown>) };
+		delete values[storage.key];
+		if (Object.keys(values).length) days[day] = values;
+		else delete days[day];
+	} else delete days[day];
+	return { ...data, [storage.section]: days };
+}

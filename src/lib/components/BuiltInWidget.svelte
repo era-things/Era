@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { widgetFor, type WidgetInstance, type WidgetValues, type WidgetId } from '../widgets';
+	import {
+		widgetHandler,
+		type WidgetInstanceOfKind,
+		type WidgetHandlers,
+		type WidgetInstance,
+		type WidgetValues,
+		type WidgetId
+	} from '../widgets';
+	import type { Snippet } from 'svelte';
 	import type { FoodItem } from '../nutrition';
 	import NutritionPanel from './NutritionPanel.svelte';
 	import MarkdownNote from './MarkdownNote.svelte';
@@ -15,21 +23,30 @@
 		history?: FoodItem[];
 		onchange?: (value: WidgetValues[WidgetId]) => boolean | void;
 	} = $props();
+	const renderers = { sleep, nutrition, note, time, counter } satisfies {
+		[K in keyof WidgetHandlers<unknown>]: Snippet<[WidgetInstanceOfKind<K>]>;
+	};
 </script>
 
-{#if widget.id === 'sleep'}
-	<SleepWidget value={widget.value} skin={widget.skin} onchange={(value) => onchange(value)} />
-{:else if widget.id === 'nutrition'}
-	<NutritionPanel items={widget.value} {history} onchange={(items) => onchange(items) !== false} />
-{:else if widget.id === 'note'}
-	<MarkdownNote value={widget.value} onchange={(text) => onchange(text)} />
-{:else if widget.id === 'phone' || widget.id === 'gym' || widget.id === 'reading' || widget.id === 'movie' || widget.id === 'steam'}
-	<TimeWidget id={widget.id} value={widget.value} onchange={(value) => onchange(value)} />
-{:else}
+{#snippet sleep(item: WidgetInstanceOfKind<'sleep'>)}
+	<SleepWidget value={item.value} skin={item.skin} onchange={(value) => onchange(value)} />
+{/snippet}
+{#snippet nutrition(item: WidgetInstanceOfKind<'nutrition'>)}
+	<NutritionPanel items={item.value} {history} onchange={(items) => onchange(items) !== false} />
+{/snippet}
+{#snippet note(item: WidgetInstanceOfKind<'note'>)}
+	<MarkdownNote value={item.value} onchange={(text) => onchange(text)} />
+{/snippet}
+{#snippet time(item: WidgetInstanceOfKind<'time'>)}
+	<TimeWidget id={item.id} value={item.value} onchange={(value) => onchange(value)} />
+{/snippet}
+{#snippet counter(item: WidgetInstanceOfKind<'counter'>)}
 	<CounterWidget
-		counter={widgetFor(widget.id)}
-		skin={widget.skin}
-		value={widget.value}
+		counter={item.definition}
+		skin={item.skin}
+		value={item.value}
 		onchange={(value) => onchange(value)}
 	/>
-{/if}
+{/snippet}
+
+{@render widgetHandler(widget, renderers)(widget)}

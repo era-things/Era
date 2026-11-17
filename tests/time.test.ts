@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test';
-import { TIME_IDS, normalizeTime, validTime } from '../src/lib/time';
-import { attachWidget, isAttached, setWidgetValue } from '../src/lib/widgets';
+import { normalizeTime } from '../src/lib/time';
+import { validTime } from '../src/lib/duration';
+import { TIME_WIDGETS, attachWidget, isAttached, setWidgetValue } from '../src/lib/widgets';
 import { changes, emptyCalendar } from '../src/lib/calendar-records';
 import { openCalendar } from '../src/lib/server/database';
 
@@ -21,7 +22,7 @@ test('all activities store independently, preserve cleared attachments, and surv
 	try {
 		const initial = emptyCalendar();
 		let next = initial;
-		for (const [index, id] of TIME_IDS.entries()) {
+		for (const [index, { id }] of TIME_WIDGETS.entries()) {
 			next = attachWidget(next, '2026-11-17', id);
 			expect(next.time['2026-11-17'][id]).toBe(0);
 			next = setWidgetValue(next, '2026-11-17', id, (index + 1) * 65);

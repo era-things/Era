@@ -3,7 +3,7 @@ import type { Measure, MeasureValue } from './measures';
 import type { FoodItem } from './nutrition';
 import type { Reminder } from './reminders';
 import { WIDGETS, emptyLayout, type WidgetId, type CounterId } from './widgets';
-import type { TimeId } from './time';
+import type { TimeId } from './widgets';
 
 export type Section = keyof CalendarData;
 export type Change = { key: string; before: string | null; after: string | null };
@@ -56,49 +56,53 @@ export function changes(before: CalendarData, after: CalendarData): Change[] {
 		.map((key) => ({ key, before: old.get(key) ?? null, after: next.get(key) ?? null }));
 }
 
+type Decoder = (data: CalendarData, day: string, id: string, value: unknown) => void;
+const decoders = new Map<string, Decoder>(
+	Object.entries({
+		'time-value': (data, day, id, value) => {
+			(data.time[day] ??= {})[id as TimeId] = value as number | null;
+		},
+		sleep: (data, day, _id, value) => {
+			data.sleep[day] = value as CalendarData['sleep'][string];
+		},
+		note: (data, day, _id, value) => {
+			data.notes[day] = value as string;
+		},
+		emoji: (data, day, _id, value) => {
+			data.emojis[day] = value as string;
+		},
+		measure: (data, _day, _id, value) => {
+			data.measures.definitions.push(value as Measure);
+		},
+		value: (data, day, id, value) => {
+			(data.measures.days[day] ??= {})[id] = value as MeasureValue;
+		},
+		food: (data, day, _id, value) => {
+			(data.nutrition[day] ??= []).push(value as FoodItem);
+		},
+		'nutrition-day': (data, day, _id, value) => {
+			if (value !== true) throw new Error('Invalid nutrition day');
+			data.nutrition[day] ??= [];
+		},
+		widget: (data, day, id, value) => {
+			Object.assign(data.layout.widgets[day as WidgetId], { [id]: value });
+		},
+		'counter-value': (data, day, id, value) => {
+			(data.counters[day] ??= {})[id as CounterId] = value as number | null;
+		},
+		reminder: (data, _day, _id, value) => {
+			data.reminders.push(value as Reminder);
+		}
+	} satisfies Record<string, Decoder>)
+);
+
 export function decode(rows: { key: string; value: string }[]): CalendarData {
 	const data = emptyCalendar();
 	for (const row of rows) {
 		const [kind, day, id] = JSON.parse(row.key);
-		const value = JSON.parse(row.value);
-		switch (kind) {
-			case 'time-value':
-				(data.time[day] ??= {})[id as TimeId] = value;
-				break;
-			case 'sleep':
-				data.sleep[day] = value;
-				break;
-			case 'note':
-				data.notes[day] = value;
-				break;
-			case 'emoji':
-				data.emojis[day] = value;
-				break;
-			case 'measure':
-				data.measures.definitions.push(value as Measure);
-				break;
-			case 'value':
-				(data.measures.days[day] ??= {})[id] = value as MeasureValue;
-				break;
-			case 'food':
-				(data.nutrition[day] ??= []).push(value as FoodItem);
-				break;
-			case 'nutrition-day':
-				if (value !== true) throw new Error('Invalid nutrition day');
-				data.nutrition[day] ??= [];
-				break;
-			case 'widget':
-				Object.assign(data.layout.widgets[day as WidgetId], { [id]: value });
-				break;
-			case 'counter-value':
-				(data.counters[day] ??= {})[id as CounterId] = value;
-				break;
-			case 'reminder':
-				data.reminders.push(value as Reminder);
-				break;
-			default:
-				throw new Error('Unknown record type');
-		}
+		const decoder = decoders.get(kind);
+		if (!decoder) throw new Error('Unknown record type');
+		decoder(data, day, id, JSON.parse(row.value));
 	}
 	return data;
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WidgetIcon from './WidgetIcon.svelte';
 	import { validCounterValue, type Counter, type WidgetSkin } from '../widgets';
 	let {
 		counter,
@@ -31,36 +32,18 @@
 
 <label
 	class="counter-widget"
-	class:weight-scale={counter.id === 'weight' && skin === 'scale'}
-	class:weight-display={counter.id === 'weight' && skin === 'display'}
+	class:weight-scale={skin === 'scale'}
+	class:weight-display={skin === 'display'}
 	class:lcd={skin !== 'simple'}
 	data-lcd={skin === 'display' || undefined}
-	class:steps-pedometer={counter.id === 'steps' && skin === 'pedometer'}
+	class:steps-pedometer={skin === 'pedometer'}
 	title={counter.name + (counter.unit ? ' (' + counter.unit + ')' : '')}
 >
-	{#if skin === 'simple' || skin === 'pedometer'}<svg
-			aria-hidden="true"
-			viewBox="0 0 24 24"
-			width="20"
-			height="20"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.6"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-		>
-			{#if counter.id === 'weight'}
-				<rect x="3" y="3" width="18" height="18" rx="4" />
-				<path d="M7 9a6 6 0 0 1 10 0l-2 3H9Z M12 10l2-3" />
-			{:else}
-				<path d="M7 2C5 2 3.5 4 3.5 6.5c0 2 1 3.5 1 5.5h5c0-2 1-3.5 1-5.5C10.5 4 9 2 7 2Z" />
-				<path d="M4.5 15h5v1a2.5 2.5 0 0 1-5 0Z" />
-				<g transform="rotate(18 17 14)">
-					<path d="M17 6c-2 0-3.5 2-3.5 4.5 0 2 1 3.5 1 5.5h5c0-2 1-3.5 1-5.5C20.5 8 19 6 17 6Z" />
-					<path d="M14.5 19h5v1a2.5 2.5 0 0 1-5 0Z" />
-				</g>
-			{/if}
-		</svg>{/if}
+	{#if skin === 'simple' || skin === 'pedometer'}<WidgetIcon
+			icon={counter.icon}
+			size={20}
+			strokeWidth={1.6}
+		/>{/if}
 	<span class="counter-readout" data-lcd={skin === 'scale' || skin === 'pedometer' || undefined}>
 		<input
 			type="number"
@@ -173,10 +156,10 @@
 			inset 0 1px 0 rgb(255 255 255 / 20%),
 			inset 0 -3px 0 #30424a;
 	}
-	.steps-pedometer svg {
+	.counter-widget.steps-pedometer :global(svg) {
 		color: #e0e7e3;
 	}
-	svg {
+	.counter-widget :global(svg) {
 		flex-shrink: 0;
 		color: var(--muted);
 	}

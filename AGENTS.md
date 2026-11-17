@@ -22,3 +22,11 @@ thoroughly they explain themselves on a first visit.
 
 This is a personal project used by one person. Never add code for backwards
 compatibility. Remove code that is no longer functional ruthlessly.
+
+## Extensibility
+
+Keep widget metadata and behavior with their definitions. Prefer typed registries
+and named resource handlers over growing chains of ID, kind, or method checks.
+Adding a widget that uses an existing kind should reuse storage, rendering, and
+API handling. Keep ordinary validation and algorithmic conditions explicit; do
+not replace them with abstractions that make the code harder to follow.

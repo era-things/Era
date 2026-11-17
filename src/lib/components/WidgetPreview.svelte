@@ -8,7 +8,6 @@
 	} from '../widgets';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import Chevron from './Chevron.svelte';
-	import { isDayTimeWidget } from '../time';
 	let {
 		definition,
 		settings,
@@ -19,6 +18,8 @@
 	const hasSkins = $derived(definition.skins.length > 1);
 	const sample = $derived({
 		id: definition.id,
+		kind: definition.kind,
+		definition,
 		skin: settings.skin,
 		value: definition.sample
 	} as WidgetInstance);
@@ -41,7 +42,7 @@
 <div
 	class="appearance-selector"
 	class:has-skins={hasSkins}
-	class:time-preview={isDayTimeWidget(definition.id)}
+	class:time-preview={definition.placement === 'time'}
 	role="group"
 	aria-label={definition.name + ' appearance'}
 >

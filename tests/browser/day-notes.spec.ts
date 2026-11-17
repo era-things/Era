@@ -1,6 +1,6 @@
+import { writeData } from './api-helpers';
 import { test, expect } from '@playwright/test';
 import { setWidgetSettings } from '../../src/lib/widgets';
-import { changes } from '../../src/lib/calendar-records';
 
 test('day notes save while typing, remain isolated and survive navigation and reload', async ({
 	page
@@ -34,15 +34,13 @@ test('day notes save while typing, remain isolated and survive navigation and re
 });
 
 test('Layout configures Note pinning and empty day attachments', async ({ page }, testInfo) => {
-	const before = await (await page.request.get('/api/calendar')).json();
+	const before = await (await page.request.get('/api/data')).json();
 	const next = {
 		...before,
 		layout: setWidgetSettings(before.layout, 'note', { pinned: true }),
 		notes: {}
 	};
-	expect((await page.request.post('/api/calendar', { data: changes(before, next) })).ok()).toBe(
-		true
-	);
+	await writeData(page.request, before, next);
 	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await expect(page.getByRole('tab', { name: 'Measures', exact: true })).toHaveCount(0);

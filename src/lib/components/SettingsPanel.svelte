@@ -24,7 +24,7 @@
 <div class="settings-panel" id="settings-panel" role="tabpanel" aria-labelledby="tab-settings">
 	<div class="settings-content">
 		<div class="export-row">
-			<p>Download day emojis, measures, weight, steps, nutrition, notes and reminders as JSON.</p>
+			<p>Download all daily data and widget settings as JSON.</p>
 			<button type="button" onclick={exportData}>Export data</button>
 		</div>
 		{#if error}<p class="error" role="alert">{error}</p>{/if}

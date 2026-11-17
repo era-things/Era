@@ -3,8 +3,7 @@
 	import { snapshot } from '$app/navigation';
 	import { capturePosition, restorePosition } from '../lib/timeline-position';
 	import { untrack } from 'svelte';
-	import { changes, type Section, type Change } from '../lib/calendar-records';
-	import type { CalendarData } from '../lib/data-export';
+	import { createCalendarSync, type SyncState } from '../lib/calendar-sync';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
 	import DayDetail from '../lib/components/DayDetail.svelte';
@@ -47,80 +46,24 @@
 	let restored = $state(false);
 	let mode = $state<ViewMode>('vertical');
 	let zoom = $state<ZoomLevel>(100);
-	let calendarData = $state<CalendarData>(untrack(() => data.calendar));
+	let syncState = $state<SyncState>({
+		data: untrack(() => data.calendar),
+		error: '',
+		retryable: false
+	});
+	const sync = createCalendarSync(
+		untrack(() => syncState.data),
+		(state) => {
+			syncState = state;
+		}
+	);
+	const { save, saveData, flush, readExport } = sync;
+	const calendarData = $derived(syncState.data);
 	const emojis = $derived(calendarData.emojis),
 		notes = $derived(calendarData.notes),
 		reminders = $derived(calendarData.reminders),
 		measures = $derived(calendarData.measures);
 	let section = $state<'calendar' | 'today' | 'layout' | 'reminders' | 'settings'>('calendar');
-	let saveError = $state('');
-	let conflict = $state(false);
-	const queue: Change[][] = [];
-	let pending: Promise<void> | undefined;
-	let generation = 0;
-	let channel: BroadcastChannel | undefined;
-	async function refresh() {
-		if (queue.length) return;
-		const ticket = ++generation;
-		try {
-			const response = await fetch('/api/calendar', { cache: 'no-store' });
-			if (!response.ok) return;
-			const next = await response.json();
-			if (ticket === generation && !queue.length) calendarData = next;
-		} catch {
-			/* Retry on next focus. */
-		}
-	}
-	function flush() {
-		return (pending ??= send().finally(() => {
-			pending = undefined;
-		}));
-	}
-	async function readExport() {
-		await flush();
-		if (queue.length) throw new Error('Unsaved edits');
-		const response = await fetch('/api/calendar', { cache: 'no-store' });
-		if (!response.ok) throw new Error('Export unavailable');
-		return (await response.json()) as CalendarData;
-	}
-	async function send() {
-		if (conflict || !queue.length) return;
-		try {
-			while (queue.length) {
-				const body = JSON.stringify(queue[0]);
-				const res = await fetch('/api/calendar', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body,
-					keepalive: body.length < 16000
-				});
-				if (!res.ok) {
-					conflict = res.status === 409;
-					throw new Error();
-				}
-				queue.shift();
-			}
-			saveError = '';
-			channel?.postMessage('saved');
-		} catch {
-			saveError = conflict
-				? 'This record changed on another device. Copy your unsaved edits before reloading.'
-				: 'Changes are waiting to be saved.';
-		}
-	}
-	function save<K extends Section>(key: K, value: CalendarData[K]): boolean {
-		return saveData({ ...calendarData, [key]: value });
-	}
-	function saveData(next: CalendarData): boolean {
-		const edits = changes(calendarData, next);
-		if (edits.length) {
-			generation++;
-			calendarData = next;
-			queue.push(edits);
-			void flush();
-		}
-		return true;
-	}
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -223,16 +166,7 @@
 			browserToday = localToday();
 		};
 		refreshToday();
-		channel = new BroadcastChannel('era-saves');
-		channel.onmessage = refresh;
-		window.addEventListener('focus', refresh);
-		const warn = (event: BeforeUnloadEvent) => {
-			if (queue.length) {
-				event.preventDefault();
-				event.returnValue = '';
-			}
-		};
-		window.addEventListener('beforeunload', warn);
+		const disconnectSync = sync.connect();
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
@@ -252,9 +186,7 @@
 		window.addEventListener('pagehide', saveView);
 		return () => {
 			saveView();
-			channel?.close();
-			window.removeEventListener('focus', refresh);
-			window.removeEventListener('beforeunload', warn);
+			disconnectSync();
 			positioning++;
 			resizeObserver.disconnect();
 			clearTimeout(saveTimer);
@@ -318,21 +250,26 @@
 	}
 
 	async function navigateTabs(event: KeyboardEvent) {
-		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-		event.preventDefault();
-		const tabs = ['horizontal', 'vertical', 'today', 'layout', 'reminders', 'settings'] as const;
+		const actions = {
+			horizontal: () => changeMode('horizontal'),
+			vertical: () => changeMode('vertical'),
+			today: showToday,
+			layout: showLayout,
+			reminders: showReminders,
+			settings: showSettings
+		};
+		const tabs = Object.keys(actions) as (keyof typeof actions)[];
 		const index = tabs.indexOf(section === 'calendar' ? mode : section);
-		const next =
-			event.key === 'Home'
-				? tabs[0]
-				: event.key === 'End'
-					? tabs[tabs.length - 1]
-					: tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-		if (next === 'today') showToday();
-		else if (next === 'layout') showLayout();
-		else if (next === 'reminders') showReminders();
-		else if (next === 'settings') showSettings();
-		else await changeMode(next);
+		const positions = {
+			Home: 0,
+			End: tabs.length - 1,
+			ArrowLeft: (index + tabs.length - 1) % tabs.length,
+			ArrowRight: (index + 1) % tabs.length
+		};
+		if (!Object.hasOwn(positions, event.key)) return;
+		event.preventDefault();
+		const next = tabs[positions[event.key as keyof typeof positions]];
+		await actions[next]();
 		await tick();
 		document.getElementById('tab-' + next)?.focus();
 	}
@@ -585,10 +522,10 @@
 			>Today</button
 		>
 	</header>
-	{#if saveError}<p role="alert">
-			{saveError}
-			{#if conflict}<button onclick={() => window.location.reload()}>Reload</button>{:else}<button
-					onclick={flush}>Retry</button
+	{#if syncState.error}<p role="alert">
+			{syncState.error}
+			{#if syncState.retryable}<button onclick={flush}>Retry</button>{:else}<button
+					onclick={sync.dismiss}>Dismiss</button
 				>{/if}
 		</p>{/if}
 	<div class="calendar-content" hidden={section !== 'calendar'}>
