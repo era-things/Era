@@ -2,6 +2,7 @@ import type { CalendarData } from '../../data-export';
 import {
 	WIDGETS,
 	widgetFor,
+	manualWidgetValue,
 	widgetValue,
 	isVisible,
 	validWidgetValue,
@@ -23,13 +24,18 @@ export function widgetId(value: string): WidgetId {
 }
 
 export function dayWidget(data: CalendarData, date: string, id: WidgetId) {
+	const manual = manualWidgetValue(data, date, id);
+	const automated = data.automated[date]?.[id];
 	const value = widgetValue(data, date, id);
 	return {
 		date,
 		id,
 		attached: value !== undefined,
 		visible: isVisible(data, date, id),
-		value: value === undefined ? null : widgetBody(id, value)
+		value: value === undefined ? null : widgetBody(id, value),
+		source: automated !== undefined ? 'automated' : manual !== undefined ? 'manual' : null,
+		automatedValue: automated === undefined ? null : widgetBody(id, automated),
+		manualValue: manual === undefined ? null : widgetBody(id, manual)
 	};
 }
 

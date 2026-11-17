@@ -6,11 +6,13 @@
 		item,
 		onchange,
 		autofocus = false,
+		readonly = false,
 		expanded = $bindable(null)
 	}: {
 		item: FoodItem;
 		onchange: (item: FoodItem | null) => boolean;
 		autofocus?: boolean;
+		readonly?: boolean;
 		expanded?: string | null;
 	} = $props();
 	let nameInput: HTMLInputElement;
@@ -56,15 +58,18 @@
 				expanded = null;
 		}}
 	>
-		<button
-			class="quantity-toggle"
-			type="button"
-			aria-label={'Quantity of ' + label + ', currently ' + item.quantity}
-			aria-expanded={expanded === item.id}
-			onclick={() => (expanded = expanded === item.id ? null : item.id)}
-			><span aria-live="polite">×{item.quantity}</span></button
-		>
-		{#if expanded === item.id}
+		{#if readonly}
+			<span>×{item.quantity}</span>
+		{:else}<button
+				class="quantity-toggle"
+				type="button"
+				aria-label={'Quantity of ' + label + ', currently ' + item.quantity}
+				aria-expanded={expanded === item.id}
+				onclick={() => (expanded = expanded === item.id ? null : item.id)}
+				><span aria-live="polite">×{item.quantity}</span></button
+			>
+		{/if}
+		{#if !readonly && expanded === item.id}
 			<div
 				class="quantity-controls"
 				role="group"
@@ -105,6 +110,7 @@
 			aria-label={'Name of ' + label}
 			title={item.name}
 			value={item.name}
+			{readonly}
 			maxlength="120"
 			onblur={(event) => commit('name', event.currentTarget)}
 			onkeydown={(event) => keydown(event, item.name)}
@@ -124,6 +130,7 @@
 				inputmode="decimal"
 				required
 				value={item[nutrient.key]}
+				{readonly}
 				onblur={(event) => commit(nutrient.key, event.currentTarget)}
 				onkeydown={(event) => keydown(event, item[nutrient.key])}
 			/></td

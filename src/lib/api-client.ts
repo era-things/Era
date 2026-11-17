@@ -1,6 +1,6 @@
 import type { CalendarData } from './data-export';
 import { widgetBody } from './api-values';
-import { WIDGETS, widgetValue } from './widgets';
+import { WIDGETS, manualWidgetValue } from './widgets';
 
 export type ApiRequest = {
 	url: string;
@@ -9,7 +9,10 @@ export type ApiRequest = {
 };
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const keys = (a: object, b: object) => [...new Set([...Object.keys(a), ...Object.keys(b)])];
-const widgetSections = [...new Set(WIDGETS.map(({ storage }) => storage.section))];
+const widgetSections = [
+	...new Set(WIDGETS.map(({ storage }) => storage.section)),
+	'automated'
+] as const;
 
 // Diff local UI state into ordinary resource requests. Old values never go over the wire.
 export function apiRequests(before: CalendarData, after: CalendarData): ApiRequest[] {
@@ -36,14 +39,17 @@ export function apiRequests(before: CalendarData, after: CalendarData): ApiReque
 			for (const day of Object.keys(data[section])) days.add(day);
 	for (const day of days)
 		for (const { id } of WIDGETS) {
-			const old = widgetValue(before, day, id),
-				next = widgetValue(after, day, id);
-			if (equal(old, next)) continue;
-			add(
-				`/api/days/${day}/widgets/${id}`,
-				next === undefined ? 'DELETE' : 'PUT',
-				next === undefined ? undefined : widgetBody(id, next)
-			);
+			const old = manualWidgetValue(before, day, id);
+			const next = manualWidgetValue(after, day, id);
+			const url = `/api/days/${day}/widgets/${id}`;
+			if (next !== undefined) {
+				if (!equal(old, next)) add(url, 'PUT', widgetBody(id, next));
+			} else if (
+				before.automated[day]?.[id] !== undefined &&
+				after.automated[day]?.[id] === undefined
+			) {
+				add(url, 'DELETE');
+			} else if (old !== undefined) add(`${url}/manual`, 'DELETE');
 		}
 	for (const day of keys(before.emojis, after.emojis))
 		if (before.emojis[day] !== after.emojis[day])

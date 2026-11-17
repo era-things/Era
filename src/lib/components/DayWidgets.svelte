@@ -6,6 +6,7 @@
 		dayWidget,
 		isVisible,
 		setWidgetValue,
+		type WidgetId,
 		type WidgetData
 	} from '../widgets';
 	import { previousNutritionItems } from '../nutrition';
@@ -28,7 +29,13 @@
 	const timeWidgets = $derived(visible.filter(({ placement }) => placement === 'time'));
 	const mainWidgets = $derived(visible.filter(({ placement }) => placement === 'main'));
 	const footerWidgets = $derived(visible.filter(({ placement }) => placement === 'footer'));
-	const history = $derived(previousNutritionItems(data.nutrition, day));
+	const history = $derived.by(() => {
+		const nutrition = { ...data.nutrition };
+		for (const [date, values] of Object.entries(data.automated)) {
+			if (values.nutrition !== undefined) nutrition[date] = values.nutrition;
+		}
+		return previousNutritionItems(nutrition, day);
+	});
 	const measureValues = $derived(data.measures.days[day] ?? {});
 	const attached = $derived(
 		data.measures.definitions.filter(({ id }) => Object.hasOwn(measureValues, id))
@@ -56,26 +63,28 @@
 	]);
 </script>
 
+{#snippet widget(id: WidgetId)}
+	<BuiltInWidget
+		widget={dayWidget(data, day, id)}
+		{history}
+		readonly={data.automated[day]?.[id] !== undefined}
+		onchange={(value) => onchange(setWidgetValue(data, day, id, value))}
+	/>
+{/snippet}
+
 <section class="day-widget-stack" aria-label="Day widgets">
 	{#if mainWidgets.length || timeWidgets.length}
 		<div class="day-widgets">
 			{#each mainWidgets as definition (definition.id)}
 				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
-					<BuiltInWidget
-						widget={dayWidget(data, day, definition.id)}
-						{history}
-						onchange={(value) => onchange(setWidgetValue(data, day, definition.id, value))}
-					/>
+					{@render widget(definition.id)}
 				</div>
 			{/each}
 			{#if timeWidgets.length}
 				<div class="full-widget time-widget-block" role="group" aria-label="Hours in a day">
 					{#each timeWidgets as definition (definition.id)}
 						<div class="time-widget-row">
-							<BuiltInWidget
-								widget={dayWidget(data, day, definition.id)}
-								onchange={(value) => onchange(setWidgetValue(data, day, definition.id, value))}
-							/>
+							{@render widget(definition.id)}
 						</div>
 					{/each}
 				</div>
@@ -89,10 +98,7 @@
 			onremove={(id) => changeMeasure(id)}
 		/>{/if}
 	{#each footerWidgets as definition (definition.id)}
-		<BuiltInWidget
-			widget={dayWidget(data, day, definition.id)}
-			onchange={(value) => onchange(setWidgetValue(data, day, definition.id, value))}
-		/>
+		{@render widget(definition.id)}
 	{/each}
 	{#if choosing}<div class="widget-chooser">
 			{#each choices as choice (choice.id)}<button

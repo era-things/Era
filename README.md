@@ -57,7 +57,14 @@ Set `ORIGIN` to the URL used to access the production server (for example,
 The API allows HTTP clients without an Origin header and rejects browser writes
 from a different origin.
 
+Wearable and phone sync clients on the LAN can send JSON to
+`PUT /api/days/:date/widgets/:id/automated`. See [HTTP API](docs/API.md).
+
 To populate an empty database from a browser export, run `bun run import "path/to/export.json"` with the same `ERA_DB`. The importer validates every section and checks an exact round trip inside one transaction. Settings exports the current server data. For a live database backup use SQLite's online backup facility or `VACUUM INTO`; keep a copy off the server.
+
+JSON exports include manual and automated widget values. To import a JSON
+export made before automated sync was added, add a top-level `"automated": {}`
+section to the export.
 
 ## Initial scope
 

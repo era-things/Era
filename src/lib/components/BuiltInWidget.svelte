@@ -17,10 +17,12 @@
 	let {
 		widget,
 		history = [],
+		readonly = false,
 		onchange = () => {}
 	}: {
 		widget: WidgetInstance;
 		history?: FoodItem[];
+		readonly?: boolean;
 		onchange?: (value: WidgetValues[WidgetId]) => boolean | void;
 	} = $props();
 	const renderers = { sleep, nutrition, note, time, counter } satisfies {
@@ -29,22 +31,35 @@
 </script>
 
 {#snippet sleep(item: WidgetInstanceOfKind<'sleep'>)}
-	<SleepWidget value={item.value} skin={item.skin} onchange={(value) => onchange(value)} />
+	<SleepWidget
+		value={item.value}
+		skin={item.skin}
+		{readonly}
+		onchange={(value) => onchange(value)}
+	/>
 {/snippet}
 {#snippet nutrition(item: WidgetInstanceOfKind<'nutrition'>)}
-	<NutritionPanel items={item.value} {history} onchange={(items) => onchange(items) !== false} />
+	<NutritionPanel
+		items={item.value}
+		{history}
+		{readonly}
+		onchange={(items) => onchange(items) !== false}
+	/>
 {/snippet}
 {#snippet note(item: WidgetInstanceOfKind<'note'>)}
-	<MarkdownNote value={item.value} onchange={(text) => onchange(text)} />
+	{#key readonly}
+		<MarkdownNote value={item.value} {readonly} onchange={(text) => onchange(text)} />
+	{/key}
 {/snippet}
 {#snippet time(item: WidgetInstanceOfKind<'time'>)}
-	<TimeWidget id={item.id} value={item.value} onchange={(value) => onchange(value)} />
+	<TimeWidget id={item.id} value={item.value} {readonly} onchange={(value) => onchange(value)} />
 {/snippet}
 {#snippet counter(item: WidgetInstanceOfKind<'counter'>)}
 	<CounterWidget
 		counter={item.definition}
 		skin={item.skin}
 		value={item.value}
+		{readonly}
 		onchange={(value) => onchange(value)}
 	/>
 {/snippet}

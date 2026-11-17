@@ -3,6 +3,7 @@ import { isDateKey, type DateKey } from './calendar';
 import { validFoodItem, type FoodItem } from './nutrition';
 import { emptySleep, validSleep, type Sleep } from './sleep';
 import { validTime } from './duration';
+import { isRecord, normalizeDays } from './validation';
 
 import { WIDGET_ICONS, type WidgetIcon } from './widget-icons';
 
@@ -92,7 +93,10 @@ export const WIDGETS = [
 		kind: 'nutrition',
 		placement: 'main',
 		storage: { section: 'nutrition' },
-		valid: (value: unknown) => Array.isArray(value) && value.every(validFoodItem),
+		valid: (value: unknown): value is FoodItem[] =>
+			Array.isArray(value) &&
+			value.every(validFoodItem) &&
+			new Set(value.map(({ id }) => id)).size === value.length,
 		fields: [{ name: 'items', type: 'array' }],
 		compact: false,
 		pinned: false,
@@ -230,7 +234,7 @@ export function widgetHandler<R>(widget: WidgetInstance, handlers: WidgetHandler
 }
 export type WidgetData = Pick<
 	CalendarData,
-	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures' | 'sleep' | 'time'
+	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures' | 'sleep' | 'time' | 'automated'
 >;
 export const widgetFor = <K extends WidgetId>(id: K) =>
 	WIDGETS.find((widget) => widget.id === id)! as Extract<Widget, { id: K }>;
@@ -259,7 +263,7 @@ export function setWidgetSettings<K extends WidgetId>(
 	if (next.archived) next.pinned = false;
 	return { widgets: { ...layout.widgets, [id]: next } };
 }
-export function widgetValue<K extends WidgetId>(
+export function manualWidgetValue<K extends WidgetId>(
 	data: WidgetData,
 	day: DateKey,
 	id: K
@@ -271,6 +275,37 @@ export function widgetValue<K extends WidgetId>(
 			? (daily as Record<string, WidgetValues[WidgetId]> | undefined)?.[storage.key]
 			: daily
 	) as WidgetValues[K] | undefined;
+}
+export function widgetValue<K extends WidgetId>(
+	data: WidgetData,
+	day: DateKey,
+	id: K
+): WidgetValues[K] | undefined {
+	const automated = data.automated[day]?.[id];
+	return automated === undefined ? manualWidgetValue(data, day, id) : automated;
+}
+
+export function normalizeAutomatedValues(value: unknown): CalendarData['automated'] {
+	return normalizeDays(value, (entry) => {
+		if (!isRecord(entry)) return;
+		const values = WIDGETS.filter(({ id, valid }) => valid(entry[id])).map(
+			({ id }) => [id, entry[id]] as const
+		);
+		if (values.length) return Object.fromEntries(values);
+	});
+}
+
+export function setAutomatedWidgetValue<K extends WidgetId>(
+	data: CalendarData,
+	day: DateKey,
+	id: K,
+	value: WidgetValues[K]
+): CalendarData {
+	if (!isDateKey(day) || !validWidgetValue(id, value)) return data;
+	return {
+		...data,
+		automated: { ...data.automated, [day]: { ...data.automated[day], [id]: value } }
+	};
 }
 export const isAttached = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	widgetValue(data, day, id) !== undefined;
@@ -305,7 +340,11 @@ export const attachWidget = <T extends WidgetData>(data: T, day: DateKey, id: Wi
 		? data
 		: setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId]);
 
-export function removeWidgetValue<T extends WidgetData>(data: T, day: DateKey, id: WidgetId): T {
+export function clearManualWidgetValue<T extends WidgetData>(
+	data: T,
+	day: DateKey,
+	id: WidgetId
+): T {
 	const storage = widgetFor(id).storage;
 	const days: Record<string, unknown> = { ...data[storage.section] };
 	if ('key' in storage) {
@@ -315,4 +354,15 @@ export function removeWidgetValue<T extends WidgetData>(data: T, day: DateKey, i
 		else delete days[day];
 	} else delete days[day];
 	return { ...data, [storage.section]: days };
+}
+
+export function removeWidgetValue(data: CalendarData, day: DateKey, id: WidgetId): CalendarData {
+	const next = clearManualWidgetValue(data, day, id);
+	if (data.automated[day]?.[id] === undefined) return next;
+	const automated = { ...data.automated };
+	const values = { ...automated[day] };
+	delete values[id];
+	if (Object.keys(values).length) automated[day] = values;
+	else delete automated[day];
+	return { ...next, automated };
 }

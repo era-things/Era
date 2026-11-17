@@ -5,9 +5,14 @@
 	let {
 		id,
 		value,
+		readonly = false,
 		onchange
-	}: { id: TimeId; value: number | null; onchange: (value: number | null) => boolean | void } =
-		$props();
+	}: {
+		id: TimeId;
+		value: number | null;
+		readonly?: boolean;
+		onchange: (value: number | null) => boolean | void;
+	} = $props();
 	const definition = $derived(widgetFor(id));
 	const name = $derived(definition.name);
 	const hours = $derived(formatDurationPart(value, 'hours'));
@@ -44,6 +49,7 @@
 					max={unit === 'hours' ? 24 : 59}
 					step="1"
 					inputmode="numeric"
+					{readonly}
 					placeholder="—"
 					value={unit === 'hours' ? hours : minutes}
 					oninput={(event) => event.currentTarget.setCustomValidity('')}

@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { MarkdownEditor } from '../markdown-editor';
-	let { value, onchange }: { value: string; onchange: (value: string) => void } = $props();
+	let {
+		value,
+		readonly,
+		onchange
+	}: { value: string; readonly: boolean; onchange: (value: string) => void } = $props();
 	let host: HTMLDivElement;
 	let editor = $state<MarkdownEditor | null>(null);
 	let error = $state('');
@@ -10,7 +14,7 @@
 		void import('../markdown-editor')
 			.then(({ createMarkdownEditor }) => {
 				if (disposed) return;
-				editor = createMarkdownEditor(host, value, onchange);
+				editor = createMarkdownEditor(host, value, onchange, readonly);
 			})
 			.catch(() => {
 				if (!disposed) error = 'Could not load the note editor.';

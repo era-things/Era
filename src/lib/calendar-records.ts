@@ -15,6 +15,7 @@ export const emptyCalendar = (): CalendarData => ({
 	counters: {},
 	sleep: {},
 	time: {},
+	automated: {},
 	layout: emptyLayout(),
 	reminders: []
 });
@@ -28,6 +29,8 @@ export function records(data: CalendarData) {
 	for (const [day, value] of Object.entries(data.sleep)) put(value, 'sleep', day);
 	for (const [day, values] of Object.entries(data.time))
 		for (const [id, value] of Object.entries(values)) put(value, 'time-value', day, id);
+	for (const [day, values] of Object.entries(data.automated))
+		for (const [id, value] of Object.entries(values)) put(value, 'automated-value', day, id);
 	for (const [day, value] of Object.entries(data.emojis)) put(value, 'emoji', day);
 	for (const def of data.measures.definitions) put(def, 'measure', def.id);
 	for (const [day, values] of Object.entries(data.measures.days))
@@ -59,6 +62,9 @@ export function changes(before: CalendarData, after: CalendarData): Change[] {
 type Decoder = (data: CalendarData, day: string, id: string, value: unknown) => void;
 const decoders = new Map<string, Decoder>(
 	Object.entries({
+		'automated-value': (data, day, id, value) => {
+			Object.assign((data.automated[day] ??= {}), { [id]: value });
+		},
 		'time-value': (data, day, id, value) => {
 			(data.time[day] ??= {})[id as TimeId] = value as number | null;
 		},

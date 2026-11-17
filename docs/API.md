@@ -2,11 +2,10 @@
 
 Base URL in development: `http://127.0.0.1:5173/api`.
 
-Requests use ordinary JSON with `Content-Type: application/json`. There is no
-authentication, API version prefix, version field, ETag, or conditional update
-requirement. A successful write replaces the addressed value using the latest
-backend state. For the same value, the last write wins; other widgets and dates
-remain untouched. Writes are validated and committed in a SQLite transaction.
+Requests use JSON with `Content-Type: application/json`. Era's API is
+unauthenticated and intended for use on a private LAN.
+A successful write replaces the addressed value using the latest backend state.
+Writes are validated and committed in a SQLite transaction.
 
 ## Discover widgets and settings
 
@@ -34,17 +33,33 @@ a widget preserves its skin and daily values.
 
 ## Daily widgets
 
-| Method | Path                      | Result                                                                                                            |
-| ------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| GET    | `/days/:date`             | `{date, emoji, widgets, measures}` for that day; widgets include the visible pinned defaults and existing entries |
-| GET    | `/days/:date/widgets/:id` | `{date, id, attached, visible, value}`                                                                            |
-| PUT    | `/days/:date/widgets/:id` | Attach or replace that day's value                                                                                |
-| DELETE | `/days/:date/widgets/:id` | Remove the daily attachment; return 204                                                                           |
+| Method | Path                                | Result                                                                                                            |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| GET    | `/days/:date`                       | `{date, emoji, widgets, measures}` for that day; widgets include the visible pinned defaults and existing entries |
+| GET    | `/days/:date/widgets/:id`           | Read the effective value and both stored values                                                                   |
+| PUT    | `/days/:date/widgets/:id`           | Set the manual value and return the daily widget                                                                  |
+| PUT    | `/days/:date/widgets/:id/automated` | Set the automated value and return 204                                                                            |
+| DELETE | `/days/:date/widgets/:id/manual`    | Remove the manual value and return 204                                                                            |
+| DELETE | `/days/:date/widgets/:id`           | Remove both values and return 204                                                                                 |
 
-Dates must be real `YYYY-MM-DD` dates. An unattached widget has `attached:false`
-and `value:null`. A pinned widget can remain visible without a daily attachment;
-the UI renders its default value. Clearing a nullable field keeps its daily
-attachment; DELETE removes it. Deleting an already absent attachment also returns 204. Pinning can still make the widget visible after DELETE.
+Dates must be real `YYYY-MM-DD` dates. Daily widget responses include `date`,
+`id`, `attached`, `visible`, `value`, `source`, `manualValue`, and
+`automatedValue`. Each value uses the same shape as a PUT body. The effective
+`value` comes from the automated value when present and from the manual value
+otherwise. `source` is `"automated"`, `"manual"`, or `null`. An absent stored
+value is `null` at the response’s top level. A stored body such as
+`{"durationMinutes":null}` still counts as a value for precedence and attachment.
+A pinned widget without either value remains visible and renders its default.
+Both DELETE operations return 204 even if the addressed values are already absent.
+
+Both PUT endpoints use the same validation. This example reports 222 minutes
+of phone use.
+
+```sh
+curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/widgets/phone/automated \
+  -H 'Content-Type: application/json' \
+  -d '{"durationMinutes":222}'
+```
 
 ### Bodies by widget
 
@@ -124,7 +139,8 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
   Text is trimmed, nonempty, and at most 500 characters. DELETE removes it and
   returns 204, including when already absent.
 - GET `/data` returns the complete app state used by refresh and JSON export. It
-  is read-only; use resource endpoints for edits.
+  includes the manual widget sections and the `automated` section keyed by date
+  and widget ID.
 
 ## Errors
 
@@ -138,11 +154,10 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
 }
 ```
 
-400 means an invalid value, unknown field, or malformed JSON; 404 means an unknown
-resource; 405 means an unsupported method; 409 means a duplicate definition/name
-or an archived widget that cannot be newly attached or pinned; 415 means the
-content type must be JSON. Cross-site browser writes return 403. This is not
-authentication; direct HTTP agents require no token.
+400 means an invalid value, unknown field, or malformed JSON. 403 means a
+cross-site browser write. 404 means an unknown resource, 405 means an unsupported method,
+409 means a duplicate definition/name or a widget archive conflict, and
+415 means the content type must be JSON.
 
 There are no stale-version conflicts or `before`/`after` payloads. `/api/calendar`
 has been removed. No OpenAPI schema is generated.

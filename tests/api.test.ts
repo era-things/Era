@@ -1,7 +1,8 @@
 import { test, expect } from 'bun:test';
 import { handleApi } from '../src/lib/server/api';
 import { openCalendar } from '../src/lib/server/database';
-import { emptyCalendar } from '../src/lib/calendar-records';
+import { changes, emptyCalendar } from '../src/lib/calendar-records';
+import { serializeDataExport } from '../src/lib/data-export';
 import { apiRequests } from '../src/lib/api-client';
 import { setWidgetValue, setWidgetSettings } from '../src/lib/widgets';
 import { createReminder } from '../src/lib/reminders';
@@ -20,15 +21,78 @@ function client() {
 				...(body === undefined
 					? {}
 					: {
-							body: JSON.stringify(body),
-							headers: { 'content-type': 'application/json', ...headers }
-						})
+							body: JSON.stringify(body)
+						}),
+				headers: {
+					...(body === undefined ? {} : { 'content-type': 'application/json' }),
+					...headers
+				}
 			}),
 			path,
 			store
 		);
 	return { store, call };
 }
+
+test('automated writes need no credentials, preserve manual values, and survive export and restore', async () => {
+	const { store, call } = client();
+	const restored = openCalendar(':memory:');
+	const path = 'days/2026-11-17/widgets/phone';
+	const automated = `${path}/automated`;
+	try {
+		const firstReport = { durationMinutes: 222 };
+		expect((await call(automated, 'PUT', { durationMinutes: 1441 })).status).toBe(400);
+		await call(path, 'PUT', { durationMinutes: null });
+		expect((await call(automated, 'PUT', firstReport)).status).toBe(204);
+		const latestReport = { durationMinutes: 230 };
+		expect((await call(automated, 'PUT', latestReport)).status).toBe(204);
+		expect(await (await call(path)).json()).toMatchObject({
+			attached: true,
+			source: 'automated',
+			value: latestReport,
+			manualValue: { durationMinutes: null },
+			automatedValue: latestReport
+		});
+		const { app, exportedAt, ...backup } = JSON.parse(serializeDataExport(store.read()));
+		restored.apply(changes(emptyCalendar(), backup));
+		expect(restored.read()).toEqual(store.read());
+		for (let attempt = 0; attempt < 2; attempt++) {
+			expect((await call(`${path}/manual`, 'DELETE')).status).toBe(204);
+			expect(await (await call(path)).json()).toMatchObject({
+				attached: true,
+				source: 'automated',
+				manualValue: null,
+				value: latestReport
+			});
+		}
+		await call(path, 'PUT', { durationMinutes: 0 });
+		expect((await call(path, 'DELETE')).status).toBe(204);
+		expect(await (await call(path)).json()).toMatchObject({
+			attached: false,
+			visible: false,
+			source: null,
+			value: null,
+			automatedValue: null,
+			manualValue: null
+		});
+		await call(path, 'PUT', { durationMinutes: 180 });
+		expect((await call(`${path}/manual`, 'DELETE')).status).toBe(204);
+		expect(store.read()).toEqual(emptyCalendar());
+
+		const steps = 'days/2026-11-17/widgets/steps';
+		expect((await call(`${steps}/automated`, 'PUT', { value: null })).status).toBe(204);
+		const manual = await call(steps, 'PUT', { value: 8200 });
+		expect(await manual.json()).toMatchObject({
+			attached: true,
+			source: 'automated',
+			value: { value: null },
+			manualValue: { value: 8200 }
+		});
+	} finally {
+		restored.db.close();
+		store.db.close();
+	}
+});
 
 test('discover widgets and update a single daily value without versions; PUT and DELETE can be retried', async () => {
 	const { store, call } = client();

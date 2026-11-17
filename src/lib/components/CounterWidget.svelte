@@ -5,11 +5,13 @@
 		counter,
 		skin,
 		value,
+		readonly = false,
 		onchange
 	}: {
 		counter: Counter;
 		skin: WidgetSkin;
 		value: number | null | undefined;
+		readonly?: boolean;
 		onchange: (value: number | null) => void;
 	} = $props();
 	function input(event: Event) {
@@ -53,7 +55,8 @@
 			step={counter.integer ? '1' : 'any'}
 			inputmode={counter.integer ? 'numeric' : 'decimal'}
 			placeholder="—"
-			value={value ?? counter.initial ?? ''}
+			{readonly}
+			value={(value === undefined ? counter.initial : value) ?? ''}
 			oninput={input}
 			onchange={(event) => event.currentTarget.reportValidity()}
 		/>

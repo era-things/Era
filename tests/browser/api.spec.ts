@@ -69,3 +69,32 @@ test('a rejected edit refreshes state without blocking later UI writes', async (
 		.poll(async () => (await (await request.get('/api/widgets/gym')).json()).settings.archived)
 		.toBe(false);
 });
+
+test('the dashboard shows the latest sync while Era preserves manual entries', async ({
+	page,
+	request
+}) => {
+	const url = `/api/days/${localToday()}/widgets/phone`;
+	const report = async (durationMinutes: number) =>
+		request.put(`${url}/automated`, { data: { durationMinutes } });
+	expect((await request.put(url, { data: { durationMinutes: 180 } })).ok()).toBe(true);
+	await page.goto('/today');
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	const minutes = today.getByRole('spinbutton', { name: 'Phone screen time minutes', exact: true });
+	await expect(minutes).toHaveValue('00');
+	await expect(minutes).toBeEditable();
+	expect((await report(222)).status()).toBe(204);
+	await page.reload();
+	await expect(minutes).toHaveValue('42');
+	await expect(minutes).not.toBeEditable();
+	expect((await report(230)).status()).toBe(204);
+	await page.reload();
+	await expect(minutes).toHaveValue('50');
+	await expect(today.getByRole('button', { name: 'Use synced value', exact: true })).toHaveCount(0);
+	expect(await (await request.get(url)).json()).toMatchObject({
+		source: 'automated',
+		value: { durationMinutes: 230 },
+		manualValue: { durationMinutes: 180 }
+	});
+});

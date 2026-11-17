@@ -14,6 +14,7 @@ import { normalizeCounters } from '../counters';
 import { normalizeLayout } from '../layout';
 import { normalizeSleep } from '../sleep';
 import { normalizeTime } from '../time';
+import { normalizeAutomatedValues } from '../widgets';
 
 export function validate(data: unknown): asserts data is CalendarData {
 	if (!isRecord(data)) throw new Error('Invalid calendar data');
@@ -25,6 +26,7 @@ export function validate(data: unknown): asserts data is CalendarData {
 		counters: normalizeCounters(data.counters),
 		sleep: normalizeSleep(data.sleep),
 		time: normalizeTime(data.time),
+		automated: normalizeAutomatedValues(data.automated),
 		layout: normalizeLayout(data.layout),
 		reminders: normalizeReminders(data.reminders)
 	};

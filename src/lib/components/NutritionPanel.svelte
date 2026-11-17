@@ -6,9 +6,14 @@
 	let {
 		items,
 		history,
+		readonly = false,
 		onchange
-	}: { items: FoodItem[]; history: FoodItem[]; onchange: (items: FoodItem[]) => boolean } =
-		$props();
+	}: {
+		items: FoodItem[];
+		history: FoodItem[];
+		readonly?: boolean;
+		onchange: (items: FoodItem[]) => boolean;
+	} = $props();
 	let expanded = $state<string | null>(null);
 	let focusId = $state<string | null>(null);
 	let itemsOpen = $state(false);
@@ -89,6 +94,7 @@
 					{#each items as item (item.id)}
 						<NutritionItemRow
 							{item}
+							{readonly}
 							bind:expanded
 							autofocus={focusId === item.id}
 							onchange={(next) => update(item.id, next)}
@@ -97,21 +103,21 @@
 				</tbody>
 			</table>
 		{/if}
-		<div class="item-actions">
-			<button class="add-item" type="button" aria-label="Add item" onclick={() => add()}
-				><svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.7"
-					stroke-linecap="round"
-					aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg
-				></button
-			>
-			<NutritionHistory items={history} onselect={add} />
-		</div>
+		{#if !readonly}<div class="item-actions">
+				<button class="add-item" type="button" aria-label="Add item" onclick={() => add()}
+					><svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.7"
+						stroke-linecap="round"
+						aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg
+					></button
+				>
+				<NutritionHistory items={history} onselect={add} />
+			</div>{/if}
 	</div>
 </section>
 

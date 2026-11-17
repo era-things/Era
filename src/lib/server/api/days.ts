@@ -10,8 +10,18 @@ import {
 	type ApiContext,
 	type ApiRoute
 } from './shared';
-import { WIDGETS, isVisible, isAttached, removeWidgetValue, setWidgetValue } from '../../widgets';
+import {
+	WIDGETS,
+	isVisible,
+	isAttached,
+	clearManualWidgetValue,
+	removeWidgetValue,
+	setAutomatedWidgetValue,
+	setWidgetValue,
+	type WidgetId
+} from '../../widgets';
 import { setDayMeasure, validMeasureValue } from '../../measures';
+import type { CalendarData } from '../../data-export';
 import { normalizeEmoji } from '../../day-emojis';
 import { widgetId, dayWidget, parseWidget } from './widget-values';
 function getDay({ store, params }: ApiContext) {
@@ -34,7 +44,10 @@ function getDayWidget({ store, params }: ApiContext) {
 	const id = widgetId(params.id);
 	return reply(dayWidget(store.read(), date, id));
 }
-function putDayWidget({ store, body, params }: ApiContext) {
+function writeDayWidget(
+	{ store, body, params }: ApiContext,
+	setValue: typeof setWidgetValue<CalendarData, WidgetId>
+) {
 	const date = dayKey(params.date);
 	const id = widgetId(params.id);
 	const value = parseWidget(id, body);
@@ -46,9 +59,23 @@ function putDayWidget({ store, body, params }: ApiContext) {
 				'Restore this widget from the catalog before adding it to a new day.',
 				'archived'
 			);
-		return setWidgetValue(current, date, id, value);
+		return setValue(current, date, id, value);
 	});
+	return { data, date, id };
+}
+function putDayWidget(context: ApiContext) {
+	const { data, date, id } = writeDayWidget(context, setWidgetValue);
 	return reply(dayWidget(data, date, id));
+}
+function putAutomatedDayWidget(context: ApiContext) {
+	writeDayWidget(context, setAutomatedWidgetValue);
+	return noContent();
+}
+function deleteManualDayWidget({ store, params }: ApiContext) {
+	const date = dayKey(params.date);
+	const id = widgetId(params.id);
+	store.update((data) => clearManualWidgetValue(data, date, id));
+	return noContent();
 }
 function deleteDayWidget({ store, params }: ApiContext) {
 	const date = dayKey(params.date);
@@ -119,6 +146,14 @@ export const dayRoutes = [
 	{
 		pattern: /^days\/(?<date>[^/]+)\/widgets\/(?<id>[^/]+)$/,
 		methods: { GET: getDayWidget, PUT: putDayWidget, DELETE: deleteDayWidget }
+	},
+	{
+		pattern: /^days\/(?<date>[^/]+)\/widgets\/(?<id>[^/]+)\/automated$/,
+		methods: { PUT: putAutomatedDayWidget }
+	},
+	{
+		pattern: /^days\/(?<date>[^/]+)\/widgets\/(?<id>[^/]+)\/manual$/,
+		methods: { DELETE: deleteManualDayWidget }
 	},
 	{
 		pattern: /^days\/(?<date>[^/]+)\/measures\/(?<id>[^/]+)$/,

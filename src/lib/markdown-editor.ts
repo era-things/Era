@@ -24,7 +24,8 @@ const highlighting = HighlightStyle.define(
 export function createMarkdownEditor(
 	root: HTMLElement,
 	value: string,
-	onchange: (value: string) => void
+	onchange: (value: string) => void,
+	readonly: boolean
 ): MarkdownEditor {
 	let syncing = false;
 	const view = new EditorView({
@@ -33,6 +34,11 @@ export function createMarkdownEditor(
 			doc: value,
 			extensions: [
 				silkdown(),
+				EditorState.readOnly.of(readonly),
+				EditorView.editable.of(!readonly),
+				EditorState.transactionFilter.of((transaction) =>
+					readonly && transaction.docChanged && !syncing ? [] : transaction
+				),
 				indentUnit.of('  '),
 				Prec.highest(
 					keymap.of([
@@ -44,13 +50,23 @@ export function createMarkdownEditor(
 				drawSelection(),
 				syntaxHighlighting(highlighting),
 				placeholder('Note'),
-				EditorView.contentAttributes.of({ 'aria-label': 'Notes', 'aria-multiline': 'true' }),
+				EditorView.contentAttributes.of({
+					'aria-label': 'Notes',
+					'aria-multiline': 'true',
+					'aria-readonly': String(readonly)
+				}),
 				EditorView.updateListener.of((update) => {
 					if (update.docChanged && !syncing) onchange(update.state.doc.toString());
 				})
 			]
 		})
 	});
+	// Silkdown's task widgets handle checkbox clicks independently of the editor.
+	const preventTaskEdit = (event: MouseEvent) => {
+		if (event.target instanceof HTMLInputElement && event.target.type === 'checkbox')
+			event.preventDefault();
+	};
+	if (readonly) view.dom.addEventListener('click', preventTaskEdit, true);
 	return {
 		setValue(value) {
 			const current = view.state.doc.toString();
@@ -75,6 +91,7 @@ export function createMarkdownEditor(
 			}
 		},
 		destroy() {
+			if (readonly) view.dom.removeEventListener('click', preventTaskEdit, true);
 			view.destroy();
 		}
 	};

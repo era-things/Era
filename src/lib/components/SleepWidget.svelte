@@ -5,10 +5,12 @@
 	let {
 		value,
 		skin = 'lunar-seal',
+		readonly = false,
 		onchange
 	}: {
 		value: Sleep;
 		skin?: WidgetSkin<'sleep'>;
+		readonly?: boolean;
 		onchange: (value: Sleep) => boolean | void;
 	} = $props();
 	const hours = $derived(formatDurationPart(value.duration, 'hours'));
@@ -70,6 +72,7 @@
 				step="1"
 				placeholder="—"
 				value={hours}
+				{readonly}
 				onchange={(event) => durationChange(event, 'hours')}
 			/><span>h</span></label
 		>
@@ -82,6 +85,7 @@
 				step="1"
 				placeholder="—"
 				value={minutes}
+				{readonly}
 				onchange={(event) => durationChange(event, 'minutes')}
 			/><span>m</span></label
 		>
@@ -96,6 +100,7 @@
 				value={formatSleepTime(value[field as 'start' | 'end'])}
 				maxlength="5"
 				spellcheck="false"
+				{readonly}
 				oninput={(event) => event.currentTarget.setCustomValidity('')}
 				onfocus={(event) => event.currentTarget.select()}
 				onchange={(event) => timeChange(event, field as 'start' | 'end')}
