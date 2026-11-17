@@ -1,17 +1,8 @@
-import { writeData } from './api-helpers';
-import { test, expect } from '@playwright/test';
-import { emptyCalendar } from '../../src/lib/calendar-records';
-
-test.afterEach(async ({ request }) => {
-	const current = await (await request.get('/api/data')).json();
-	await writeData(request, current, emptyCalendar());
-});
+import { test, expect } from './fixtures';
 
 test('catalog stars and archives persist, filter day choices, and preserve saved widgets', async ({
 	page
 }) => {
-	const before = await (await page.request.get('/api/data')).json();
-	await writeData(page.request, before, emptyCalendar());
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });

@@ -1,9 +1,10 @@
 import { defineConfig } from '@playwright/test';
+import { productionOrigins, usesDevServer } from './tests/browser/servers';
 
 const mode = process.env.ERA_VERIFY_MODE;
-const dev = mode === 'browser' || mode === 'scenario';
+const dev = usesDevServer;
 const warm = dev && process.env.ERA_VERIFY_WARM === '1';
-const baseURL = process.env.ERA_VERIFY_URL ?? 'http://127.0.0.1:41689';
+const baseURL = process.env.ERA_VERIFY_URL ?? productionOrigins[0];
 const bun = process.env.ERA_VERIFY_BUN
 	? process.platform === 'win32'
 		? '"%ERA_VERIFY_BUN%"'
@@ -13,7 +14,7 @@ const bun = process.env.ERA_VERIFY_BUN
 export default defineConfig({
 	testDir: mode === 'scenario' ? './tests/scenarios' : './tests/browser',
 	outputDir: `test-results/${mode === 'scenario' ? 'scenarios' : dev ? 'focused' : 'production'}`,
-	workers: 1,
+	workers: dev ? 1 : productionOrigins.length,
 	globalSetup: warm ? './tests/browser/reset-warm-server.ts' : undefined,
 	reporter: mode ? 'dot' : undefined,
 	expect: { timeout: 10000 },
@@ -32,15 +33,15 @@ export default defineConfig({
 					url: baseURL + process.env.ERA_VERIFY_HEALTH,
 					timeout: 15000
 				}
-			: {
+			: productionOrigins.map((origin) => ({
 					command: `${bun} build/index.js`,
-					url: baseURL,
+					url: origin,
 					env: {
 						ERA_DB: ':memory:',
-						PORT: new URL(baseURL).port,
+						PORT: new URL(origin).port,
 						HOST: '127.0.0.1',
-						ORIGIN: baseURL
+						ORIGIN: origin
 					},
 					timeout: 15000
-				}
+				}))
 });

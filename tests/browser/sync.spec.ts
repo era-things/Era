@@ -1,13 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { emptyCalendar } from '../../src/lib/calendar-records';
-import { writeData } from './api-helpers';
+import { test, expect } from './fixtures';
 
 test('saved edits refresh another tab and failed writes can be retried', async ({
 	page,
 	context,
 	request
 }) => {
-	await writeData(request, await (await request.get('/api/data')).json(), emptyCalendar());
 	await request.patch('/api/widgets/reading', { data: { pinned: true } });
 	const other = await context.newPage();
 	for (const tab of [page, other]) {
@@ -36,5 +33,4 @@ test('saved edits refresh another tab and failed writes can be retried', async (
 	await expect(other.getByRole('alert')).toHaveCount(0);
 	await expect(minutes(page)).toHaveValue('40');
 	await other.close();
-	await writeData(request, await (await request.get('/api/data')).json(), emptyCalendar());
 });

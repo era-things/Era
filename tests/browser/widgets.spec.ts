@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('custom measures share the day add menu and preserve numeric and boolean editing', async ({
 	page

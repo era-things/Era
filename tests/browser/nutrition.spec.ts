@@ -1,6 +1,6 @@
 import { writeData } from './api-helpers';
 import { setWidgetSettings } from '../../src/lib/widgets';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
 	page

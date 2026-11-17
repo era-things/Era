@@ -1,6 +1,4 @@
-import { writeData } from './api-helpers';
-import { test, expect } from '@playwright/test';
-import { emptyLayout } from '../../src/lib/widgets';
+import { test, expect } from './fixtures';
 
 test('built-in weight and steps share a row, persist, and retain values when unpinned', async ({
 	page
@@ -152,14 +150,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 test('unpinned built-ins are added per day and pinned ones appear on empty days', async ({
 	page
 }) => {
-	const before = await (await page.request.get('/api/data')).json();
-	const next = {
-		...before,
-		nutrition: {},
-		counters: {},
-		layout: emptyLayout()
-	};
-	await writeData(page.request, before, next);
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });

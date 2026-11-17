@@ -39,7 +39,9 @@ node scripts/verify.mjs full
 `unit` without filenames runs all Bun tests. `browser` runs the selected spec
 against Vite, and `scenario` seeds and captures a named UI state. Both use isolated
 test data and print artifact paths. `full` runs the unit and type checks, builds
-once, and runs the browser suite against that build.
+once, and runs the browser suite against that build. The production browser suite
+uses two workers, each with its own Bun server and in-memory SQLite database.
+The calendar resets before each test.
 
 For repeated checks, keep `node scripts/verify.mjs serve` running in a separate
 terminal and add `--warm` after `browser` or `scenario`. The next run starts with

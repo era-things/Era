@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('Markdown notes render formatting, toggle tasks and export Markdown', async ({
 	page,

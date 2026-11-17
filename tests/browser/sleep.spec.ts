@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('full-row sleep edits, pinning and records survive reload', async ({ page }) => {
 	await page.goto('/today');

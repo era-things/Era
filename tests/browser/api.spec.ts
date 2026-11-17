@@ -1,14 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { localToday } from '../../src/lib/calendar';
-import { emptyCalendar } from '../../src/lib/calendar-records';
-import { writeData } from './api-helpers';
 
 test('an HTTP agent can discover widgets, create a measure, and populate values visible in the app', async ({
 	page,
 	request
 }) => {
-	const before = await (await request.get('/api/data')).json();
-	await writeData(request, before, emptyCalendar());
 	const definitions = await (await request.get('/api/widgets')).json();
 	expect(definitions.widgets.some((item: { id: string }) => item.id === 'reading')).toBe(true);
 	expect(
@@ -47,14 +43,12 @@ test('an HTTP agent can discover widgets, create a measure, and populate values 
 	expect((await request.delete(`/api/days/${date}/measures/api-water`)).status()).toBe(204);
 	expect((await request.delete('/api/measures/api-water')).status()).toBe(204);
 	expect((await request.delete(url)).status()).toBe(204);
-	await writeData(request, await (await request.get('/api/data')).json(), emptyCalendar());
 });
 
 test('a rejected edit refreshes state without blocking later UI writes', async ({
 	page,
 	request
 }) => {
-	await writeData(request, await (await request.get('/api/data')).json(), emptyCalendar());
 	await request.patch('/api/widgets/gym', { data: { pinned: true } });
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -74,5 +68,4 @@ test('a rejected edit refreshes state without blocking later UI writes', async (
 	await expect
 		.poll(async () => (await (await request.get('/api/widgets/gym')).json()).settings.archived)
 		.toBe(false);
-	await writeData(request, await (await request.get('/api/data')).json(), emptyCalendar());
 });
