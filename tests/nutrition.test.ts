@@ -4,7 +4,6 @@ import {
 	nutritionTotals,
 	previousNutritionItems,
 	normalizeNutrition,
-	setNutritionItems,
 	validFoodItem,
 	type FoodItem
 } from '../src/lib/nutrition.ts';
@@ -79,14 +78,6 @@ test('food values must be finite and non-negative; blank names, zero and decimal
 		assert.equal(validFoodItem({ ...lunch, kcal }), false);
 	assert.equal(validFoodItem({ ...lunch, fat: -0.1 }), false);
 	assert.equal(validFoodItem({ ...lunch, name: '' }), true);
-});
-
-test('day updates preserve other dates and keep empty widgets attached', () => {
-	const first = setNutritionItems({}, '2026-11-05', [lunch]);
-	const second = setNutritionItems(first, '2026-11-06', [snack]);
-	const removed = setNutritionItems(second, '2026-11-05', []);
-	assert.deepEqual(removed, { '2026-11-05': [], '2026-11-06': [snack] });
-	assert.deepEqual(first, { '2026-11-05': [lunch] });
 });
 
 test('nutrition normalization preserves empty days, blank rows and quantities, filtering invalid entries', () => {

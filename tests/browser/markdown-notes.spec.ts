@@ -6,9 +6,8 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	context
 }, testInfo) => {
 	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const note = today.getByRole('textbox', { name: 'Notes', exact: true });
 	await expect(note).toBeVisible();
@@ -38,9 +37,8 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	const exported = JSON.parse(await readFile(path, 'utf8'));
 	const saved = exported.notes[date] as string;
 	expect(saved).toBe(markdown.replace('- [ ] Task', '- [x] Task'));
-	await page.reload();
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(note.locator('.sd-h1')).toContainText('Heading');
 	await expect(note.getByRole('checkbox', { name: 'Mark task open' })).toBeChecked();
 	// Reveal syntax only on the current line, leaving other lines rendered.
@@ -52,7 +50,6 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	await expect(note.locator('.sd-h1')).toHaveText('# Heading');
 	await note.press('ArrowDown');
 	await expect(note.locator('.sd-h1')).toHaveText('Heading');
-	await page.screenshot({ path: testInfo.outputPath('silkdown-notes.png') });
 	await note.fill('Keyboard bold');
 	await note.press('Control+a');
 	await note.press('Control+b');
@@ -63,12 +60,9 @@ test('Markdown notes render formatting, toggle tasks and export Markdown', async
 	await expect(note.locator('.sd-strong')).toHaveText('**Keyboard bold**');
 });
 
-test('Lists render bullets and support continuation, nesting and exiting', async ({
-	page
-}, testInfo) => {
-	await page.goto('/');
+test('Lists render bullets and support continuation, nesting and exiting', async ({ page }) => {
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const note = page
 		.getByRole('complementary', { name: 'Today', exact: true })
 		.getByRole('textbox', { name: 'Notes', exact: true });
@@ -108,5 +102,4 @@ test('Lists render bullets and support continuation, nesting and exiting', async
 	await note.focus();
 	await expect(note.locator('.sd-list-bullet')).toHaveCount(2);
 	await expect(note.locator('.sd-mark').first()).toHaveText('-');
-	await page.screenshot({ path: testInfo.outputPath('lists.png') });
 });

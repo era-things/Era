@@ -1,4 +1,4 @@
-import { calendar } from '../lib/server/database';
+import { calendar } from '../../lib/server/database';
 import type { PageServerLoad } from './$types';
 
 // Render a complete overview on the server. The browser refines "today" to its local date.

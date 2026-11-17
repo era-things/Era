@@ -48,6 +48,14 @@ page.
 `api-client.ts` derives widget storage sections from the registry when converting
 local edits into resource requests.
 
+## View routes
+
+`app-views.ts` defines tab URLs and calendar modes. `src/params.ts` restricts the
+optional view parameter to those URLs. The shared page at
+`src/routes/[[view=appView]]/` stays mounted across tab navigations, preserving
+the synchronization controller and calendar state. The URL determines the active
+tab; navigation snapshots store calendar positions rather than tab selection.
+
 ## Persistence
 
 `calendar-records.ts` serializes app state and dispatches record decoding through

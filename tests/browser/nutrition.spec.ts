@@ -4,10 +4,9 @@ import { test, expect } from '@playwright/test';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
 	page
-}, testInfo) => {
-	await page.goto('/');
+}) => {
+	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
@@ -64,7 +63,6 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(controls).toHaveCount(0);
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(kcal).toHaveValue('100');
 	await expect(quantity).toHaveText('×2');
@@ -81,7 +79,6 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(
 		selected.getByRole('spinbutton', { name: 'kcal of Lunch', exact: true })
 	).toHaveValue('100');
-	await page.screenshot({ path: testInfo.outputPath('nutrition-grid.png') });
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await quantity.click();
@@ -93,9 +90,7 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(totals).not.toContainText('100');
 });
 
-test('copy a previous nutrition item with fresh identity and quantity one', async ({
-	page
-}, testInfo) => {
+test('copy a previous nutrition item with fresh identity and quantity one', async ({ page }) => {
 	{
 		const key = (offset: number) => {
 			const date = new Date();
@@ -123,16 +118,14 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 		};
 		await writeData(page.request, before, next);
 	}
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await today.getByRole('button', { name: '0 items', exact: true }).click();
 	const history = today.getByRole('button', { name: 'Add previous item', exact: true });
 	await history.click();
 	const menu = today.getByRole('dialog', { name: 'Previous nutrition items' });
 	await expect(menu.getByRole('button')).toHaveCount(1);
-	await page.screenshot({ path: testInfo.outputPath('nutrition-history.png') });
 	const search = menu.getByRole('searchbox', { name: 'Find previous item' });
 	await search.fill('other');
 	await expect(menu).toContainText('No matching items');
@@ -169,7 +162,6 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 	await expect(history).toBeFocused();
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(
 		today.getByRole('spinbutton', { name: 'kcal of Porridge', exact: true })

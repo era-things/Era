@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-test('full-row sleep edits, pinning and records survive reload', async ({ page }, testInfo) => {
-	await page.goto('/');
+test('full-row sleep edits, pinning and records survive reload', async ({ page }) => {
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await today.getByRole('button', { name: 'Add widget', exact: true }).click();
 	await today.getByRole('button', { name: 'Sleep', exact: true }).click();
@@ -63,12 +62,10 @@ test('full-row sleep edits, pinning and records survive reload', async ({ page }
 	await edit(start, '22:15');
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(start).toHaveValue('22:15');
 	await expect(end).toHaveValue('06:00');
 	await expect(hours).toHaveValue('7');
 	await expect(minutes).toHaveValue('45');
-	await page.screenshot({ path: testInfo.outputPath('sleep-compact.png') });
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	const preview = page.getByRole('group', { name: 'Sleep appearance', exact: true });
 	await expect(preview.getByText('Lunar seal', { exact: true })).toBeVisible();

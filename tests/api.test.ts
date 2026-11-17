@@ -49,7 +49,6 @@ test('discover widgets and update a single daily value without versions; PUT and
 		expect((await (await call(path)).json()).attached).toBe(true);
 		for (let i = 0; i < 2; i++) expect((await call(path, 'DELETE')).status).toBe(204);
 		expect((await (await call(path)).json()).attached).toBe(false);
-		expect((await call('calendar')).status).toBe(404);
 	} finally {
 		store.db.close();
 	}

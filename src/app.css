@@ -32,7 +32,8 @@ button:disabled {
 	opacity: 0.35;
 	cursor: not-allowed;
 }
-button:focus-visible {
+button:focus-visible,
+.view-tabs a:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
@@ -83,7 +84,8 @@ h1 {
 	font-size: 13px;
 	font-variant-numeric: tabular-nums;
 }
-.toolbar button {
+.toolbar button,
+.toolbar .view-tabs a {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 3px;
@@ -91,7 +93,8 @@ h1 {
 	height: 32px;
 	padding: 0 8px;
 }
-.toolbar button:hover:not(:disabled) {
+.toolbar button:hover:not(:disabled),
+.toolbar .view-tabs a:hover {
 	background: #e5eae2;
 }
 .toolbar .today-button {
@@ -297,12 +300,16 @@ h1 {
 	align-items: center;
 	gap: 2px;
 }
-.toolbar .view-tabs button {
+.toolbar .view-tabs a {
+	display: inline-flex;
+	align-items: center;
+	color: inherit;
+	text-decoration: none;
 	font-size: 12px;
 	border-radius: 0;
 	border-bottom: 2px solid transparent;
 }
-.toolbar .view-tabs button[aria-selected='true'] {
+.toolbar .view-tabs a[aria-selected='true'] {
 	border-bottom-color: var(--accent);
 	color: var(--accent);
 }

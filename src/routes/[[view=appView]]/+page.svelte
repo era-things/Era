@@ -1,26 +1,28 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { snapshot } from '$app/navigation';
-	import { capturePosition, restorePosition } from '../lib/timeline-position';
+	import { beforeNavigate, goto, snapshot } from '$app/navigation';
+	import { page } from '$app/state';
+	import { APP_VIEWS, appViewForPath, type AppViewId } from '../../lib/app-views';
+	import { capturePosition, restorePosition } from '../../lib/timeline-position';
 	import { untrack } from 'svelte';
-	import { createCalendarSync, type SyncState } from '../lib/calendar-sync';
+	import { createCalendarSync, type SyncState } from '../../lib/calendar-sync';
 	import type { PageData } from './$types';
-	import TimelineGrid from '../lib/components/TimelineGrid.svelte';
-	import DayDetail from '../lib/components/DayDetail.svelte';
-	import DayPanel from '../lib/components/DayPanel.svelte';
-	import DayWidgets from '../lib/components/DayWidgets.svelte';
-	import { setWidgetSettings } from '../lib/widgets';
-	import LayoutManager from '../lib/components/LayoutManager.svelte';
-	import RemindersManager from '../lib/components/RemindersManager.svelte';
-	import SettingsPanel from '../lib/components/SettingsPanel.svelte';
+	import TimelineGrid from '../../lib/components/TimelineGrid.svelte';
+	import DayDetail from '../../lib/components/DayDetail.svelte';
+	import DayPanel from '../../lib/components/DayPanel.svelte';
+	import DayWidgets from '../../lib/components/DayWidgets.svelte';
+	import { setWidgetSettings } from '../../lib/widgets';
+	import LayoutManager from '../../lib/components/LayoutManager.svelte';
+	import RemindersManager from '../../lib/components/RemindersManager.svelte';
+	import SettingsPanel from '../../lib/components/SettingsPanel.svelte';
 	import {
 		createReminder,
 		reminderOccursOn,
 		reminderOverridesEmoji,
 		setReminderCompleted,
 		type Reminder
-	} from '../lib/reminders';
-	import { removeMeasure, type Measure } from '../lib/measures';
+	} from '../../lib/reminders';
+	import { removeMeasure, type Measure } from '../../lib/measures';
 	import {
 		addDays,
 		daysInRange,
@@ -28,8 +30,8 @@
 		relativeDay,
 		yearOf,
 		type DateKey
-	} from '../lib/calendar';
-	import { normalizeEmoji, type DayEmojis } from '../lib/day-emojis';
+	} from '../../lib/calendar';
+	import { normalizeEmoji, type DayEmojis } from '../../lib/day-emojis';
 	import {
 		parseSavedView,
 		VIEW_STORAGE_KEY,
@@ -37,14 +39,17 @@
 		type SavedView,
 		type ViewMode,
 		type ZoomLevel
-	} from '../lib/view-state';
+	} from '../../lib/view-state';
 
 	let { data }: { data: PageData } = $props();
 	let browserToday = $state<DateKey | null>(null);
 	let rangeStart = $state<number | null>(null);
 	let selection = $state<DateKey | null>(null);
 	let restored = $state(false);
-	let mode = $state<ViewMode>('vertical');
+	const activeView = $derived(appViewForPath('/' + (page.params.view ?? ''))!);
+	let mode = $state<ViewMode>(
+		untrack(() => (activeView.section === 'calendar' ? activeView.mode : 'vertical'))
+	);
 	let zoom = $state<ZoomLevel>(100);
 	let syncState = $state<SyncState>({
 		data: untrack(() => data.calendar),
@@ -60,10 +65,9 @@
 	const { save, saveData, flush, readExport } = sync;
 	const calendarData = $derived(syncState.data);
 	const emojis = $derived(calendarData.emojis),
-		notes = $derived(calendarData.notes),
 		reminders = $derived(calendarData.reminders),
 		measures = $derived(calendarData.measures);
-	let section = $state<'calendar' | 'today' | 'layout' | 'reminders' | 'settings'>('calendar');
+	const section = $derived(activeView.section);
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
 	let viewport: HTMLDivElement;
@@ -130,13 +134,12 @@
 		id: 'timeline-v4',
 		capture: () => {
 			saveView();
-			return { views, mode, section };
+			return { views, mode };
 		},
 		restore: (value) => {
 			historyRestored = true;
 			views = value.views;
-			mode = value.mode;
-			section = value.section;
+			mode = activeView.section === 'calendar' ? activeView.mode : value.mode;
 			// Hidden calendars have no layout. Position them when opened instead.
 			const view = views[mode];
 			if (section === 'calendar') void positionView(view);
@@ -144,7 +147,15 @@
 				if (view) applyView(view);
 				restored = true;
 			}
-		}
+		},
+		reset: activateRoute
+	});
+
+	beforeNavigate(() => {
+		saveView();
+		positioning++;
+		clearTimeout(saveTimer);
+		restored = false;
 	});
 
 	function scheduleSave() {
@@ -173,7 +184,13 @@
 		} catch {
 			/* Use today. */
 		}
-		if (!historyRestored) void positionView(saved ?? undefined);
+		if (!historyRestored) {
+			if (saved) {
+				views[saved.mode] = saved;
+				applyView(saved);
+			}
+			activateRoute();
+		}
 		const resizeObserver = new ResizeObserver(() => {
 			if (restored && section === 'calendar' && views[mode]) {
 				restorePosition(viewport, views[mode]!.position);
@@ -238,60 +255,40 @@
 		await focusDay(next, false, focus);
 	}
 
-	async function changeMode(next: ViewMode) {
-		if (mode === next && section === 'calendar') return;
-		saveView();
-		section = 'calendar';
-		mode = next;
-		const view = views[next];
-		await positionView(
+	function activateRoute() {
+		if (activeView.section !== 'calendar') {
+			restored = true;
+			return;
+		}
+		mode = activeView.mode;
+		const view = views[mode];
+		void positionView(
 			view && view.firstYear === firstYear && view.zoom === zoom ? { ...view, selected } : undefined
 		);
 	}
 
+	function showView(id: AppViewId) {
+		if (activeView.id === id) return;
+		const view = APP_VIEWS.find((view) => view.id === id)!;
+		return goto(view.path, { reset: false });
+	}
+	const showLayout = () => showView('layout');
+	const showReminders = () => showView('reminders');
+
 	async function navigateTabs(event: KeyboardEvent) {
-		const actions = {
-			horizontal: () => changeMode('horizontal'),
-			vertical: () => changeMode('vertical'),
-			today: showToday,
-			layout: showLayout,
-			reminders: showReminders,
-			settings: showSettings
-		};
-		const tabs = Object.keys(actions) as (keyof typeof actions)[];
-		const index = tabs.indexOf(section === 'calendar' ? mode : section);
+		const index = APP_VIEWS.findIndex((view) => view.id === activeView.id);
 		const positions = {
 			Home: 0,
-			End: tabs.length - 1,
-			ArrowLeft: (index + tabs.length - 1) % tabs.length,
-			ArrowRight: (index + 1) % tabs.length
+			End: APP_VIEWS.length - 1,
+			ArrowLeft: (index + APP_VIEWS.length - 1) % APP_VIEWS.length,
+			ArrowRight: (index + 1) % APP_VIEWS.length
 		};
 		if (!Object.hasOwn(positions, event.key)) return;
 		event.preventDefault();
-		const next = tabs[positions[event.key as keyof typeof positions]];
-		await actions[next]();
+		const next = APP_VIEWS[positions[event.key as keyof typeof positions]];
+		await showView(next.id);
 		await tick();
-		document.getElementById('tab-' + next)?.focus();
-	}
-
-	function showToday() {
-		saveView();
-		section = 'today';
-	}
-
-	function showLayout() {
-		saveView();
-		section = 'layout';
-	}
-
-	function showReminders() {
-		saveView();
-		section = 'reminders';
-	}
-
-	function showSettings() {
-		saveView();
-		section = 'settings';
+		document.getElementById('tab-' + next.id)?.focus();
 	}
 
 	function saveReminder(reminder: Reminder): boolean {
@@ -428,67 +425,28 @@
 				onclick={() => changeRange(1)}>→</button
 			>
 		</nav>
-		<div class="view-tabs" role="tablist" aria-label="View">
-			<button
-				type="button"
-				role="tab"
-				id="tab-horizontal"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'calendar' && mode === 'horizontal'}
-				aria-controls="timeline-panel"
-				tabindex={section === 'calendar' && mode === 'horizontal' ? 0 : -1}
-				onclick={() => changeMode('horizontal')}>Weekdays</button
-			>
-			<button
-				type="button"
-				role="tab"
-				id="tab-vertical"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'calendar' && mode === 'vertical'}
-				aria-controls="timeline-panel"
-				tabindex={section === 'calendar' && mode === 'vertical' ? 0 : -1}
-				onclick={() => changeMode('vertical')}>Grid</button
-			>
-			<button
-				type="button"
-				role="tab"
-				id="tab-today"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'today'}
-				aria-controls="today-panel"
-				tabindex={section === 'today' ? 0 : -1}
-				onclick={showToday}>Today</button
-			>
-			<button
-				type="button"
-				role="tab"
-				id="tab-layout"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'layout'}
-				aria-controls="layout-panel"
-				tabindex={section === 'layout' ? 0 : -1}
-				onclick={showLayout}>Layout</button
-			>
-			<button
-				type="button"
-				role="tab"
-				id="tab-reminders"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'reminders'}
-				aria-controls="reminders-panel"
-				tabindex={section === 'reminders' ? 0 : -1}
-				onclick={showReminders}>Reminders</button
-			>
-			<button
-				type="button"
-				role="tab"
-				id="tab-settings"
-				onkeydown={navigateTabs}
-				aria-selected={section === 'settings'}
-				aria-controls="settings-panel"
-				tabindex={section === 'settings' ? 0 : -1}
-				onclick={showSettings}>Settings</button
-			>
+		<div class="view-tabs" role="tablist" aria-label="View" data-sveltekit-reset="false">
+			{#each APP_VIEWS as view (view.id)}
+				<a
+					href={view.path}
+					role="tab"
+					id={'tab-' + view.id}
+					onkeydown={navigateTabs}
+					aria-selected={activeView.id === view.id}
+					aria-controls={view.section === 'calendar' ? 'timeline-panel' : view.id + '-panel'}
+					tabindex={activeView.id === view.id ? 0 : -1}
+					onclick={(event) => {
+						if (
+							activeView.id === view.id &&
+							!event.ctrlKey &&
+							!event.metaKey &&
+							!event.shiftKey &&
+							!event.altKey
+						)
+							event.preventDefault();
+					}}>{view.label}</a
+				>
+			{/each}
 		</div>
 		<div
 			class="zoom-controls"

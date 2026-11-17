@@ -5,6 +5,10 @@ A personal calendar with a SvelteKit UI and a Bun server. Notes, emojis, measure
 UI conventions and widget patterns are documented in [DESIGN.md](DESIGN.md).
 Widget registries and API extension points are described in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+Tabs have their own URLs: Grid `/`, Weekdays `/weekdays`, Today `/today`,
+Layout `/layout`, Reminders `/reminders`, and Settings `/settings`. Refresh keeps
+the selected view; Back and Forward restore views and their calendar positions.
+
 The [HTTP API](docs/API.md) supports widget discovery and settings, daily values,
 custom measures, emojis, and reminders. The app uses these same resource endpoints.
 
@@ -20,7 +24,27 @@ back, unpins it, and preserves existing day entries and skin settings.
 ## Development
 
 Use Bun 1.4.4. Run `bun install --frozen-lockfile`, then `bun run dev`.
-Run `bun run check`, `bun run test`, `bun run test:browser`, and `bun run build` to verify changes.
+
+Run verification with Node.js 20 or later. The script checks the Bun version in
+`package.json` and uses the local Bun executable when available.
+
+```sh
+node scripts/verify.mjs unit tests/widget-registry.test.ts
+node scripts/verify.mjs browser time.spec.ts
+node scripts/verify.mjs scenario time-widgets
+node scripts/verify.mjs scenario counters
+node scripts/verify.mjs full
+```
+
+`unit` without filenames runs all Bun tests. `browser` runs the selected spec
+against Vite, and `scenario` seeds and captures a named UI state. Both use isolated
+test data and print artifact paths. `full` runs the unit and type checks, builds
+once, and runs the browser suite against that build.
+
+For repeated checks, keep `node scripts/verify.mjs serve` running in a separate
+terminal and add `--warm` after `browser` or `scenario`. The next run starts with
+empty test data. Run warm checks one at a time and stop the server with Ctrl+C
+when finished.
 
 ## Data and deployment
 
@@ -30,11 +54,6 @@ Set `ORIGIN` to the URL used to access the production server (for example,
 `http://127.0.0.1:3000` for local HTTP). The Bun adapter otherwise assumes HTTPS.
 The API allows HTTP clients without an Origin header and rejects browser writes
 from a different origin.
-
-When deploying this widget-layout refactor over a schema-1 database, stop the old
-service and run `bun scripts/upgrade-widget-layout.ts "path/to/era.sqlite"` once.
-The converter creates and verifies a SQLite backup before changing widget settings;
-daily records are preserved. The application reads only schema 2.
 
 To populate an empty database from a browser export, run `bun run import "path/to/export.json"` with the same `ERA_DB`. The importer validates every section and checks an exact round trip inside one transaction. Settings exports the current server data. For a live database backup use SQLite's online backup facility or `VACUUM INTO`; keep a copy off the server.
 
@@ -135,8 +154,10 @@ local calendar date, refreshing every minute and on window focus.
 
 ## Project map
 
-- `src/routes/+page.server.ts`: initial server data.
-- `src/routes/+page.svelte`: overview state, range controls, selection.
+- `src/routes/[[view=appView]]/+page.server.ts`: initial server data.
+- `src/routes/[[view=appView]]/+page.svelte`: shared app views, range controls, selection.
+- `src/lib/app-views.ts`: view labels, URLs, and calendar modes.
+- `src/params.ts`: route matcher for supported views.
 - `src/lib/calendar.ts`: date-only calendar operations.
 - `src/lib/components/TimelineGrid.svelte`: continuous horizontal and vertical layouts.
 - `src/lib/components/DaySquare.svelte`: day appearance, selection, and keyboard input.

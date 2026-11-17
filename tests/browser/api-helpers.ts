@@ -15,3 +15,9 @@ export async function writeData(
 		expect(response.ok(), `${edit.method} ${edit.url}: ${await response.text()}`).toBe(true);
 	}
 }
+
+export async function seedData(request: APIRequestContext, data: CalendarData) {
+	const response = await request.get('/api/data');
+	expect(response.ok(), `GET /api/data returned ${response.status()}`).toBe(true);
+	await writeData(request, await response.json(), data);
+}

@@ -11,9 +11,8 @@ test('saved edits refresh another tab and failed writes can be retried', async (
 	await request.patch('/api/widgets/reading', { data: { pinned: true } });
 	const other = await context.newPage();
 	for (const tab of [page, other]) {
-		await tab.goto('/');
+		await tab.goto('/today');
 		await expect(tab.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-		await tab.getByRole('tab', { name: 'Today', exact: true }).click();
 	}
 	const minutes = (tab: typeof page) =>
 		tab

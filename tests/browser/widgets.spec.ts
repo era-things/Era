@@ -3,9 +3,8 @@ import { test, expect } from '@playwright/test';
 test('custom measures share the day add menu and preserve numeric and boolean editing', async ({
 	page
 }) => {
-	await page.goto('/');
+	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	for (const [name, type] of [
 		['Test water', 'uint'],
 		['Test reading', 'boolean']
@@ -32,7 +31,6 @@ test('custom measures share the day add menu and preserve numeric and boolean ed
 	await reading.check();
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(water).toHaveValue('4');
 	await expect(reading).toBeChecked();
 	await water.fill('');

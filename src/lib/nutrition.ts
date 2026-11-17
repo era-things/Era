@@ -41,11 +41,6 @@ export function nutritionTotals(items: FoodItem[]): Nutrients {
 	return totals;
 }
 
-export const setNutritionItems = (
-	days: NutritionDays,
-	day: DateKey,
-	items: FoodItem[]
-): NutritionDays => ({ ...days, [day]: items });
 export function normalizeNutrition(value: unknown): NutritionDays {
 	return normalizeDays(value, (entries) => {
 		if (!Array.isArray(entries)) return;

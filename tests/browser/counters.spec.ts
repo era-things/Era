@@ -4,10 +4,9 @@ import { emptyLayout } from '../../src/lib/widgets';
 
 test('built-in weight and steps share a row, persist, and retain values when unpinned', async ({
 	page
-}, testInfo) => {
-	await page.goto('/');
+}) => {
+	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	for (const name of ['Nutrition', 'Weight', 'Steps'])
 		await page.getByRole('button', { name: 'Pin ' + name, exact: true }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
@@ -21,7 +20,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await steps.fill('8200');
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(weight).toHaveValue('72.65');
 	await expect(steps).toHaveValue('8200');
 	for (const width of [1280, 390]) {
@@ -37,10 +35,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 		expect(nutrition!.y + nutrition!.height).toBeLessThanOrEqual(a!.y);
 		expect(await today.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 	}
-	await page.screenshot({ path: testInfo.outputPath('compact-counters-mobile.png') });
-	await today
-		.locator('.day-widgets')
-		.screenshot({ path: testInfo.outputPath('scale-and-steps.png') });
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	const preview = page.getByRole('img', { name: 'Weight appearance preview' });
 	const previousSkin = page.getByRole('button', { name: 'Previous Weight appearance' });
@@ -83,7 +77,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await expect(preview.locator('svg')).toBeVisible();
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await expect(page.getByRole('group', { name: 'Weight appearance', exact: true })).toContainText(
 		'Simple'
 	);
@@ -95,7 +88,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Next Weight appearance' }).click();
 	await expect(preview.locator('.weight-scale')).toHaveCount(1);
-	await page.screenshot({ path: testInfo.outputPath('live-appearance-previews-mobile.png') });
 	await nextSkin.click();
 	await expect(preview.locator('.weight-display')).toHaveCount(1);
 	await expect(preview.locator('.weight-scale')).toHaveCount(0);
@@ -109,10 +101,8 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	);
 	await expect(stepsPreview.locator('.preview-slide')).toHaveCount(1);
 	await expect(stepsPreview.locator('input')).toHaveValue('8200');
-	await page.screenshot({ path: testInfo.outputPath('display-skin.png') });
-	await page.reload();
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(today.locator('.weight-display')).toHaveCount(1);
 	await expect(today.locator('.steps-pedometer')).toHaveCount(1);
 	await expect(steps).toHaveValue('8200');
@@ -123,9 +113,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 		'outline-width',
 		'2px'
 	);
-	await today
-		.locator('.steps-pedometer')
-		.screenshot({ path: testInfo.outputPath('pedometer-focus.png') });
 	await steps.fill('1.5');
 	await expect(today.locator('.steps-pedometer .counter-readout')).toHaveCSS(
 		'outline-color',
@@ -145,7 +132,6 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await weight.focus();
 	await expect(weight).toHaveCSS('outline-style', 'none');
 	await expect(today.locator('.weight-scale .counter-readout')).toHaveCSS('outline-width', '2px');
-	await today.locator('.weight-scale').screenshot({ path: testInfo.outputPath('scale-focus.png') });
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await page.getByRole('button', { name: 'Pin Weight', exact: true, pressed: true }).click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
@@ -157,16 +143,15 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveValue('72.65');
 	await selected.getByRole('spinbutton', { name: 'Weight (kg)' }).fill('');
-	await page.reload();
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(weight).toHaveValue('');
 	await expect(steps).toHaveValue('8200');
 });
 
 test('unpinned built-ins are added per day and pinned ones appear on empty days', async ({
 	page
-}, testInfo) => {
+}) => {
 	const before = await (await page.request.get('/api/data')).json();
 	const next = {
 		...before,
@@ -175,9 +160,8 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 		layout: emptyLayout()
 	};
 	await writeData(page.request, before, next);
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await expect(today.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveCount(0);
 	await expect(today.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveCount(0);
@@ -188,7 +172,6 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 	}
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(today.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveValue('');
 	await expect(today.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveValue('0');
 	await expect(today.getByRole('button', { name: '0 items', exact: true })).toBeVisible();
@@ -207,7 +190,6 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 		await expect(pin).toHaveAttribute('aria-pressed', 'false');
 		await pin.click();
 	}
-	await page.screenshot({ path: testInfo.outputPath('pin-settings.png') });
 	const cards = page.locator('.built-in-row');
 	const nutritionCard = await cards.nth(0).boundingBox();
 	const weightCard = await cards.nth(1).boundingBox();
@@ -217,9 +199,8 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 	expect(stepsCard!.height).toBeLessThan(nutritionCard!.height);
 	expect(stepsCard!.x).toBe(weightCard!.x);
 	expect(stepsCard!.y - (weightCard!.y + weightCard!.height)).toBeCloseTo(12, 0);
-	await page.reload();
+	await page.goto('/');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveValue('');
 	await expect(selected.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveValue('0');
 	await expect(selected.getByRole('button', { name: '0 items', exact: true })).toBeVisible();

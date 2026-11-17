@@ -30,3 +30,22 @@ and named resource handlers over growing chains of ID, kind, or method checks.
 Adding a widget that uses an existing kind should reuse storage, rendering, and
 API handling. Keep ordinary validation and algorithmic conditions explicit; do
 not replace them with abstractions that make the code harder to follow.
+
+## Verification
+
+Use `node scripts/verify.mjs` from the checkout. Start with the smallest check
+that exercises the change, then run the full pass once the change is ready.
+
+| Change                               | First check                                                                                                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Existing widget kind or domain rules | `node scripts/verify.mjs unit tests/widget-registry.test.ts tests/widgets.test.ts` or the affected domain test                                             |
+| Visual or interaction change         | Run `node scripts/verify.mjs browser <spec>`. For layout changes, use `scenario time-widgets` or `scenario counters` to capture the affected viewport.     |
+| Navigation or timeline               | Run the affected `routes.spec.ts` or `timeline-position.spec.ts` with `verify.mjs browser`.                                                                |
+| API, storage, or synchronization     | Run the affected API, database, or sync unit tests. Use `verify.mjs browser api.spec.ts` or `sync.spec.ts` for changes across the browser/server boundary. |
+
+For repeated browser checks, keep `node scripts/verify.mjs serve` running in a
+separate session and pass `--warm` immediately after `browser` or `scenario`.
+Run one warm invocation at a time. Each resets the server's disposable data before
+starting. Use `node scripts/verify.mjs full` for final type, unit, build, and
+production-browser verification. Failed browser runs print assertion details and
+artifact paths under `test-results/`.

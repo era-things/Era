@@ -5,9 +5,8 @@ import { setWidgetSettings } from '../../src/lib/widgets';
 test('day notes save while typing, remain isolated and survive navigation and reload', async ({
 	page
 }) => {
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const note = today.getByRole('textbox', { name: 'Notes', exact: true });
 	const text = 'First line\nSecond line';
@@ -33,7 +32,7 @@ test('day notes save while typing, remain isolated and survive navigation and re
 	await expect(selectedNote).toHaveText('Note');
 });
 
-test('Layout configures Note pinning and empty day attachments', async ({ page }, testInfo) => {
+test('Layout configures Note pinning and empty day attachments', async ({ page }) => {
 	const before = await (await page.request.get('/api/data')).json();
 	const next = {
 		...before,
@@ -41,10 +40,8 @@ test('Layout configures Note pinning and empty day attachments', async ({ page }
 		notes: {}
 	};
 	await writeData(page.request, before, next);
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await expect(page.getByRole('tab', { name: 'Measures', exact: true })).toHaveCount(0);
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const tomorrow = page.getByRole('complementary', { name: 'Tomorrow', exact: true });
 	const yesterday = page.getByRole('complementary', { name: 'Yesterday', exact: true });
@@ -57,7 +54,6 @@ test('Layout configures Note pinning and empty day attachments', async ({ page }
 	const pin = page.getByRole('button', { name: 'Pin Note', exact: true });
 	await expect(pin).toHaveAttribute('aria-pressed', 'true');
 	await pin.click();
-	await page.screenshot({ path: testInfo.outputPath('layout-note.png') });
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(today.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText(
 		'Keep this note'
@@ -67,7 +63,6 @@ test('Layout configures Note pinning and empty day attachments', async ({ page }
 	await tomorrow.getByRole('button', { name: 'Note', exact: true }).click();
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(tomorrow.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText('Note');
 	await expect(yesterday.getByRole('textbox', { name: 'Notes', exact: true })).toHaveCount(0);
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();

@@ -9,12 +9,11 @@ test.afterEach(async ({ request }) => {
 
 test('catalog stars and archives persist, filter day choices, and preserve saved widgets', async ({
 	page
-}, testInfo) => {
+}) => {
 	const before = await (await page.request.get('/api/data')).json();
 	await writeData(page.request, before, emptyCalendar());
-	await page.goto('/');
+	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await today.getByRole('button', { name: 'Add widget', exact: true }).click();
 	await today.getByRole('button', { name: 'Weight', exact: true }).click();
@@ -42,10 +41,8 @@ test('catalog stars and archives persist, filter day choices, and preserve saved
 	).toBeVisible();
 	const cards = catalog.locator('.built-in-row');
 	await expect(cards).toHaveCount(2);
-	await page.screenshot({ path: testInfo.outputPath('widget-catalog.png') });
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await expect(catalog).not.toHaveAttribute('open', '');
 	await expect(normal.getByRole('button', { name: 'Pin Weight', exact: true })).toHaveCount(0);
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
