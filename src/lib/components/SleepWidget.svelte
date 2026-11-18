@@ -15,6 +15,7 @@
 	} = $props();
 	const hours = $derived(formatDurationPart(value.duration, 'hours'));
 	const minutes = $derived(formatDurationPart(value.duration, 'minutes'));
+	const score = $derived(value.metrics?.score);
 
 	function timeChange(event: Event, field: 'start' | 'end') {
 		const input = event.currentTarget as HTMLInputElement;
@@ -46,7 +47,12 @@
 	}
 </script>
 
-<section class="sleep-widget" class:lunar-seal={skin === 'lunar-seal'} aria-label="Sleep">
+<section
+	class="sleep-widget"
+	class:lunar-seal={skin === 'lunar-seal'}
+	class:has-score={score !== undefined}
+	aria-label="Sleep"
+>
 	{#if skin === 'lunar-seal'}<div class="sky" aria-hidden="true"></div>{/if}
 	<svg
 		aria-hidden="true"
@@ -111,10 +117,22 @@
 			{#if index === 0}<span aria-hidden="true">→</span>{/if}
 		{/each}
 	</div>
+	{#if score !== undefined}
+		<span
+			class="sleep-score"
+			role="meter"
+			aria-label="Sleep quality score"
+			aria-valuemin={0}
+			aria-valuemax={100}
+			aria-valuenow={score}
+			aria-valuetext={`${score}%`}>{score}%</span
+		>
+	{/if}
 </section>
 
 <style>
 	.sleep-widget {
+		--sleep-surface: #e9ede6;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -124,7 +142,7 @@
 		padding: 2px 7px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
-		background: #e9ede6;
+		background: var(--sleep-surface);
 		font-variant-numeric: tabular-nums;
 	}
 	.sleep-widget:focus-within {
@@ -212,15 +230,44 @@
 	.sleep-times input:focus {
 		color: var(--ink);
 	}
+	.has-score {
+		gap: 3px;
+		padding-inline-end: 0;
+	}
+	.has-score .sleep-duration {
+		/* Keep the duration aligned with the 8px icon gap in the other time rows. */
+		margin-inline-start: 5px;
+	}
+	.has-score .sleep-times {
+		gap: 3px;
+	}
+	.sleep-score {
+		display: flex;
+		flex: none;
+		align-items: center;
+		align-self: stretch;
+		margin-block: -2px;
+		padding-inline: 2px;
+		border-inline-start: 1px solid var(--line);
+		border-start-end-radius: inherit;
+		border-end-end-radius: inherit;
+		background: color-mix(in srgb, var(--muted) 5%, var(--sleep-surface));
+		color: color-mix(in srgb, var(--ink) 10%, var(--muted));
+		font-size: 11px;
+		white-space: nowrap;
+	}
 	.lunar-seal {
 		--ink: #f4efdc;
 		--muted: #bdcbdc;
 		--accent: #e6d399;
+		--sleep-surface: #263750;
+		--line: #4a5d7a;
 		position: relative;
 		isolation: isolate;
-		border-color: #4a5d7a;
-		background: #263750;
 		color: var(--ink);
+	}
+	.lunar-seal .sleep-score {
+		color: color-mix(in srgb, var(--accent) 25%, var(--muted));
 	}
 	.lunar-seal > :not(.sky) {
 		position: relative;

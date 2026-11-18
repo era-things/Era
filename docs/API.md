@@ -141,9 +141,16 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
 - GET `/data` returns the complete app state used by refresh and JSON export. It
   includes the manual widget sections and the `automated` section keyed by date
   and widget ID.
-- POST `/data/import` restores a complete Era JSON export into an empty
-  database and returns the restored app state. Invalid backups return 400.
-  A database with existing data or customized settings returns 409.
+- POST `/data/import/preview` accepts an Era export and returns
+  `{days, overwrittenDays, overwritesOtherData}` without writing to the database.
+  `overwrittenDays` counts distinct dates where an existing value would change.
+- POST `/data/import` merges the same export format and returns the merged app
+  state. Entries match by their record keys, such as date and widget ID for
+  daily values or date and item ID for nutrition. Manual and automated values
+  are independent. Omitted records and sections are preserved. Invalid or
+  incompatible data returns 400. If supplied, the `X-Era-Import-Preview` header
+  holds the preview object as JSON. A changed preview returns 409 with the new
+  summary in `preview` and leaves the database unchanged.
 
 ## Errors
 

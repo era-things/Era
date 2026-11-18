@@ -1,4 +1,49 @@
 import { test, expect } from './fixtures';
+import { localToday } from '../../src/lib/calendar';
+
+test('sleep quality appears at the right edge only when reported', async ({ page, request }) => {
+	const path = `/api/days/${localToday()}/widgets/sleep/automated`;
+	const times = { startTime: '21:00', wakeUpTime: '08:00' };
+	const report = async (score?: number) => {
+		const response = await request.put(path, {
+			data:
+				score === undefined
+					? times
+					: {
+							...times,
+							metrics: { asleepMinutes: 600, awakeMinutes: 45, score }
+						}
+		});
+		expect(response.status()).toBe(204);
+		await page.goto('/today');
+		await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	};
+	const panel = page.getByRole('complementary', { name: 'Today', exact: true });
+	const row = panel.getByRole('region', { name: 'Sleep', exact: true });
+	const meter = row.getByRole('meter', { name: 'Sleep quality score' });
+	await report(83);
+	await expect(meter).toHaveText('83%');
+	await report(100);
+	await expect(meter).toHaveText('100%');
+	await row.evaluate((element) => {
+		element.style.width = '200px';
+	});
+	const bounds = (await row.boundingBox())!;
+	const scoreBounds = (await meter.boundingBox())!;
+	const wakeBounds = (await row
+		.getByRole('textbox', { name: 'Sleep wake-up time' })
+		.boundingBox())!;
+	expect(bounds.height).toBe(26);
+	expect(scoreBounds.x).toBeGreaterThanOrEqual(wakeBounds.x + wakeBounds.width);
+	expect(scoreBounds.x + scoreBounds.width).toBe(bounds.x + bounds.width - 1);
+	expect(await row.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(200);
+	await report(0);
+	await expect(meter).toHaveText('0%');
+	await report();
+	await expect(meter).toHaveCount(0);
+	await expect(row).toHaveCSS('padding-inline-end', '7px');
+	await expect(row).toHaveCSS('gap', '8px');
+});
 
 test('full-row sleep edits, pinning and records survive reload', async ({ page }) => {
 	await page.goto('/today');

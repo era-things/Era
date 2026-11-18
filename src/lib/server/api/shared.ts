@@ -7,6 +7,7 @@ export type Store = ReturnType<typeof openCalendar>;
 export type ApiMethod = 'GET' | 'PUT' | 'PATCH' | 'POST' | 'DELETE';
 export type ApiContext = {
 	store: Store;
+	headers: Headers;
 	body: unknown;
 	params: Record<string, string>;
 	method: string;

@@ -1,15 +1,18 @@
 <script lang="ts">
 	import { localToday } from '../calendar';
-	import { serializeDataExport, type CalendarData } from '../data-export';
+	import { serializeDataExport, type BackupPreview, type CalendarData } from '../data-export';
 	let {
 		readExport,
+		previewImport,
 		importBackup
 	}: {
 		readExport: () => Promise<CalendarData>;
-		importBackup: (body: string) => Promise<void>;
+		previewImport: (body: string) => Promise<BackupPreview>;
+		importBackup: (body: string, preview: BackupPreview) => Promise<BackupPreview | undefined>;
 	} = $props();
 	let fileInput: HTMLInputElement;
 	let importing = $state(false);
+	let pending = $state<{ body: string; preview: BackupPreview }>();
 	let error = $state('');
 	let status = $state('');
 	async function exportData() {
@@ -29,18 +32,12 @@
 		}
 	}
 
-	async function chooseBackup(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		input.value = '';
-		if (!file || importing) return;
-
+	async function runImport(message: string, action: () => Promise<string>) {
 		importing = true;
 		error = '';
-		status = 'Importing…';
+		status = message;
 		try {
-			await importBackup(await file.text());
-			status = 'Data and settings imported.';
+			status = await action();
 		} catch (failure) {
 			status = '';
 			error =
@@ -51,6 +48,36 @@
 			importing = false;
 		}
 	}
+
+	async function chooseBackup(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || importing) return;
+
+		pending = undefined;
+		await runImport('Checking backup…', async () => {
+			const body = await file.text();
+			pending = { body, preview: await previewImport(body) };
+			return '';
+		});
+	}
+
+	async function confirmImport() {
+		if (!pending || importing) return;
+		const { body, preview } = pending;
+		await runImport('Importing…', async () => {
+			const updatedPreview = await importBackup(body, preview);
+			if (updatedPreview) {
+				pending = { body, preview: updatedPreview };
+				return 'Era data changed. Review the updated import summary.';
+			}
+			pending = undefined;
+			return 'Data imported.';
+		});
+	}
+
+	const days = (count: number) => `${count} ${count === 1 ? 'day' : 'days'}`;
 </script>
 
 <div class="settings-panel" id="settings-panel" role="tabpanel" aria-labelledby="tab-settings">
@@ -73,6 +100,29 @@
 	</div>
 	{#if status}<p class="feedback" role="status">{status}</p>{/if}
 	{#if error}<p class="feedback error" role="alert">{error}</p>{/if}
+	{#if pending}
+		<div class="confirmation" role="group" aria-label="Import summary">
+			<p>
+				Import data for <strong>{days(pending.preview.days)}</strong>. Existing values will be
+				overwritten on
+				<strong>{days(pending.preview.overwrittenDays)}</strong>.
+			</p>
+			{#if pending.preview.overwritesOtherData}
+				<p>This also updates existing widget settings, measure definitions, or reminders.</p>
+			{/if}
+			<div class="backup-actions">
+				<button type="button" disabled={importing} onclick={confirmImport}>Confirm import</button>
+				<button
+					type="button"
+					disabled={importing}
+					onclick={() => {
+						pending = undefined;
+						status = error = '';
+					}}>Cancel</button
+				>
+			</div>
+		</div>
+	{/if}
 </div>
 
 {#snippet transferIcon(arrow: string)}
@@ -131,6 +181,16 @@
 	}
 	.feedback {
 		margin-top: 12px;
+	}
+	.confirmation {
+		display: grid;
+		gap: 8px;
+		margin-top: 12px;
+		padding-left: 12px;
+		border-left: 2px solid var(--accent);
+	}
+	.confirmation strong {
+		color: var(--ink);
 	}
 	.error {
 		color: #a02d2d;

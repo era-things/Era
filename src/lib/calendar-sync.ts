@@ -1,5 +1,5 @@
 import { apiRequests, type ApiRequest } from './api-client';
-import type { CalendarData } from './data-export';
+import type { BackupPreview, CalendarData } from './data-export';
 
 export type SyncState = { data: CalendarData; error: string; retryable: boolean };
 export type SyncRequest = (url: string, init?: RequestInit) => Promise<Response>;
@@ -102,22 +102,37 @@ export function createCalendarSync(
 		return response.json();
 	}
 
-	async function importBackup(body: string) {
+	async function postBackup(url: string, body: string, preview?: BackupPreview) {
+		await flush();
+		if (queue.length) throw new Error('Save your pending edits before importing.');
+		const response = await request(url, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				...(preview ? { 'x-era-import-preview': JSON.stringify(preview) } : {})
+			},
+			body
+		});
+		if (response.ok || (preview && response.status === 409)) return response;
+		const payload = await response.json().catch(() => null);
+		throw new Error(payload?.error?.message ?? 'Could not import data. Try again.');
+	}
+
+	async function previewImport(body: string): Promise<BackupPreview> {
+		const response = await postBackup('/api/data/import/preview', body);
+		return response.json();
+	}
+
+	async function importBackup(
+		body: string,
+		preview: BackupPreview
+	): Promise<BackupPreview | undefined> {
 		if (importing) throw new Error('An import is already in progress.');
 		importing = true;
 		generation++;
 		try {
-			await flush();
-			if (queue.length) throw new Error('Save your pending edits before importing.');
-			const response = await request('/api/data/import', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body
-			});
-			if (!response.ok) {
-				const payload = await response.json().catch(() => null);
-				throw new Error(payload?.error?.message ?? 'Could not import data. Try again.');
-			}
+			const response = await postBackup('/api/data/import', body, preview);
+			if (response.status === 409) return (await response.json()).preview;
 			publish({ data: await response.json(), error: '', retryable: false });
 			channel?.postMessage('saved');
 		} finally {
@@ -159,6 +174,7 @@ export function createCalendarSync(
 		flush,
 		refresh,
 		readExport,
+		previewImport,
 		importBackup,
 		dismiss: () => publish({ error: '' }),
 		connect

@@ -3,7 +3,18 @@ import { emptyCalendar } from '../../src/lib/calendar-records';
 import { localToday } from '../../src/lib/calendar';
 import { serializeDataExport } from '../../src/lib/data-export';
 
-test('Settings imports an Era backup and displays restored daily data', async ({ page }) => {
+test('Settings previews an import and merges only the supplied daily values', async ({
+	page,
+	request
+}) => {
+	const day = localToday();
+	const widgets = `/api/days/${day}/widgets`;
+	expect((await request.put(`${widgets}/steps/automated`, { data: { value: 100 } })).ok()).toBe(
+		true
+	);
+	expect(
+		(await request.put(`${widgets}/phone/automated`, { data: { durationMinutes: 120 } })).ok()
+	).toBe(true);
 	await page.goto('/settings');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const settings = page.getByRole('tabpanel', { name: 'Settings', exact: true });
@@ -19,7 +30,8 @@ test('Settings imports an Era backup and displays restored daily data', async ({
 		expect((await importButton.boundingBox())?.y).toBe((await exportButton.boundingBox())?.y);
 	}
 	const data = emptyCalendar();
-	data.notes[localToday()] = 'Restored from backup';
+	data.notes[day] = 'Restored from backup';
+	data.automated[day] = { steps: 300 };
 
 	async function chooseFile(contents: string) {
 		const [chooser] = await Promise.all([page.waitForEvent('filechooser'), importButton.click()]);
@@ -33,9 +45,23 @@ test('Settings imports an Era backup and displays restored daily data', async ({
 	await chooseFile('invalid JSON');
 	await expect(settings.getByRole('alert')).toContainText('not valid JSON');
 	await chooseFile(serializeDataExport(data));
-	await expect(settings.getByRole('status')).toHaveText('Data and settings imported.');
-	await chooseFile(serializeDataExport(emptyCalendar()));
-	await expect(settings.getByRole('alert')).toContainText('Import requires an empty database.');
+	const summary = settings.getByRole('group', { name: 'Import summary' });
+	await expect(summary).toContainText(
+		'Import data for 1 day. Existing values will be overwritten on 1 day.'
+	);
+	await summary.getByRole('button', { name: 'Cancel' }).click();
+	await expect(summary).toHaveCount(0);
+	expect((await (await request.get('/api/data')).json()).automated[day]).toEqual({
+		steps: 100,
+		phone: 120
+	});
+	await chooseFile(serializeDataExport(data));
+	await summary.getByRole('button', { name: 'Confirm import' }).click();
+	await expect(settings.getByRole('status')).toHaveText('Data imported.');
+	expect((await (await request.get('/api/data')).json()).automated[day]).toEqual({
+		steps: 300,
+		phone: 120
+	});
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	await expect(today.getByRole('textbox', { name: 'Notes', exact: true })).toContainText(

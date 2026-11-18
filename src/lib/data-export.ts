@@ -22,6 +22,12 @@ export type CalendarData = {
 	layout: LayoutState;
 };
 
+export type BackupPreview = {
+	days: number;
+	overwrittenDays: number;
+	overwritesOtherData: boolean;
+};
+
 export function serializeDataExport(data: CalendarData, now = new Date()): string {
 	return JSON.stringify({ app: 'Era', exportedAt: now.toISOString(), ...data }, null, 2);
 }

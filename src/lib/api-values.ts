@@ -1,4 +1,4 @@
-import { formatSleepTime } from './sleep';
+import { formatSleepTime, type SleepMetrics } from './sleep';
 import {
 	widgetFor,
 	type WidgetKindValues,
@@ -13,7 +13,12 @@ export type WidgetApiBodies = {
 	counter: { value: number | null };
 	note: { text: string };
 	nutrition: { items: readonly FoodItem[] };
-	sleep: { startTime: string | null; wakeUpTime: string | null; durationMinutes: number | null };
+	sleep: {
+		startTime: string | null;
+		wakeUpTime: string | null;
+		durationMinutes: number | null;
+		metrics?: SleepMetrics;
+	};
 };
 export type WidgetEncoders = {
 	[K in WidgetKind]: (value: Readonly<WidgetKindValues[K]>) => WidgetApiBodies[K];
@@ -26,7 +31,8 @@ const encoders = {
 	sleep: (sleep) => ({
 		startTime: formatSleepTime(sleep.start) || null,
 		wakeUpTime: formatSleepTime(sleep.end) || null,
-		durationMinutes: sleep.duration
+		durationMinutes: sleep.duration,
+		...(sleep.metrics ? { metrics: sleep.metrics } : {})
 	})
 } satisfies WidgetEncoders;
 

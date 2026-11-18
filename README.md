@@ -60,16 +60,14 @@ from a different origin.
 Wearable and phone sync clients on the LAN can send JSON to
 `PUT /api/days/:date/widgets/:id/automated`. See [HTTP API](docs/API.md).
 
-Use **Export data** in Settings to download the current server data. To restore
-an export into an empty database, choose **Import data** in Settings or run
-`bun run import "path/to/export.json"` with the same `ERA_DB`. Both importers
-validate the backup and check an exact round trip inside one transaction. For a
-live database backup use SQLite's online backup facility or `VACUUM INTO` and
-keep a copy off the server.
-
-JSON exports include manual and automated widget values. To import a JSON
-export made before automated sync was added, add a top-level `"automated": {}`
-section to the export.
+Use **Export data** in Settings to download the current server data, including
+manual and automated widget values. **Import data** previews how many dates
+are in the file and how many have values that will be overwritten. Confirm to
+merge the file into your data. Imports overwrite matching entries and preserve
+entries absent from the file, including other widgets on the same date.
+`bun run import "path/to/export.json"` with the same `ERA_DB` performs the same
+merge. For a live database backup use SQLite's online backup facility or
+`VACUUM INTO` and keep a copy off the server.
 
 ## Initial scope
 

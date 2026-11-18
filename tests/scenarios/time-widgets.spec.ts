@@ -11,11 +11,20 @@ test('capture populated and empty time widgets on Today', async ({ page }, testI
 		data = setWidgetValue(data, today, widget.id, widget.id === 'gym' ? null : widget.sample);
 	}
 	await seedData(page.request, data);
+	const sleepReport = await page.request.put(`/api/days/${today}/widgets/sleep/automated`, {
+		data: {
+			startTime: '23:15',
+			wakeUpTime: '06:45',
+			metrics: { asleepMinutes: 419, awakeMinutes: 21, score: 83 }
+		}
+	});
+	expect(sleepReport.status()).toBe(204);
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const panel = page.getByRole('complementary', { name: 'Today', exact: true });
 	const block = panel.getByRole('group', { name: 'Hours in a day' });
 	await expect(block.getByRole('region')).toHaveCount(TIME_WIDGETS.length + 1);
+	await expect(block.getByRole('meter', { name: 'Sleep quality score' })).toHaveText('83%');
 	for (const [name, width] of [
 		['desktop', 1280],
 		['mobile', 390]

@@ -2,15 +2,34 @@ import type { DateKey } from './calendar';
 import { isRecord, normalizeDays } from './validation';
 
 // Local clock minutes. An end earlier than start is on the following day.
-export type Sleep = { start: number | null; end: number | null; duration: number | null };
+export type SleepMetrics = { asleepMinutes: number; awakeMinutes: number; score: number };
+export type Sleep = {
+	start: number | null;
+	end: number | null;
+	duration: number | null;
+	metrics?: SleepMetrics;
+};
 export type SleepDays = Record<DateKey, Sleep>;
 export const emptySleep = (): Sleep => ({ start: null, end: null, duration: 450 });
 const wrap = (minutes: number) => ((minutes % 1440) + 1440) % 1440;
 const validMinutes = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < 1440;
 
-export function validSleep(value: unknown): value is Sleep {
+export function validSleepMetrics(value: unknown): value is SleepMetrics {
 	if (!isRecord(value) || Object.keys(value).length !== 3) return false;
+	const wholeInRange = (entry: unknown, max: number) =>
+		typeof entry === 'number' && Number.isInteger(entry) && entry >= 0 && entry <= max;
+	return (
+		wholeInRange(value.asleepMinutes, 1440) &&
+		wholeInRange(value.awakeMinutes, 1440) &&
+		wholeInRange(value.score, 100)
+	);
+}
+
+export function validSleep(value: unknown): value is Sleep {
+	if (!isRecord(value) || Object.keys(value).length !== (Object.hasOwn(value, 'metrics') ? 4 : 3))
+		return false;
+	if (Object.hasOwn(value, 'metrics') && !validSleepMetrics(value.metrics)) return false;
 	const { start, end, duration } = value;
 	if (![start, end, duration].every((v) => v === null || validMinutes(v))) return false;
 	const known = [start, end, duration].filter((v) => v !== null).length;
@@ -20,7 +39,11 @@ export function validSleep(value: unknown): value is Sleep {
 export const normalizeSleep = (value: unknown): SleepDays =>
 	normalizeDays(value, (entry) => (validSleep(entry) ? entry : undefined));
 
-export function changeSleep(sleep: Sleep, field: keyof Sleep, value: number | null): Sleep {
+export function changeSleep(
+	sleep: Sleep,
+	field: 'start' | 'end' | 'duration',
+	value: number | null
+): Sleep {
 	if (value !== null && !validMinutes(value)) return sleep;
 	const next = { ...sleep, [field]: value };
 	if (value === null) {

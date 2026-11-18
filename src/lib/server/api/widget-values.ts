@@ -14,7 +14,7 @@ import {
 } from '../../widgets';
 import { widgetBody } from '../../api-values';
 import { validTime } from '../../duration';
-import { validSleep, parseSleepTime, type Sleep } from '../../sleep';
+import { validSleep, validSleepMetrics, parseSleepTime, type Sleep } from '../../sleep';
 import { validFoodItem } from '../../nutrition';
 import { fail, invalid, object, resourceId } from './shared';
 export function widgetId(value: string): WidgetId {
@@ -54,8 +54,8 @@ export function definition(data: CalendarData, id: WidgetId) {
 }
 
 function parseSleep(value: unknown): Sleep {
-	const body = object(value, ['startTime', 'wakeUpTime', 'durationMinutes']);
-	if (!Object.keys(body).length)
+	const body = object(value, ['startTime', 'wakeUpTime', 'durationMinutes', 'metrics']);
+	if (!['startTime', 'wakeUpTime', 'durationMinutes'].some((field) => Object.hasOwn(body, field)))
 		invalid('Supply startTime, wakeUpTime, or durationMinutes.', 'body');
 	const clock = (key: string): number | null => {
 		const value = body[key];
@@ -79,6 +79,11 @@ function parseSleep(value: unknown): Sleep {
 		sleep.end = (sleep.start + sleep.duration) % 1440;
 	else if (sleep.duration !== null && sleep.end !== null && !Object.hasOwn(body, 'startTime'))
 		sleep.start = (sleep.end - sleep.duration + 1440) % 1440;
+	if (Object.hasOwn(body, 'metrics')) {
+		if (!validSleepMetrics(body.metrics))
+			invalid('Use whole minutes from 0 through 1440 and a score from 0 through 100.', 'metrics');
+		sleep.metrics = body.metrics;
+	}
 	if (!validSleep(sleep))
 		invalid('The supplied sleep times and duration are inconsistent.', 'body');
 	return sleep;

@@ -1,5 +1,5 @@
 import { calendar } from './database';
-import { InvalidBackup, NonEmptyCalendar, restoreBackup } from './backup';
+import { BackupChanged, InvalidBackup, previewBackup, restoreBackup } from './backup';
 import {
 	ApiError,
 	fail,
@@ -14,19 +14,43 @@ import { dayRoutes } from './api/days';
 import { measureRoutes } from './api/measures';
 import { reminderRoutes } from './api/reminders';
 
-function importData({ store, body }: ApiContext) {
+function backupResponse(run: () => unknown) {
 	try {
-		return reply(restoreBackup(store, body));
+		return reply(run());
 	} catch (error) {
 		if (error instanceof InvalidBackup) fail(400, 'invalid_backup', error.message, 'body');
-		if (error instanceof NonEmptyCalendar) fail(409, 'database_not_empty', error.message);
+		if (error instanceof BackupChanged)
+			return reply(
+				{
+					error: { code: 'import_preview_changed', message: error.message },
+					preview: error.preview
+				},
+				409
+			);
 		throw error;
 	}
+}
+
+function importData({ store, body, headers }: ApiContext) {
+	const preview = headers.get('x-era-import-preview');
+	let expectedPreview: unknown;
+	if (preview !== null) {
+		try {
+			expectedPreview = JSON.parse(preview);
+		} catch {
+			fail(400, 'invalid_preview', 'Use a valid import summary.');
+		}
+	}
+	return backupResponse(() => restoreBackup(store, body, expectedPreview));
 }
 
 const routes: ApiRoute[] = [
 	{ pattern: /^data$/, methods: { GET: ({ store }) => reply(store.read()) } },
 	{ pattern: /^data\/import$/, methods: { POST: importData } },
+	{
+		pattern: /^data\/import\/preview$/,
+		methods: { POST: ({ store, body }) => backupResponse(() => previewBackup(store, body)) }
+	},
 	...widgetRoutes,
 	...dayRoutes,
 	...measureRoutes,
@@ -72,7 +96,13 @@ export async function handleApi(
 			}
 		}
 		const handler = matched.route.methods[method as ApiMethod]!;
-		return await handler({ store, body, params: matched.match.groups ?? {}, method });
+		return await handler({
+			store,
+			headers: request.headers,
+			body,
+			params: matched.match.groups ?? {},
+			method
+		});
 	} catch (error) {
 		if (error instanceof ApiError)
 			return reply(

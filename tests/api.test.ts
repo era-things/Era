@@ -61,13 +61,44 @@ test('import restores a complete Era backup into an empty calendar', async () =>
 		expect(imported.status).toBe(200);
 		expect(await imported.json()).toEqual(data);
 		expect(store.read()).toEqual(data);
-		const rejected = await call(
-			'data/import',
-			'POST',
-			JSON.parse(serializeDataExport(emptyCalendar()))
-		);
-		expect(rejected.status).toBe(409);
+		const exported = await (await call('data')).json();
+		expect(exported.automated).toEqual({ [day]: { phone: 222, steps: null } });
+		const patch = {
+			app: backup.app,
+			exportedAt: backup.exportedAt,
+			automated: { [day]: { steps: 8200 } },
+			counters: { [day]: { weight: 73 } },
+			time: { [day]: { gym: 60 }, '2026-11-18': { phone: 0 } }
+		};
+		const preview = await (await call('data/import/preview', 'POST', patch)).json();
+		expect(preview).toEqual({ days: 2, overwrittenDays: 1, overwritesOtherData: false });
 		expect(store.read()).toEqual(data);
+		const changed = await call('data/import', 'POST', patch, {
+			'x-era-import-preview': JSON.stringify({ ...preview, overwrittenDays: 0 })
+		});
+		expect(changed.status).toBe(409);
+		expect((await changed.json()).preview).toEqual(preview);
+		expect(store.read()).toEqual(data);
+		const merged = await call('data/import', 'POST', patch, {
+			'x-era-import-preview': JSON.stringify(preview)
+		});
+		expect(merged.status).toBe(200);
+		expect(store.read()).toEqual({
+			...data,
+			automated: { [day]: { phone: 222, steps: 8200 } },
+			counters: { [day]: { steps: 0, weight: 73 } },
+			time: { [day]: { phone: 180, gym: 60 }, '2026-11-18': { phone: 0 } }
+		});
+		const layout = emptyCalendar().layout;
+		const settings = { app: backup.app, exportedAt: backup.exportedAt, layout };
+		expect(await (await call('data/import/preview', 'POST', settings)).json()).toEqual({
+			days: 0,
+			overwrittenDays: 0,
+			overwritesOtherData: true
+		});
+		expect((await call('data/import', 'POST', settings)).status).toBe(200);
+		expect(store.read().layout).toEqual(layout);
+		expect(store.read().time[day]).toEqual({ phone: 180, gym: 60 });
 	} finally {
 		store.db.close();
 	}
@@ -129,6 +160,37 @@ test('automated writes need no credentials, preserve manual values, and survive 
 		});
 	} finally {
 		restored.db.close();
+		store.db.close();
+	}
+});
+
+test('automated sleep metrics persist independently of the clock duration', async () => {
+	const { store, call } = client();
+	const day = '2026-11-17';
+	const path = `days/${day}/widgets/sleep`;
+	const clocks = { startTime: '23:00', wakeUpTime: '07:00' };
+	const metrics = { asleepMinutes: 440, awakeMinutes: 25, score: 83 };
+	try {
+		expect((await call(`${path}/automated`, 'PUT', {
+			...clocks, metrics: { ...metrics, score: 101 }
+		})).status).toBe(400);
+		expect((await call(`${path}/automated`, 'PUT', { ...clocks, metrics })).status).toBe(204);
+		const { automatedValue } = await (await call(path)).json();
+		expect(automatedValue).toEqual({ ...clocks, durationMinutes: 480, metrics });
+		const restored = openCalendar(':memory:');
+		try {
+			const { app, exportedAt, ...backup } = JSON.parse(serializeDataExport(store.read()));
+			restored.apply(changes(emptyCalendar(), backup));
+			expect(restored.read().automated[day].sleep?.metrics).toEqual(metrics);
+		} finally {
+			restored.db.close();
+		}
+		expect((await call(`${path}/automated`, 'PUT', clocks)).status).toBe(204);
+		expect((await (await call(path)).json()).automatedValue).toEqual({
+			...clocks,
+			durationMinutes: 480
+		});
+	} finally {
 		store.db.close();
 	}
 });

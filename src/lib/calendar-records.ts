@@ -21,7 +21,7 @@ export const emptyCalendar = (): CalendarData => ({
 });
 
 // Keys identify independently editable records. Missing rows differ from stored JSON null.
-export function records(data: CalendarData) {
+export function records(data: CalendarData, { includeDefaultSettings = false } = {}) {
 	const rows = new Map<string, string>();
 	const put = (value: unknown, ...path: string[]) =>
 		rows.set(JSON.stringify(path), JSON.stringify(value));
@@ -38,7 +38,10 @@ export function records(data: CalendarData) {
 	for (const widget of WIDGETS) {
 		const settings = data.layout.widgets[widget.id];
 		for (const field of ['pinned', 'skin', 'archived'] as const)
-			if (settings[field] !== (field === 'archived' ? false : widget[field]))
+			if (
+				includeDefaultSettings ||
+				settings[field] !== (field === 'archived' ? false : widget[field])
+			)
 				put(settings[field], 'widget', widget.id, field);
 	}
 	for (const [day, values] of Object.entries(data.counters))
