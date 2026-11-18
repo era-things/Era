@@ -60,7 +60,12 @@ from a different origin.
 Wearable and phone sync clients on the LAN can send JSON to
 `PUT /api/days/:date/widgets/:id/automated`. See [HTTP API](docs/API.md).
 
-To populate an empty database from a browser export, run `bun run import "path/to/export.json"` with the same `ERA_DB`. The importer validates every section and checks an exact round trip inside one transaction. Settings exports the current server data. For a live database backup use SQLite's online backup facility or `VACUUM INTO`; keep a copy off the server.
+Use **Export data** in Settings to download the current server data. To restore
+an export into an empty database, choose **Import data** in Settings or run
+`bun run import "path/to/export.json"` with the same `ERA_DB`. Both importers
+validate the backup and check an exact round trip inside one transaction. For a
+live database backup use SQLite's online backup facility or `VACUUM INTO` and
+keep a copy off the server.
 
 JSON exports include manual and automated widget values. To import a JSON
 export made before automated sync was added, add a top-level `"automated": {}`
@@ -115,7 +120,7 @@ section to the export.
   Ctrl+B / Ctrl+I toggle bold / italic, and Markdown can be pasted directly.
   Notes are stored and exported as the original Markdown text. The unpublished
   Silkdown core is pinned in `vendor/silkdown`; see its README for provenance.
-- Settings exports day emojis, measure definitions and daily values, nutrition
+- Settings exports and restores day emojis, measure definitions and daily values, nutrition
   entries, notes, and reminders with completion history to a dated JSON file, including
   dates outside the visible calendar range.
 - Today shows yesterday, today, and tomorrow side by side, with independent day

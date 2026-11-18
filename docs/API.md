@@ -141,6 +141,9 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
 - GET `/data` returns the complete app state used by refresh and JSON export. It
   includes the manual widget sections and the `automated` section keyed by date
   and widget ID.
+- POST `/data/import` restores a complete Era JSON export into an empty
+  database and returns the restored app state. Invalid backups return 400.
+  A database with existing data or customized settings returns 409.
 
 ## Errors
 

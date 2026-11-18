@@ -34,6 +34,45 @@ function client() {
 	return { store, call };
 }
 
+test('import restores a complete Era backup into an empty calendar', async () => {
+	const { store, call } = client();
+	try {
+		const day = '2026-11-17';
+		const data = setWidgetValue(emptyCalendar(), day, 'phone', 180);
+		data.automated[day] = { phone: 222, steps: null };
+		data.layout = setWidgetSettings(data.layout, 'phone', { pinned: true });
+		data.emojis[day] = '🎉';
+		data.notes[day] = 'First line\nSecond line';
+		data.counters[day] = { steps: 0, weight: 72.5 };
+		data.sleep[day] = { start: 1395, end: 420, duration: 465 };
+		data.nutrition[day] = [
+			{ id: 'lunch', name: 'Lunch', quantity: 2, kcal: 500, protein: 25.5, fat: 10, carbs: 60 }
+		];
+		data.measures = {
+			definitions: [{ id: 'read', name: 'Read', type: 'boolean', palette: 'green' }],
+			days: { [day]: { read: false } }
+		};
+		data.reminders = [{ ...createReminder('Walk', day), completedDates: [day] }];
+		const backup = JSON.parse(serializeDataExport(data));
+		const invalid = await call('data/import', 'POST', { ...backup, time: null });
+		expect(invalid.status).toBe(400);
+		expect(store.read()).toEqual(emptyCalendar());
+		const imported = await call('data/import', 'POST', backup);
+		expect(imported.status).toBe(200);
+		expect(await imported.json()).toEqual(data);
+		expect(store.read()).toEqual(data);
+		const rejected = await call(
+			'data/import',
+			'POST',
+			JSON.parse(serializeDataExport(emptyCalendar()))
+		);
+		expect(rejected.status).toBe(409);
+		expect(store.read()).toEqual(data);
+	} finally {
+		store.db.close();
+	}
+});
+
 test('automated writes need no credentials, preserve manual values, and survive export and restore', async () => {
 	const { store, call } = client();
 	const restored = openCalendar(':memory:');

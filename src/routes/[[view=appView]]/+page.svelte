@@ -62,7 +62,7 @@
 			syncState = state;
 		}
 	);
-	const { save, saveData, flush, readExport } = sync;
+	const { save, saveData, flush, readExport, importBackup } = sync;
 	const calendarData = $derived(syncState.data);
 	const emojis = $derived(calendarData.emojis),
 		reminders = $derived(calendarData.reminders),
@@ -548,6 +548,6 @@
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel {readExport} />
+		<SettingsPanel {readExport} {importBackup} />
 	{/if}
 </main>

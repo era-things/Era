@@ -1,11 +1,32 @@
 import { calendar } from './database';
-import { ApiError, fail, reply, type ApiRoute, type ApiMethod, type Store } from './api/shared';
+import { InvalidBackup, NonEmptyCalendar, restoreBackup } from './backup';
+import {
+	ApiError,
+	fail,
+	reply,
+	type ApiContext,
+	type ApiRoute,
+	type ApiMethod,
+	type Store
+} from './api/shared';
 import { widgetRoutes } from './api/widgets';
 import { dayRoutes } from './api/days';
 import { measureRoutes } from './api/measures';
 import { reminderRoutes } from './api/reminders';
+
+function importData({ store, body }: ApiContext) {
+	try {
+		return reply(restoreBackup(store, body));
+	} catch (error) {
+		if (error instanceof InvalidBackup) fail(400, 'invalid_backup', error.message, 'body');
+		if (error instanceof NonEmptyCalendar) fail(409, 'database_not_empty', error.message);
+		throw error;
+	}
+}
+
 const routes: ApiRoute[] = [
 	{ pattern: /^data$/, methods: { GET: ({ store }) => reply(store.read()) } },
+	{ pattern: /^data\/import$/, methods: { POST: importData } },
 	...widgetRoutes,
 	...dayRoutes,
 	...measureRoutes,

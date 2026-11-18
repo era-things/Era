@@ -41,6 +41,7 @@ button:focus-visible,
 	background: #d7e8cb;
 }
 .app {
+	--app-gutter: 20px;
 	height: 100dvh;
 	display: flex;
 	flex-direction: column;
@@ -66,7 +67,7 @@ button:focus-visible,
 	align-items: center;
 	gap: 1.5rem;
 	min-height: 48px;
-	padding: 6px 20px;
+	padding: 6px var(--app-gutter);
 	border-bottom: 1px solid var(--line);
 	flex-shrink: 0;
 }
@@ -368,6 +369,9 @@ h1 {
 	margin: 8px 0;
 }
 @media (max-width: 560px) {
+	.app {
+		--app-gutter: 12px;
+	}
 	.view-workspace.with-day-panel {
 		grid-template-columns: minmax(0, 1fr) minmax(200px, 50%);
 	}
@@ -386,7 +390,6 @@ h1 {
 		gap: 6px;
 	}
 	.toolbar {
-		padding-inline: 12px;
 		gap: 16px;
 		flex-wrap: wrap;
 	}

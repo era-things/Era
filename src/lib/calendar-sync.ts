@@ -12,6 +12,7 @@ export function createCalendarSync(
 	let state: SyncState = { data: initial, error: '', retryable: false };
 	const queue: ApiRequest[] = [];
 	let pending: Promise<void> | undefined;
+	let importing = false;
 	let generation = 0;
 	let channel: BroadcastChannel | undefined;
 	const publish = (patch: Partial<SyncState>) => {
@@ -20,7 +21,7 @@ export function createCalendarSync(
 	};
 
 	async function refresh() {
-		if (queue.length) return;
+		if (queue.length || importing) return;
 		const ticket = ++generation;
 		try {
 			const response = await request('/api/data', { cache: 'no-store' });
@@ -82,6 +83,7 @@ export function createCalendarSync(
 	}
 
 	function saveData(data: CalendarData): boolean {
+		if (importing) return false;
 		const edits = apiRequests(state.data, data);
 		if (edits.length) {
 			generation++;
@@ -98,6 +100,29 @@ export function createCalendarSync(
 		const response = await request('/api/data', { cache: 'no-store' });
 		if (!response.ok) throw new Error('Export unavailable');
 		return response.json();
+	}
+
+	async function importBackup(body: string) {
+		if (importing) throw new Error('An import is already in progress.');
+		importing = true;
+		generation++;
+		try {
+			await flush();
+			if (queue.length) throw new Error('Save your pending edits before importing.');
+			const response = await request('/api/data/import', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body
+			});
+			if (!response.ok) {
+				const payload = await response.json().catch(() => null);
+				throw new Error(payload?.error?.message ?? 'Could not import data. Try again.');
+			}
+			publish({ data: await response.json(), error: '', retryable: false });
+			channel?.postMessage('saved');
+		} finally {
+			importing = false;
+		}
 	}
 
 	function connect() {
@@ -134,6 +159,7 @@ export function createCalendarSync(
 		flush,
 		refresh,
 		readExport,
+		importBackup,
 		dismiss: () => publish({ error: '' }),
 		connect
 	};
