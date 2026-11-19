@@ -8,6 +8,7 @@ import type { LayoutState, WidgetValues } from './widgets';
 import type { DateKey } from './calendar';
 import type { SleepDays } from './sleep';
 import type { TimeDays } from './time';
+import type { ScreenApp } from './screen-apps';
 
 export type CalendarData = {
 	emojis: DayEmojis;
@@ -18,6 +19,7 @@ export type CalendarData = {
 	counters: CounterDays;
 	sleep: SleepDays;
 	time: TimeDays;
+	screenApps: Record<DateKey, ScreenApp[]>;
 	automated: Record<DateKey, Partial<WidgetValues>>;
 	layout: LayoutState;
 };

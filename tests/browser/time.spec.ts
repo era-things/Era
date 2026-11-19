@@ -4,6 +4,58 @@ import { emptyCalendar } from '../../src/lib/calendar-records';
 import { TIME_WIDGETS, setWidgetValue } from '../../src/lib/widgets';
 import { seedData } from './api-helpers';
 
+test('screen time shows the app name or opens a usage-share drawer', async ({ page, request }) => {
+	const path = `/api/days/${localToday()}/widgets/phone/automated`;
+	const youTube = { package: 'com.youtube', name: 'YouTube', minutes: 45 };
+	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	const phone = today.getByRole('region', { name: 'Phone screen time', exact: true });
+	const total = phone.getByRole('group', { name: 'Phone screen time duration' });
+	const summary = phone.locator('summary');
+	const drawer = phone.getByRole('list', { name: 'Screen time by app' });
+	const minutes = total.getByRole('spinbutton', { name: 'Phone screen time minutes' });
+
+	async function report(apps?: { package: string; name: string; minutes: number }[]) {
+		const response = await request.put(path, {
+			data: { durationMinutes: 135, ...(apps === undefined ? {} : { apps }) }
+		});
+		expect(response.status()).toBe(204);
+		await page.goto('/today');
+		await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	}
+
+	await report();
+	await expect(minutes).toHaveValue('15');
+	await expect(summary).toHaveCount(0);
+	await expect(phone.locator('.app-summary')).toHaveCount(0);
+
+	await report([youTube]);
+	await expect(minutes).toHaveValue('15');
+	await expect(phone.locator('.app-summary')).toHaveText('YouTube');
+	await expect(summary).toHaveCount(0);
+
+	await report([
+		{ package: 'com.chrome', name: 'Chrome', minutes: 35 },
+		youTube,
+		{ package: 'com.telegram', name: 'Telegram', minutes: 25 },
+		{ package: 'com.maps', name: 'Maps', minutes: 20 },
+		{ package: 'com.camera', name: 'Camera', minutes: 10 }
+	]);
+	await page.setViewportSize({ width: 390, height: 800 });
+	await expect(summary).toContainText(/YouTube\s*33%/);
+	await expect(total).toHaveText(/2h\s*15m/);
+	await expect(drawer).toHaveCount(0);
+	expect((await summary.boundingBox())?.height).toBe(26);
+	await summary.press('Enter');
+	await expect(drawer.getByRole('listitem')).toHaveCount(5);
+	await expect(drawer.getByRole('listitem').first()).toHaveText(/YouTube\s*45m\s*33%/);
+	await summary.click();
+	await expect(drawer).toHaveCount(0);
+
+	await report([]);
+	await expect(summary).toHaveCount(0);
+	await expect(phone.locator('.app-summary')).toHaveCount(0);
+});
+
 test('time widgets form one block, edit and persist, and support pinning per activity', async ({
 	page
 }) => {

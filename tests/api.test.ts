@@ -164,6 +164,28 @@ test('automated writes need no credentials, preserve manual values, and survive 
 	}
 });
 
+test('automated phone writes store and replace daily app usage alongside the total', async () => {
+	const { store, call } = client();
+	const day = '2026-11-17';
+	const path = `days/${day}/widgets/phone`;
+	const automated = `${path}/automated`;
+	const apps = [{ package: 'com.example.app', name: 'Example', minutes: 12, lastUsed: '2026-11-17T23:45:00Z' }];
+	try {
+		expect((await call(automated, 'PUT', { durationMinutes: 40, apps })).status).toBe(204);
+		expect((await call(automated, 'PUT', { durationMinutes: 42 })).status).toBe(204);
+		expect((await call(automated, 'PUT', { durationMinutes: 90, apps: [...apps, ...apps] })).status).toBe(400);
+		const { automatedValue, value } = await (await call(path)).json();
+		expect(value).toEqual({ durationMinutes: 42 });
+		expect(automatedValue).toEqual({ durationMinutes: 42, apps });
+		expect((await call(automated, 'PUT', { durationMinutes: 42, apps: [] })).status).toBe(204);
+		expect((await (await call(path)).json()).automatedValue.apps).toEqual([]);
+		expect((await call(path, 'DELETE')).status).toBe(204);
+		expect(store.read().screenApps).toEqual({});
+	} finally {
+		store.db.close();
+	}
+});
+
 test('automated sleep metrics persist independently of the clock duration', async () => {
 	const { store, call } = client();
 	const day = '2026-11-17';

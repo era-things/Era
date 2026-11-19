@@ -17,12 +17,12 @@ import {
 	clearManualWidgetValue,
 	removeWidgetValue,
 	setAutomatedWidgetValue,
-	setWidgetValue,
-	type WidgetId
+	setWidgetValue
 } from '../../widgets';
 import { setDayMeasure, validMeasureValue } from '../../measures';
 import type { CalendarData } from '../../data-export';
 import { normalizeEmoji } from '../../day-emojis';
+import { validScreenApps, type ScreenApp } from '../../screen-apps';
 import { widgetId, dayWidget, parseWidget } from './widget-values';
 function getDay({ store, params }: ApiContext) {
 	const date = dayKey(params.date);
@@ -46,11 +46,21 @@ function getDayWidget({ store, params }: ApiContext) {
 }
 function writeDayWidget(
 	{ store, body, params }: ApiContext,
-	setValue: typeof setWidgetValue<CalendarData, WidgetId>
+	source: 'manual' | 'automated'
 ) {
 	const date = dayKey(params.date);
 	const id = widgetId(params.id);
-	const value = parseWidget(id, body);
+	let apps: ScreenApp[] | undefined;
+	let payload = body;
+	if (source === 'automated' && id === 'phone') {
+		const phone = object(body, ['durationMinutes', 'apps'], ['durationMinutes']);
+		if (Object.hasOwn(phone, 'apps')) {
+			if (!validScreenApps(phone.apps)) invalid('Expected a list of distinct apps with usage minutes.', 'apps');
+			apps = phone.apps;
+		}
+		payload = { durationMinutes: phone.durationMinutes };
+	}
+	const value = parseWidget(id, payload);
 	const data = store.update((current) => {
 		if (current.layout.widgets[id].archived && !isAttached(current, date, id))
 			fail(
@@ -59,16 +69,21 @@ function writeDayWidget(
 				'Restore this widget from the catalog before adding it to a new day.',
 				'archived'
 			);
-		return setValue(current, date, id, value);
+		const setValue = source === 'automated' ? setAutomatedWidgetValue : setWidgetValue;
+		const next = setValue(current, date, id, value);
+		return apps === undefined ? next : {
+			...next,
+			screenApps: { ...next.screenApps, [date]: apps }
+		};
 	});
 	return { data, date, id };
 }
 function putDayWidget(context: ApiContext) {
-	const { data, date, id } = writeDayWidget(context, setWidgetValue);
+	const { data, date, id } = writeDayWidget(context, 'manual');
 	return reply(dayWidget(data, date, id));
 }
 function putAutomatedDayWidget(context: ApiContext) {
-	writeDayWidget(context, setAutomatedWidgetValue);
+	writeDayWidget(context, 'automated');
 	return noContent();
 }
 function deleteManualDayWidget({ store, params }: ApiContext) {

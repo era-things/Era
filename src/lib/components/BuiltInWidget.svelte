@@ -52,7 +52,13 @@
 	{/key}
 {/snippet}
 {#snippet time(item: WidgetInstanceOfKind<'time'>)}
-	<TimeWidget id={item.id} value={item.value} {readonly} onchange={(value) => onchange(value)} />
+	<TimeWidget
+		id={item.id}
+		value={item.value}
+		screenApps={item.id === 'phone' ? item.screenApps : undefined}
+		{readonly}
+		onchange={(value) => onchange(value)}
+	/>
 {/snippet}
 {#snippet counter(item: WidgetInstanceOfKind<'counter'>)}
 	<CounterWidget

@@ -3,6 +3,7 @@ import { isDateKey, type DateKey } from './calendar';
 import { validFoodItem, type FoodItem } from './nutrition';
 import { emptySleep, validSleep, type Sleep } from './sleep';
 import { validTime } from './duration';
+import type { ScreenApp } from './screen-apps';
 import { isRecord, normalizeDays } from './validation';
 
 import { WIDGET_ICONS, type WidgetIcon } from './widget-icons';
@@ -219,7 +220,7 @@ export type WidgetInstanceFor<I extends WidgetId> = {
 		definition: Extract<Widget, { id: K }>;
 		skin: WidgetSkin<K>;
 		value: WidgetValues[K];
-	};
+	} & (K extends 'phone' ? { screenApps?: readonly ScreenApp[] } : object);
 }[I];
 export type WidgetInstance = WidgetInstanceFor<WidgetId>;
 export type WidgetInstanceOfKind<K extends WidgetKind> = Extract<WidgetInstance, { kind: K }>;
@@ -234,7 +235,15 @@ export function widgetHandler<R>(widget: WidgetInstance, handlers: WidgetHandler
 }
 export type WidgetData = Pick<
 	CalendarData,
-	'nutrition' | 'notes' | 'counters' | 'layout' | 'measures' | 'sleep' | 'time' | 'automated'
+	| 'nutrition'
+	| 'notes'
+	| 'counters'
+	| 'layout'
+	| 'measures'
+	| 'sleep'
+	| 'time'
+	| 'automated'
+	| 'screenApps'
 >;
 export const widgetFor = <K extends WidgetId>(id: K) =>
 	WIDGETS.find((widget) => widget.id === id)! as Extract<Widget, { id: K }>;
@@ -318,7 +327,10 @@ export function dayWidget(data: WidgetData, day: DateKey, id: WidgetId): WidgetI
 		kind: widgetFor(id).kind,
 		definition: widgetFor(id),
 		skin: data.layout.widgets[id].skin,
-		value: value === undefined ? widgetFor(id).initial : value
+		value: value === undefined ? widgetFor(id).initial : value,
+		...(id === 'phone' && data.automated[day]?.phone !== undefined
+			? { screenApps: data.screenApps[day] }
+			: {})
 	} as WidgetInstance;
 }
 export function setWidgetValue<T extends WidgetData, K extends WidgetId>(
@@ -357,7 +369,12 @@ export function clearManualWidgetValue<T extends WidgetData>(
 }
 
 export function removeWidgetValue(data: CalendarData, day: DateKey, id: WidgetId): CalendarData {
-	const next = clearManualWidgetValue(data, day, id);
+	let next = clearManualWidgetValue(data, day, id);
+	if (id === 'phone' && Object.hasOwn(data.screenApps, day)) {
+		const screenApps = { ...data.screenApps };
+		delete screenApps[day];
+		next = { ...next, screenApps };
+	}
 	if (data.automated[day]?.[id] === undefined) return next;
 	const automated = { ...data.automated };
 	const values = { ...automated[day] };

@@ -27,6 +27,8 @@ export function dayWidget(data: CalendarData, date: string, id: WidgetId) {
 	const manual = manualWidgetValue(data, date, id);
 	const automated = data.automated[date]?.[id];
 	const value = widgetValue(data, date, id);
+	const automatedBody = automated === undefined ? null : widgetBody(id, automated);
+	const apps = id === 'phone' ? data.screenApps[date] : undefined;
 	return {
 		date,
 		id,
@@ -34,7 +36,7 @@ export function dayWidget(data: CalendarData, date: string, id: WidgetId) {
 		visible: isVisible(data, date, id),
 		value: value === undefined ? null : widgetBody(id, value),
 		source: automated !== undefined ? 'automated' : manual !== undefined ? 'manual' : null,
-		automatedValue: automated === undefined ? null : widgetBody(id, automated),
+		automatedValue: apps && automatedBody ? { ...automatedBody, apps } : automatedBody,
 		manualValue: manual === undefined ? null : widgetBody(id, manual)
 	};
 }
