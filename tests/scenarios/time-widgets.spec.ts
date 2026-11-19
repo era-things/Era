@@ -32,6 +32,25 @@ test('capture populated and empty time widgets on Today', async ({ page }, testI
 		}
 	});
 	expect(phoneReport.status()).toBe(204);
+	const gitHubReport = await page.request.put(`/api/days/${today}/github-activity`, {
+		data: {
+			commits: 6,
+			additions: 418,
+			deletions: 92,
+			repositories: [
+				{
+					name: 'era-things/Era',
+					url: 'https://github.com/era-things/Era',
+					commits: 4,
+					additions: 280,
+					deletions: 60
+				},
+				{ name: 'Atlas', commits: 1, additions: 100, deletions: 12 },
+				{ name: 'dotfiles', commits: 1, additions: 38, deletions: 20 }
+			]
+		}
+	});
+	expect(gitHubReport.status()).toBe(204);
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const panel = page.getByRole('complementary', { name: 'Today', exact: true });
@@ -40,6 +59,7 @@ test('capture populated and empty time widgets on Today', async ({ page }, testI
 	await expect(block.getByRole('meter', { name: 'Sleep quality score' })).toHaveText('83%');
 	const phone = block.getByRole('region', { name: 'Phone screen time', exact: true });
 	const summary = phone.locator('summary');
+	const gitHubSummary = panel.getByRole('region', { name: 'GitHub activity' }).locator('summary');
 	for (const [name, width] of [
 		['desktop', 1280],
 		['mobile', 390]
@@ -53,5 +73,10 @@ test('capture populated and empty time widgets on Today', async ({ page }, testI
 		await panel.screenshot({ path: drawer, animations: 'disabled' });
 		console.log(`Screenshot ${drawer}`);
 		await summary.click();
+		await gitHubSummary.click();
+		const projects = testInfo.outputPath(`github-activity-drawer-${name}.png`);
+		await panel.screenshot({ path: projects, animations: 'disabled' });
+		console.log(`Screenshot ${projects}`);
+		await gitHubSummary.click();
 	}
 });

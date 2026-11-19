@@ -22,6 +22,7 @@ import {
 import { setDayMeasure, validMeasureValue } from '../../measures';
 import type { CalendarData } from '../../data-export';
 import { normalizeEmoji } from '../../day-emojis';
+import { validGitHubActivity } from '../../github-activity';
 import { validScreenApps, type ScreenApp } from '../../screen-apps';
 import { widgetId, dayWidget, parseWidget } from './widget-values';
 function getDay({ store, params }: ApiContext) {
@@ -156,7 +157,30 @@ function putEmoji({ store, body, params }: ApiContext) {
 	});
 	return reply({ date, emoji: emoji || null });
 }
+function getGitHubActivity({ store, params }: ApiContext) {
+	const date = dayKey(params.date);
+	return reply({ date, value: store.read().githubActivity[date] ?? null });
+}
+
+function putGitHubActivity({ store, params, body }: ApiContext) {
+	const date = dayKey(params.date);
+	if (!validGitHubActivity(body))
+		invalid(
+			'Use non-negative whole counts, distinct repository names, and absolute HTTP or HTTPS repository URLs.',
+			'body'
+		);
+	store.update((data) => ({
+		...data,
+		githubActivity: { ...data.githubActivity, [date]: body }
+	}));
+	return noContent();
+}
+
 export const dayRoutes = [
+	{
+		pattern: /^days\/(?<date>[^/]+)\/github-activity$/,
+		methods: { GET: getGitHubActivity, PUT: putGitHubActivity }
+	},
 	{ pattern: /^days\/(?<date>[^/]+)$/, methods: { GET: getDay } },
 	{
 		pattern: /^days\/(?<date>[^/]+)\/widgets\/(?<id>[^/]+)$/,

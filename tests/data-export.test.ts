@@ -8,6 +8,14 @@ test('export preserves all dates, zero/false values, emoji and reminder completi
 	const data: CalendarData = {
 		time: { '2000-01-01': { phone: 135, gym: 0, reading: null, movie: 116, steam: 90 } },
 		automated: { '2000-01-01': { phone: 222, steps: null } },
+		githubActivity: {
+			'2000-01-01': {
+				commits: 1,
+				additions: 0,
+				deletions: 10,
+				repositories: [{ name: 'era-things/Era', commits: 1, additions: 0, deletions: 10 }]
+			}
+		},
 		screenApps: { '2000-01-01': [{ package: 'com.example.app', name: 'Example', minutes: 60 }] },
 		sleep: { '2000-01-01': { start: 1395, end: 420, duration: 465 } },
 		layout: setWidgetSettings(emptyLayout(), 'weight', { pinned: true, skin: 'display' }),

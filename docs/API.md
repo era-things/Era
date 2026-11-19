@@ -96,6 +96,29 @@ Name is at most 120 characters. Quantity is a positive safe integer. Nutrients
 are non-negative finite numbers up to `Number.MAX_SAFE_INTEGER`, per item;
 quantity multiplies them in the UI.
 
+## GitHub activity
+
+`PUT /api/days/:date/github-activity` replaces a day's GitHub totals and returns 204.
+Send `commits`, `additions`, and `deletions` as non-negative whole numbers.
+Include an optional `repositories` array with a distinct `name` and the same
+three counts for each repository. Names can include the owner. Add a `url` with
+the repository's absolute HTTP or HTTPS address to link its row in the drawer.
+`GET` on the same path returns `{ date, value }`, with `value: null` for an
+unrecorded day. The daily records are included in exports as `githubActivity`.
+
+```json
+{
+  "commits": 6,
+  "additions": 418,
+  "deletions": 92,
+  "repositories": [
+    { "name": "era-things/Era", "url": "https://github.com/era-things/Era", "commits": 4, "additions": 280, "deletions": 60 },
+    { "name": "Atlas", "commits": 1, "additions": 100, "deletions": 12 },
+    { "name": "dotfiles", "commits": 1, "additions": 38, "deletions": 20 }
+  ]
+}
+```
+
 ## Custom measures
 
 | Method | Path                       | Result                                                   |

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DateKey } from '../calendar';
+	import type { CalendarData } from '../data-export';
 	import {
 		WIDGETS,
 		attachWidget,
@@ -13,13 +14,14 @@
 	import { paletteFor, setDayMeasure, type MeasureValue } from '../measures';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import DayMeasures from './DayMeasures.svelte';
+	import GitHubActivityWidget from './GitHubActivityWidget.svelte';
 	let {
 		data,
 		day,
 		onchange,
 		onmanage
 	}: {
-		data: WidgetData;
+		data: WidgetData & Pick<CalendarData, 'githubActivity'>;
 		day: DateKey;
 		onchange: (data: WidgetData) => boolean;
 		onmanage: () => void;
@@ -29,6 +31,7 @@
 	const timeWidgets = $derived(visible.filter(({ placement }) => placement === 'time'));
 	const mainWidgets = $derived(visible.filter(({ placement }) => placement === 'main'));
 	const footerWidgets = $derived(visible.filter(({ placement }) => placement === 'footer'));
+	const gitHubActivity = $derived(data.githubActivity[day]);
 	const history = $derived.by(() => {
 		const nutrition = { ...data.nutrition };
 		for (const [date, values] of Object.entries(data.automated)) {
@@ -73,7 +76,7 @@
 {/snippet}
 
 <section class="day-widget-stack" aria-label="Day widgets">
-	{#if mainWidgets.length || timeWidgets.length}
+	{#if mainWidgets.length || timeWidgets.length || gitHubActivity}
 		<div class="day-widgets">
 			{#each mainWidgets as definition (definition.id)}
 				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
@@ -88,6 +91,9 @@
 						</div>
 					{/each}
 				</div>
+			{/if}
+			{#if gitHubActivity}
+				<div class="full-widget"><GitHubActivityWidget activity={gitHubActivity} /></div>
 			{/if}
 		</div>
 	{/if}

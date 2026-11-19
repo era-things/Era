@@ -16,6 +16,7 @@ export const emptyCalendar = (): CalendarData => ({
 	sleep: {},
 	time: {},
 	screenApps: {},
+	githubActivity: {},
 	automated: {},
 	layout: emptyLayout(),
 	reminders: []
@@ -29,6 +30,7 @@ export function records(data: CalendarData, { includeDefaultSettings = false } =
 	for (const [day, value] of Object.entries(data.notes)) put(value, 'note', day);
 	for (const [day, value] of Object.entries(data.sleep)) put(value, 'sleep', day);
 	for (const [day, apps] of Object.entries(data.screenApps)) put(apps, 'screen-apps', day);
+	for (const [day, activity] of Object.entries(data.githubActivity)) put(activity, 'github-activity', day);
 	for (const [day, values] of Object.entries(data.time))
 		for (const [id, value] of Object.entries(values)) put(value, 'time-value', day, id);
 	for (const [day, values] of Object.entries(data.automated))
@@ -72,6 +74,9 @@ const decoders = new Map<string, Decoder>(
 		},
 		'screen-apps': (data, day, _id, value) => {
 			data.screenApps[day] = value as CalendarData['screenApps'][string];
+		},
+		'github-activity': (data, day, _id, value) => {
+			data.githubActivity[day] = value as CalendarData['githubActivity'][string];
 		},
 		'time-value': (data, day, id, value) => {
 			(data.time[day] ??= {})[id as TimeId] = value as number | null;

@@ -45,6 +45,18 @@ test('import restores a complete Era backup into an empty calendar', async () =>
 		data.notes[day] = 'First line\nSecond line';
 		data.counters[day] = { steps: 0, weight: 72.5 };
 		data.sleep[day] = { start: 1395, end: 420, duration: 465 };
+		data.githubActivity[day] = {
+			commits: 1, additions: 8, deletions: 2,
+			repositories: [
+				{
+					name: 'era-things/Era',
+					url: 'https://github.com/era-things/Era',
+					commits: 1,
+					additions: 8,
+					deletions: 2
+				}
+			]
+		};
 		data.nutrition[day] = [
 			{ id: 'lunch', name: 'Lunch', quantity: 2, kcal: 500, protein: 25.5, fat: 10, carbs: 60 }
 		];
@@ -160,6 +172,35 @@ test('automated writes need no credentials, preserve manual values, and survive 
 		});
 	} finally {
 		restored.db.close();
+		store.db.close();
+	}
+});
+
+test('GitHub activity stores validated daily totals and replaces them on replay', async () => {
+	const { store, call } = client();
+	const date = '2026-11-17';
+	const path = `days/${date}/github-activity`;
+	const value = { commits: 2, additions: 120, deletions: 4 };
+	try {
+		expect(await (await call(path)).json()).toEqual({ date, value: null });
+		expect((await call(path, 'PUT', { ...value, deletions: -1 })).status).toBe(400);
+		expect((await call(path, 'PUT', { ...value, commits: 1 })).status).toBe(204);
+		expect((await call(path, 'PUT', value)).status).toBe(204);
+		expect(await (await call(path)).json()).toEqual({ date, value });
+		expect(store.read().githubActivity).toEqual({ [date]: value });
+		const repo = { name: 'era-things/Era', url: 'https://github.com/era-things/Era', ...value };
+		const detailed = { ...value, repositories: [repo] };
+		expect((await call(path, 'PUT', detailed)).status).toBe(204);
+		expect((await call(path, 'PUT', { ...value, repositories: [repo, repo] })).status).toBe(400);
+		for (const url of [
+			'javascript:alert(1)',
+			'/era-things/Era',
+			'https://user:secret@github.com/era-things/Era'
+		]) {
+			expect((await call(path, 'PUT', { ...value, repositories: [{ ...repo, url }] })).status).toBe(400);
+		}
+		expect(await (await call(path)).json()).toEqual({ date, value: detailed });
+	} finally {
 		store.db.close();
 	}
 });

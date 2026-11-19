@@ -15,6 +15,7 @@ import { normalizeLayout } from '../layout';
 import { normalizeSleep } from '../sleep';
 import { normalizeTime } from '../time';
 import { normalizeScreenApps } from '../screen-apps';
+import { normalizeGitHubActivity } from '../github-activity';
 import { normalizeAutomatedValues } from '../widgets';
 
 export function validate(data: unknown): asserts data is CalendarData {
@@ -28,6 +29,7 @@ export function validate(data: unknown): asserts data is CalendarData {
 		sleep: normalizeSleep(data.sleep),
 		time: normalizeTime(data.time),
 		screenApps: normalizeScreenApps(data.screenApps),
+		githubActivity: normalizeGitHubActivity(data.githubActivity),
 		automated: normalizeAutomatedValues(data.automated),
 		layout: normalizeLayout(data.layout),
 		reminders: normalizeReminders(data.reminders)

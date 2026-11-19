@@ -9,6 +9,7 @@ import type { DateKey } from './calendar';
 import type { SleepDays } from './sleep';
 import type { TimeDays } from './time';
 import type { ScreenApp } from './screen-apps';
+import type { GitHubActivity } from './github-activity';
 
 export type CalendarData = {
 	emojis: DayEmojis;
@@ -20,6 +21,7 @@ export type CalendarData = {
 	sleep: SleepDays;
 	time: TimeDays;
 	screenApps: Record<DateKey, ScreenApp[]>;
+	githubActivity: Record<DateKey, GitHubActivity>;
 	automated: Record<DateKey, Partial<WidgetValues>>;
 	layout: LayoutState;
 };
