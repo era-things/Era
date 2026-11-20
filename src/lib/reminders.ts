@@ -1,4 +1,5 @@
 import { asDate, daysBetween, isDateKey, type DateKey } from './calendar.ts';
+import { createResourceId } from './resource-id.ts';
 
 export const PERIODIC_PERIODS = [
 	{ value: 'weekly', label: 'Weekly' },
@@ -23,7 +24,7 @@ export function createReminder(
 	period: ReminderPeriod = 'once'
 ): Reminder {
 	return {
-		id: crypto.randomUUID(),
+		id: createResourceId(),
 		text: text.trim(),
 		start,
 		period,

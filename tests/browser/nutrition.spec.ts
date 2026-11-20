@@ -90,7 +90,10 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(totals).not.toContainText('100');
 });
 
-test('copy a previous nutrition item with fresh identity and quantity one', async ({ page }) => {
+test('copy a previous nutrition item without crypto.randomUUID', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(crypto, 'randomUUID', { value: undefined });
+	});
 	{
 		const key = (offset: number) => {
 			const date = new Date();
@@ -151,6 +154,7 @@ test('copy a previous nutrition item with fresh identity and quantity one', asyn
 		.find(
 			(item: any) => item.id !== 'source' && item.id !== 'older' && item.id !== 'future'
 		) as any;
+	expect(copied.id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
 	expect(copied.quantity).toBe(1);
 	expect(days[Object.keys(days).sort()[1]][0].quantity).toBe(3);
 	await history.click();

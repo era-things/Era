@@ -258,6 +258,35 @@ test('automated sleep metrics persist independently of the clock duration', asyn
 	}
 });
 
+test('automated writes attach an archived widget only on days with data', async () => {
+	const { store, call } = client();
+	const day = 'days/2026-11-17';
+	const path = `${day}/widgets/gym`;
+	const otherDay = 'days/2026-11-18/widgets/gym';
+	const value = { durationMinutes: 45 };
+	try {
+		expect((await call('widgets/gym', 'PATCH', { archived: true })).status).toBe(200);
+		expect((await call(path, 'PUT', value)).status).toBe(409);
+		for (let attempt = 0; attempt < 2; attempt++) {
+			expect((await call(`${path}/automated`, 'PUT', value)).status).toBe(204);
+		}
+		const { widgets } = await (await call(day)).json();
+		expect(widgets.find((widget: { id: string }) => widget.id === 'gym')).toMatchObject({
+			attached: true,
+			visible: true,
+			source: 'automated',
+			value
+		});
+		expect(await (await call(otherDay)).json()).toMatchObject({
+			attached: false,
+			visible: false
+		});
+		expect(store.read().layout.widgets.gym.archived).toBe(true);
+	} finally {
+		store.db.close();
+	}
+});
+
 test('discover widgets and update a single daily value without versions; PUT and DELETE can be retried', async () => {
 	const { store, call } = client();
 	try {

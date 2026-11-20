@@ -63,7 +63,11 @@ function writeDayWidget(
 	}
 	const value = parseWidget(id, payload);
 	const data = store.update((current) => {
-		if (current.layout.widgets[id].archived && !isAttached(current, date, id))
+		if (
+			source === 'manual' &&
+			current.layout.widgets[id].archived &&
+			!isAttached(current, date, id)
+		)
 			fail(
 				409,
 				'widget_archived',

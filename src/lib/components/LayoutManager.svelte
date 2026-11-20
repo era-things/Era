@@ -8,6 +8,7 @@
 		type WidgetId,
 		type WidgetSettings
 	} from '../widgets';
+	import { createResourceId } from '../resource-id';
 	import WidgetPreview from './WidgetPreview.svelte';
 	let {
 		measures,
@@ -105,7 +106,7 @@
 			error = 'A measure with this name already exists.';
 			return;
 		}
-		if (onsave({ id: editing ?? crypto.randomUUID(), name: trimmed, type, palette }))
+		if (onsave({ id: editing ?? createResourceId(), name: trimmed, type, palette }))
 			creating = false;
 	}
 </script>

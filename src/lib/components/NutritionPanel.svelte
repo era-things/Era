@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Chevron from './Chevron.svelte';
 	import { NUTRIENTS, nutritionTotals, type FoodItem } from '../nutrition';
+	import { createResourceId } from '../resource-id';
 	import NutritionHistory from './NutritionHistory.svelte';
 	import NutritionItemRow from './NutritionItemRow.svelte';
 	let {
@@ -28,7 +29,7 @@
 			fat: 0,
 			carbs: 0,
 			...source,
-			id: crypto.randomUUID(),
+			id: createResourceId(),
 			quantity: 1
 		};
 		if (onchange([...items, item])) {
