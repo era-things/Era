@@ -132,6 +132,7 @@ merge. For a live database backup use SQLite's online backup facility or
   each day editor. Food entries accept decimal values and can be added, edited,
   or removed. Each item has quantity controls starting at ×1; its nutrient values
   are displayed per item, and the day totals include the quantity.
+  Double-click the quantity or press F2 on it to enter up to two decimal places.
   Edit names and nutrient values directly in their rows; Enter or leaving a field
   saves it, and Escape cancels the change.
   The + button adds a blank row and focuses its name. Click the quantity to reveal

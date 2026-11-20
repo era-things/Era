@@ -1,9 +1,10 @@
 import { writeData } from './api-helpers';
+import { localToday } from '../../src/lib/calendar';
 import { setWidgetSettings } from '../../src/lib/widgets';
 import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
-	page
+	page, request
 }) => {
 	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -61,11 +62,44 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await page.keyboard.press('Tab');
 	await expect(today.getByRole('textbox', { name: 'Name of Lunch', exact: true })).toBeFocused();
 	await expect(controls).toHaveCount(0);
+
+	await quantity.dblclick();
+	const editQuantity = today.getByRole('textbox', { name: 'Edit quantity of Lunch', exact: true });
+	await expect(editQuantity).toBeFocused();
+	await editQuantity.fill('2.351');
+	await editQuantity.press('Enter');
+	await expect(quantity).toBeFocused();
+	await expect(quantity).toHaveText('×2');
+	await quantity.press('F2');
+	await editQuantity.fill('4');
+	await editQuantity.press('Escape');
+	await expect(quantity).toHaveText('×2');
+	await quantity.dblclick();
+	await editQuantity.fill('2.35');
+	const items = `/api/days/${localToday()}/widgets/nutrition/items`;
+	const external = { name: 'Snack', quantity: 1, kcal: 125, protein: 0, fat: 0, carbs: 0 };
+	expect((await request.put(`${items}/snack`, { data: external })).ok()).toBe(true);
+	const save = page.waitForResponse((response) =>
+		new URL(response.url()).pathname.startsWith(items + '/') &&
+		response.request().method() === 'PATCH'
+	);
+	await editQuantity.press('Tab');
+	const saved = await save;
+	expect(saved.ok()).toBe(true);
+	expect(saved.request().postDataJSON()).toEqual({ quantity: 2.35 });
+	await expect(quantity).toHaveText('×2.35');
+	await expect(totals).toContainText('235');
+	await expect(totals).toContainText('29.38');
+	await expect(kcal).toHaveValue('100');
+	const list = await (await request.get(items)).json();
+	expect(list.items).toContainEqual({ ...external, id: 'snack' });
+	expect((await request.delete(`${items}/snack`)).status()).toBe(204);
+
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await expect(kcal).toHaveValue('100');
-	await expect(quantity).toHaveText('×2');
+	await expect(quantity).toHaveText('×2.35');
 	await expect(today.getByRole('columnheader', { name: 'Protein', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	await widgetVisibility(page, 'Nutrition').click();
@@ -83,7 +117,9 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await today.getByRole('button', { name: '1 item', exact: true }).click();
 	await quantity.click();
 	await today.getByRole('button', { name: 'Decrease quantity of Lunch', exact: true }).click();
-	await expect(quantity).toHaveText('×1');
+	await expect(quantity).toHaveText('×1.35');
+	await today.getByRole('button', { name: 'Decrease quantity of Lunch', exact: true }).click();
+	await expect(quantity).toHaveText('×0.35');
 	await expect(kcal).toHaveValue('100');
 	await today.getByRole('button', { name: 'Remove Lunch', exact: true }).click();
 	await expect(today.getByRole('button', { name: '0 items', exact: true })).toBeVisible();

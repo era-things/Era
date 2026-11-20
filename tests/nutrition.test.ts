@@ -57,7 +57,7 @@ test('nutrition totals follow additions, edits and removal, including decimal ma
 	assert.equal(nutritionTotals([snack]).kcal, 100);
 });
 
-test('quantities multiply every nutrient and must be positive safe integers', () => {
+test('quantities multiply every nutrient and allow positive values with up to two decimals', () => {
 	const doubled = { ...lunch, quantity: 2 };
 	assert.deepEqual(nutritionTotals([doubled, snack]), {
 		kcal: 1000,
@@ -66,7 +66,26 @@ test('quantities multiply every nutrient and must be positive safe integers', ()
 		carbs: 130.2
 	});
 	assert.deepEqual(nutritionTotals([{ ...doubled, quantity: 1 }]), nutritionTotals([lunch]));
-	for (const quantity of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, undefined, '2']) {
+	const fraction = { ...lunch, quantity: 0.25 };
+	assert.equal(validFoodItem(fraction), true);
+	assert.equal(validFoodItem({ ...lunch, quantity: Number.MAX_SAFE_INTEGER }), true);
+	assert.deepEqual(nutritionTotals([fraction]), {
+		kcal: 112.5,
+		protein: 6.38,
+		fat: 3,
+		carbs: 13.75
+	});
+	for (const quantity of [
+		0,
+		-1,
+		1.125,
+		0.001,
+		NaN,
+		Infinity,
+		Number.MAX_SAFE_INTEGER + 1,
+		undefined,
+		'2'
+	]) {
 		assert.equal(validFoodItem({ ...lunch, quantity }), false);
 	}
 });

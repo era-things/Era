@@ -94,9 +94,57 @@ PUT; the operation does not patch a previous sleep value.
 
 Each nutrition item requires `id`, `name`, `quantity`, `kcal`, `protein`, `fat`,
 and `carbs`. IDs are unique within the day, using 1–80 letters, digits, or hyphens.
-Name is at most 120 characters. Quantity is a positive safe integer. Nutrients
+Name is at most 120 characters. Quantity ranges from 0.01 to
+`Number.MAX_SAFE_INTEGER` with up to two decimal places. Nutrients
 are non-negative finite numbers up to `Number.MAX_SAFE_INTEGER`, per item;
 quantity multiplies them in the UI.
+
+### Individual nutrition items
+
+These routes use the manual food log for a single date. Use the daily widget
+endpoint to read the effective list when an automated value is present.
+
+| Method | Path relative to `/days/:date/widgets/nutrition` | Result |
+| ------ | ------------------------------------------------ | ------ |
+| GET    | `/items`                                        | `{"items":[...]}` in entry order, or an empty list |
+| GET    | `/items/:itemId`                                | One food item, or 404 |
+| PUT    | `/items/:itemId`                                | Create or replace one item using all six editable fields |
+| PATCH  | `/items/:itemId`                                | Update only the supplied fields of an existing item, or 404 |
+| DELETE | `/items/:itemId`                                | Remove one item and return 204, including when it is already absent |
+
+Choose an item ID unique within the day. Retrying a PUT to the same ID updates
+the same entry. An optional body `id` on PUT must match the URL. PUT and PATCH
+return the saved item. Deleting the last item leaves the day’s food log attached.
+
+```sh
+curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/widgets/nutrition/items/lunch \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Lunch","quantity":1,"kcal":500,"protein":25.5,"fat":10,"carbs":60}'
+
+curl -X PATCH http://127.0.0.1:5173/api/days/2026-11-17/widgets/nutrition/items/lunch \
+  -H 'Content-Type: application/json' \
+  -d '{"quantity":0.75}'
+```
+
+### Individual phone apps and GitHub repositories
+
+These collections use the same list, read, PUT, PATCH, and DELETE methods as
+nutrition. GET on a collection returns `{"items":[...]}`. Append the item key to
+read or change one entry.
+
+| Collection below `/api/days/:date` | Item key | Required PUT fields | Optional fields |
+| --- | --- | --- | --- |
+| `/widgets/phone/apps` | `package`, such as `com.example.app` | `name`, `minutes` | `lastUsed` |
+| `/github-activity/repositories` | `name`, such as `era-things%2FEra` | `commits`, `additions`, `deletions` | `url` |
+
+URL-encode item keys. Repository names match case-insensitively, following the
+same uniqueness rule as the daily report. PUT can also include the key field
+when it matches the URL. PATCH accepts any subset of the editable fields and
+preserves the others.
+
+Before creating an item, save the day’s automated phone duration or GitHub
+totals through its existing report endpoint. Item writes preserve the reported
+totals and neighboring entries.
 
 ## GitHub activity
 
@@ -191,7 +239,7 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
 
 400 means an invalid value, unknown field, or malformed JSON. 403 means a
 cross-site browser write. 404 means an unknown resource, 405 means an unsupported method,
-409 means a duplicate definition or name, and
+409 means a duplicate definition or name, or a missing daily report for a new item, and
 415 means the content type must be JSON.
 
 There are no stale-version conflicts or `before`/`after` payloads. `/api/calendar`

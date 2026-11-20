@@ -15,8 +15,8 @@ import {
 import { widgetBody } from '../../api-values';
 import { validTime } from '../../duration';
 import { validSleep, validSleepMetrics, parseSleepTime, type Sleep } from '../../sleep';
-import { validFoodItem } from '../../nutrition';
-import { fail, invalid, object, resourceId } from './shared';
+import { fail, invalid, object } from './shared';
+import { parseFoodItem } from './nutrition-items';
 export function widgetId(value: string): WidgetId {
 	if (!WIDGETS.some((widget) => widget.id === value))
 		fail(404, 'widget_not_found', 'Unknown widget.', 'id');
@@ -104,18 +104,12 @@ function parseNutrition(value: unknown): WidgetValues['nutrition'] {
 	const { items } = object(value, ['items'], ['items']);
 	if (!Array.isArray(items)) invalid('Expected an array of food items.', 'items');
 	const ids = new Set<string>();
-	for (const [index, item] of items.entries()) {
-		object(
-			item,
-			['id', 'name', 'quantity', 'kcal', 'protein', 'fat', 'carbs'],
-			['id', 'name', 'quantity', 'kcal', 'protein', 'fat', 'carbs']
-		);
-		if (!validFoodItem(item)) invalid('Invalid food item.', `items.${index}`);
-		resourceId(item.id, `items.${index}.id`);
+	return items.map((value, index) => {
+		const item = parseFoodItem(value, `items.${index}`);
 		if (ids.has(item.id)) invalid('Food item IDs must be unique.', `items.${index}.id`);
 		ids.add(item.id);
-	}
-	return items;
+		return item;
+	});
 }
 
 export type WidgetParsers = {

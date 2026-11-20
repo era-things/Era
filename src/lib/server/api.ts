@@ -13,6 +13,8 @@ import { widgetRoutes } from './api/widgets';
 import { dayRoutes } from './api/days';
 import { measureRoutes } from './api/measures';
 import { reminderRoutes } from './api/reminders';
+import { nutritionItemRoutes } from './api/nutrition-items';
+import { activityItemRoutes } from './api/activity-items';
 
 function backupResponse(run: () => unknown) {
 	try {
@@ -53,6 +55,8 @@ const routes: ApiRoute[] = [
 	},
 	...widgetRoutes,
 	...dayRoutes,
+	...nutritionItemRoutes,
+	...activityItemRoutes,
 	...measureRoutes,
 	...reminderRoutes
 ];

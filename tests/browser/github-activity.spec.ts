@@ -24,10 +24,15 @@ test('GitHub shows daily totals and expands when repository details arrive', asy
 
 	const repos = [
 		{ name: 'dotfiles', commits: 1, additions: 38, deletions: 20 },
-		{ name: 'era-things/Era', url: repoUrl, commits: 4, additions: 280, deletions: 60 },
 		{ name: 'Atlas', commits: 1, additions: 100, deletions: 12 }
 	];
 	expect((await request.put(url, { data: { ...totals, repositories: repos } })).status()).toBe(204);
+	const repo = `${url}/repositories/${encodeURIComponent('era-things/Era')}`;
+	expect(
+		(await request.put(repo, { data: { url: repoUrl, commits: 3, additions: 280, deletions: 60 } })).ok()
+	).toBe(true);
+	const edited = await request.patch(repo, { data: { commits: 4 } });
+	expect(await edited.json()).toMatchObject({ name: 'era-things/Era', url: repoUrl, commits: 4 });
 	await page.reload();
 	await page.setViewportSize({ width: 390, height: 800 });
 	await expect(summary).toContainText(/6 commits.*Era.*\+2/);

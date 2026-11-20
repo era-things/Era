@@ -181,7 +181,7 @@
 	}
 	dd {
 		order: -1;
-		width: 3ch;
+		min-width: 3ch;
 		margin: 0;
 		font-size: 14px;
 		font-weight: 600;
@@ -193,9 +193,11 @@
 		margin-right: 6px;
 		background: transparent;
 	}
-	.kcal dt,
-	.kcal dd {
+	.kcal dt {
 		width: auto;
+	}
+	.kcal dd {
+		min-width: 0;
 	}
 	.kcal dd {
 		font-size: 22px;
@@ -215,7 +217,7 @@
 		font-size: 13px;
 	}
 	.quantity-column {
-		width: 32px;
+		width: 46px;
 	}
 	.kcal-column {
 		width: calc(5ch + 4px);

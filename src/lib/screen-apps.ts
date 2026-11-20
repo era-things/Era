@@ -23,24 +23,27 @@ export function screenAppShares(
 		}));
 }
 
+export function validScreenApp(app: unknown): app is ScreenApp {
+	return (
+		isRecord(app) &&
+		Object.keys(app).every((key) => ['package', 'name', 'minutes', 'lastUsed'].includes(key)) &&
+		typeof app.package === 'string' &&
+		!!app.package.trim() &&
+		typeof app.name === 'string' &&
+		typeof app.minutes === 'number' &&
+		Number.isInteger(app.minutes) &&
+		app.minutes >= 0 &&
+		app.minutes <= 1440 &&
+		(!Object.hasOwn(app, 'lastUsed') ||
+			(typeof app.lastUsed === 'string' && Number.isFinite(Date.parse(app.lastUsed))))
+	);
+}
+
 export function validScreenApps(value: unknown): value is ScreenApp[] {
 	if (!Array.isArray(value)) return false;
 	const packages = new Set<string>();
 	for (const app of value) {
-		if (
-			!isRecord(app) ||
-			Object.keys(app).some((key) => !['package', 'name', 'minutes', 'lastUsed'].includes(key)) ||
-			typeof app.package !== 'string' ||
-			!app.package.trim() ||
-			packages.has(app.package) ||
-			typeof app.name !== 'string' ||
-			typeof app.minutes !== 'number' ||
-			!Number.isInteger(app.minutes) ||
-			app.minutes < 0 ||
-			app.minutes > 1440 ||
-			(Object.hasOwn(app, 'lastUsed') &&
-				(typeof app.lastUsed !== 'string' || !Number.isFinite(Date.parse(app.lastUsed))))
-		) return false;
+		if (!validScreenApp(app) || packages.has(app.package)) return false;
 		packages.add(app.package);
 	}
 	return true;

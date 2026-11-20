@@ -7,9 +7,19 @@ export const NUTRIENTS = [
 	{ key: 'fat', label: 'Fat', shortLabel: 'F', color: '#38713d' },
 	{ key: 'carbs', label: 'Carbs', shortLabel: 'C', color: '#965015' }
 ] as const;
+export const FOOD_ITEM_FIELDS = ['name', 'quantity', ...NUTRIENTS.map(({ key }) => key)] as const;
 export type Nutrients = { kcal: number; protein: number; fat: number; carbs: number };
 export type FoodItem = Nutrients & { id: string; name: string; quantity: number };
 export type NutritionDays = Record<DateKey, FoodItem[]>;
+
+export function validFoodQuantity(value: unknown): value is number {
+	return (
+		typeof value === 'number' &&
+		value >= 0.01 &&
+		value <= Number.MAX_SAFE_INTEGER &&
+		value === Number(value.toFixed(2))
+	);
+}
 
 export function validFoodItem(value: unknown): value is FoodItem {
 	if (!value || typeof value !== 'object') return false;
@@ -19,9 +29,7 @@ export function validFoodItem(value: unknown): value is FoodItem {
 		/^[a-zA-Z0-9-]{1,80}$/.test(item.id) &&
 		typeof item.name === 'string' &&
 		item.name.length <= 120 &&
-		typeof item.quantity === 'number' &&
-		Number.isSafeInteger(item.quantity) &&
-		item.quantity >= 1 &&
+		validFoodQuantity(item.quantity) &&
 		NUTRIENTS.every(
 			({ key }) =>
 				typeof item[key] === 'number' &&

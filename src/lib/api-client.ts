@@ -1,5 +1,6 @@
 import type { CalendarData } from './data-export';
 import { widgetBody } from './api-values';
+import { FOOD_ITEM_FIELDS, type FoodItem } from './nutrition';
 import { WIDGETS, manualWidgetValue } from './widgets';
 
 export type ApiRequest = {
@@ -13,6 +14,28 @@ const widgetSections = [
 	...new Set(WIDGETS.map(({ storage }) => storage.section)),
 	'automated'
 ] as const;
+
+function nutritionItemRequests(url: string, before: FoodItem[], after: FoodItem[]): ApiRequest[] {
+	const requests: ApiRequest[] = [];
+	const previous = new Map(before.map((item) => [item.id, item]));
+	for (const item of after) {
+		const itemUrl = `${url}/items/${item.id}`;
+		const old = previous.get(item.id);
+		if (!old) requests.push({ url: itemUrl, method: 'PUT', body: item });
+		else {
+			const fields = FOOD_ITEM_FIELDS.filter((field) => old[field] !== item[field]);
+			if (fields.length)
+				requests.push({
+					url: itemUrl,
+					method: 'PATCH',
+					body: Object.fromEntries(fields.map((field) => [field, item[field]]))
+				});
+			previous.delete(item.id);
+		}
+	}
+	for (const id of previous.keys()) requests.push({ url: `${url}/items/${id}`, method: 'DELETE' });
+	return requests;
+}
 
 // Diff local UI state into ordinary resource requests. Old values never go over the wire.
 export function apiRequests(before: CalendarData, after: CalendarData): ApiRequest[] {
@@ -39,9 +62,17 @@ export function apiRequests(before: CalendarData, after: CalendarData): ApiReque
 			for (const day of Object.keys(data[section])) days.add(day);
 	for (const day of days)
 		for (const { id } of WIDGETS) {
+			const url = `/api/days/${day}/widgets/${id}`;
+			if (id === 'nutrition' && after.nutrition[day]) {
+				const old = before.nutrition[day] ?? [];
+				const next = after.nutrition[day];
+				if (old.length || next.length) {
+					requests.push(...nutritionItemRequests(url, old, next));
+					continue;
+				}
+			}
 			const old = manualWidgetValue(before, day, id);
 			const next = manualWidgetValue(after, day, id);
-			const url = `/api/days/${day}/widgets/${id}`;
 			if (next !== undefined) {
 				if (!equal(old, next)) add(url, 'PUT', widgetBody(id, next));
 			} else if (

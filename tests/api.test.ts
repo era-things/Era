@@ -58,7 +58,7 @@ test('import restores a complete Era backup into an empty calendar', async () =>
 			]
 		};
 		data.nutrition[day] = [
-			{ id: 'lunch', name: 'Lunch', quantity: 2, kcal: 500, protein: 25.5, fat: 10, carbs: 60 }
+			{ id: 'lunch', name: 'Lunch', quantity: 1.25, kcal: 500, protein: 25.5, fat: 10, carbs: 60 }
 		];
 		data.measures = {
 			definitions: [{ id: 'read', name: 'Read', type: 'boolean', palette: 'green' }],
@@ -222,6 +222,72 @@ test('automated phone writes store and replace daily app usage alongside the tot
 		expect((await (await call(path)).json()).automatedValue.apps).toEqual([]);
 		expect((await call(path, 'DELETE')).status).toBe(204);
 		expect(store.read().screenApps).toEqual({});
+	} finally {
+		store.db.close();
+	}
+});
+
+test('phone app item writes preserve the automated duration and neighboring apps', async () => {
+	const { store, call } = client();
+	const widget = 'days/2026-11-17/widgets/phone';
+	const apps = `${widget}/apps`;
+	const app = `${apps}/com.example.app`;
+	const example = { name: 'Example', minutes: 12, lastUsed: '2026-11-17T23:45:00Z' };
+	const other = { package: 'com.example.other', name: 'Other', minutes: 3 };
+	try {
+		expect((await call(app, 'PUT', example)).status).toBe(409);
+		expect((await call(`${widget}/automated`, 'PUT', { durationMinutes: 40, apps: [other] })).status)
+			.toBe(204);
+		expect((await call(app, 'PUT', example)).status).toBe(200);
+		expect((await call(app, 'PUT', example)).status).toBe(200);
+		expect((await call(app, 'PATCH', { minutes: 20 })).status).toBe(200);
+		expect((await call(app, 'PATCH', { minutes: 1441 })).status).toBe(400);
+		const updated = { package: 'com.example.app', ...example, minutes: 20 };
+		expect(await (await call(app)).json()).toEqual(updated);
+		expect(await (await call(apps)).json()).toEqual({ items: [other, updated] });
+		expect(await (await call(widget)).json()).toMatchObject({
+			source: 'automated',
+			automatedValue: { durationMinutes: 40, apps: [other, updated] }
+		});
+		expect((await call(app, 'DELETE')).status).toBe(204);
+		expect((await call(app, 'DELETE')).status).toBe(204);
+		expect(await (await call(widget)).json()).toMatchObject({
+			automatedValue: { durationMinutes: 40, apps: [other] }
+		});
+	} finally {
+		store.db.close();
+	}
+});
+
+test('GitHub repository item writes preserve daily totals and match names case-insensitively', async () => {
+	const { store, call } = client();
+	const day = '2026-11-17';
+	const activity = `days/${day}/github-activity`;
+	const repositories = `${activity}/repositories`;
+	const repo = `${repositories}/era-things/Era`;
+	const totals = { commits: 5, additions: 140, deletions: 12 };
+	const other = { name: 'Other', commits: 1, additions: 100, deletions: 4 };
+	const detail = { commits: 2, additions: 10, deletions: 3, url: 'https://github.com/era-things/Era' };
+	try {
+		expect((await call(repo, 'PUT', detail)).status).toBe(409);
+		expect((await call(activity, 'PUT', { ...totals, repositories: [other] })).status).toBe(204);
+		expect((await call(repo, 'PUT', detail)).status).toBe(200);
+		expect(await (await call(`${repositories}/ERA-THINGS/era`, 'PUT', detail)).json())
+			.toEqual({ name: 'era-things/Era', ...detail });
+		const update = await call(`${repositories}/ERA-THINGS/era`, 'PATCH', { additions: 22 });
+		const updated = { name: 'era-things/Era', ...detail, additions: 22 };
+		expect(await update.json()).toEqual(updated);
+		expect(await (await call(repositories)).json()).toEqual({ items: [other, updated] });
+		expect(await (await call(activity)).json()).toEqual({
+			date: day,
+			value: { ...totals, repositories: [other, updated] }
+		});
+		expect((await call(repo, 'DELETE')).status).toBe(204);
+		expect((await call(repo)).status).toBe(404);
+		expect(await (await call(activity)).json()).toEqual({
+			date: day,
+			value: { ...totals, repositories: [other] }
+		});
 	} finally {
 		store.db.close();
 	}
@@ -434,6 +500,51 @@ test('create and update custom measures, use daily values, and delete without or
 		expect((await call('measures/water', 'DELETE')).status).toBe(204);
 		expect(store.read().measures).toEqual({ definitions: [], days: {} });
 		expect((await call('days/2026-11-17/measures/water')).status).toBe(404);
+	} finally {
+		store.db.close();
+	}
+});
+
+test('nutrition item writes preserve neighboring entries and concurrent changes', async () => {
+	const { store, call } = client();
+	const widget = 'days/2026-11-17/widgets/nutrition';
+	const items = `${widget}/items`;
+	const lunch = { name: 'Lunch', quantity: 1.25, kcal: 500, protein: 25.5, fat: 10, carbs: 60 };
+	const snack = { ...lunch, name: 'Snack', kcal: 125 };
+	try {
+		expect(await (await call(items)).json()).toEqual({ items: [] });
+		expect((await call(`${items}/lunch`, 'PATCH', { quantity: 2 })).status).toBe(404);
+		expect((await call(`${items}/lunch`, 'DELETE')).status).toBe(204);
+		expect((await (await call(widget)).json()).attached).toBe(false);
+		for (const response of await Promise.all([
+			call(`${items}/lunch`, 'PUT', lunch),
+			call(`${items}/snack`, 'PUT', snack)
+		]))
+			expect(response.status).toBe(200);
+		expect((await call(`${items}/lunch`, 'PUT', lunch)).status).toBe(200);
+		const listed = (await (await call(items)).json()).items;
+		expect(listed).toHaveLength(2);
+		expect(listed).toContainEqual({ ...lunch, id: 'lunch' });
+		expect(listed).toContainEqual({ ...snack, id: 'snack' });
+		for (const response of await Promise.all([
+			call(`${items}/lunch`, 'PATCH', { quantity: 0.75 }),
+			call(`${items}/lunch`, 'PATCH', { name: 'Leftovers' })
+		]))
+			expect(response.status).toBe(200);
+		expect((await call(`${items}/lunch`, 'PATCH', { quantity: 0.751 })).status).toBe(400);
+		expect((await call(`${items}/lunch`, 'PUT', { ...lunch, id: 'snack' })).status).toBe(400);
+		expect(await (await call(`${items}/lunch`)).json()).toEqual({
+			...lunch,
+			id: 'lunch',
+			quantity: 0.75,
+			name: 'Leftovers'
+		});
+		for (let attempt = 0; attempt < 2; attempt++)
+			expect((await call(`${items}/lunch`, 'DELETE')).status).toBe(204);
+		expect((await call(`${items}/lunch`)).status).toBe(404);
+		expect(await (await call(items)).json()).toEqual({ items: [{ ...snack, id: 'snack' }] });
+		expect((await call(`${items}/snack`, 'DELETE')).status).toBe(204);
+		expect(await (await call(widget)).json()).toMatchObject({ attached: true, value: { items: [] } });
 	} finally {
 		store.db.close();
 	}

@@ -3,6 +3,7 @@ import { isRecord, normalizeDays } from './validation';
 type GitHubTotals = { commits: number; additions: number; deletions: number };
 export type GitHubRepository = GitHubTotals & { name: string; url?: string };
 export type GitHubActivity = GitHubTotals & { repositories?: GitHubRepository[] };
+export const repositoryKey = (name: string) => name.trim().toLowerCase();
 
 function validTotals(value: Record<string, unknown>): boolean {
 	return [value.commits, value.additions, value.deletions].every(
@@ -20,6 +21,17 @@ function validRepositoryUrl(value: unknown): value is string {
 	}
 }
 
+export function validGitHubRepository(value: unknown): value is GitHubRepository {
+	if (!isRecord(value) || !validTotals(value)) return false;
+	const hasUrl = Object.hasOwn(value, 'url');
+	return (
+		Object.keys(value).length === (hasUrl ? 5 : 4) &&
+		(!hasUrl || validRepositoryUrl(value.url)) &&
+		typeof value.name === 'string' &&
+		!!value.name.trim()
+	);
+}
+
 export function validGitHubActivity(value: unknown): value is GitHubActivity {
 	if (!isRecord(value) || !validTotals(value)) return false;
 	if (!Object.hasOwn(value, 'repositories')) return Object.keys(value).length === 3;
@@ -27,12 +39,8 @@ export function validGitHubActivity(value: unknown): value is GitHubActivity {
 
 	const names = new Set<string>();
 	for (const repo of value.repositories) {
-		if (!isRecord(repo) || !validTotals(repo)) return false;
-		const hasUrl = Object.hasOwn(repo, 'url');
-		if (Object.keys(repo).length !== (hasUrl ? 5 : 4)) return false;
-		if (hasUrl && !validRepositoryUrl(repo.url)) return false;
-		if (typeof repo.name !== 'string' || !repo.name.trim()) return false;
-		const key = repo.name.trim().toLowerCase();
+		if (!validGitHubRepository(repo)) return false;
+		const key = repositoryKey(repo.name);
 		if (names.has(key)) return false;
 		names.add(key);
 	}

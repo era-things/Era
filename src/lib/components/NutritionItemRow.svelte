@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { NUTRIENTS, type FoodItem, type Nutrients } from '../nutrition';
+	import { NUTRIENTS, validFoodQuantity, type FoodItem, type Nutrients } from '../nutrition';
 	let {
 		item,
 		onchange,
@@ -17,7 +17,11 @@
 	} = $props();
 	let nameInput: HTMLInputElement;
 	let quantityCell: HTMLTableCellElement;
+	let quantityToggle = $state<HTMLButtonElement>();
+	let quantityInput = $state<HTMLInputElement>();
+	let editingQuantity = $state(false);
 	const label = $derived(item.name || 'new item');
+	const decrementRemovesItem = $derived(item.quantity <= 1);
 	$effect(() => {
 		if (expanded !== item.id) return;
 		const dismiss = (event: PointerEvent) => {
@@ -43,9 +47,31 @@
 		input.blur();
 	}
 	function adjust(delta: -1 | 1) {
-		const quantity = item.quantity + delta;
-		if (!Number.isSafeInteger(quantity) || quantity < 0) return;
-		if (onchange(quantity ? { ...item, quantity } : null) && !quantity) expanded = null;
+		if (delta === -1 && decrementRemovesItem) {
+			if (onchange(null)) expanded = null;
+			return;
+		}
+		const quantity = Number((item.quantity + delta).toFixed(2));
+		if (validFoodQuantity(quantity)) onchange({ ...item, quantity });
+	}
+	async function editQuantity() {
+		expanded = null;
+		editingQuantity = true;
+		await tick();
+		quantityInput?.focus();
+		quantityInput?.select();
+	}
+	function commitQuantity(input: HTMLInputElement) {
+		const value = Number(input.value.replace(',', '.'));
+		if (!readonly && input.validity.valid && validFoodQuantity(value) && value !== item.quantity)
+			onchange({ ...item, quantity: value });
+		editingQuantity = false;
+	}
+	async function quantityKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' && event.key !== 'Escape') return;
+		keydown(event, item.quantity);
+		await tick();
+		quantityToggle?.focus();
 	}
 </script>
 
@@ -59,14 +85,35 @@
 		}}
 	>
 		{#if readonly}
-			<span>×{item.quantity}</span>
+			<span class="quantity-value">×{item.quantity}</span>
+		{:else if editingQuantity}
+			<input
+				class="quantity-input"
+				bind:this={quantityInput}
+				aria-label={'Edit quantity of ' + label}
+				inputmode="decimal"
+				pattern={'[0-9]*(?:[.,][0-9]{1,2})?'}
+				required
+				value={item.quantity}
+				onblur={(event) => commitQuantity(event.currentTarget)}
+				onkeydown={quantityKeydown}
+			/>
 		{:else}<button
 				class="quantity-toggle"
 				type="button"
+				bind:this={quantityToggle}
 				aria-label={'Quantity of ' + label + ', currently ' + item.quantity}
 				aria-expanded={expanded === item.id}
+				aria-keyshortcuts="F2"
+				title="Double-click or press F2 to edit quantity"
 				onclick={() => (expanded = expanded === item.id ? null : item.id)}
-				><span aria-live="polite">×{item.quantity}</span></button
+				ondblclick={editQuantity}
+				onkeydown={(event) => {
+					if (event.key !== 'F2') return;
+					event.preventDefault();
+					void editQuantity();
+				}}
+				><span class="quantity-value" aria-live="polite">×{item.quantity}</span></button
 			>
 		{/if}
 		{#if !readonly && expanded === item.id}
@@ -78,10 +125,10 @@
 			>
 				<button
 					type="button"
-					aria-label={(item.quantity === 1 ? 'Remove ' : 'Decrease quantity of ') + label}
+					aria-label={(decrementRemovesItem ? 'Remove ' : 'Decrease quantity of ') + label}
 					onclick={() => adjust(-1)}
 				>
-					{#if item.quantity === 1}<svg
+					{#if decrementRemovesItem}<svg
 							width="12"
 							height="12"
 							viewBox="0 0 24 24"
@@ -193,13 +240,27 @@
 		background: var(--nutrition-hover);
 		color: var(--ink);
 	}
+	.quantity-toggle,
+	.quantity-input,
+	.quantity-value {
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+	}
 	.quantity-toggle {
 		width: 100%;
 		height: var(--nutrition-row-height);
-		padding: 4px;
-		font-size: 12px;
-		font-variant-numeric: tabular-nums;
+		padding: 4px 2px;
 		color: var(--ink);
+		touch-action: manipulation;
+	}
+	.quantity-input {
+		text-align: center;
+	}
+	.quantity-value {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.quantity-controls {
 		position: absolute;
