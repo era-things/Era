@@ -16,6 +16,9 @@ export type WidgetKindValues = {
 	note: string;
 };
 export type WidgetKind = keyof WidgetKindValues;
+export const WIDGET_VISIBILITIES = ['pinned', 'available', 'with-data', 'hidden'] as const;
+export type WidgetVisibility = (typeof WIDGET_VISIBILITIES)[number];
+
 type WidgetContract = {
 	[K in WidgetKind]: {
 		id: string;
@@ -26,7 +29,7 @@ type WidgetContract = {
 		valid: (value: unknown) => value is WidgetKindValues[K];
 		fields: readonly WidgetField[];
 		compact: boolean;
-		pinned: boolean;
+		visibility: WidgetVisibility;
 		skin: string;
 		skins: readonly { id: string; name: string }[];
 		icon?: WidgetIcon;
@@ -81,7 +84,7 @@ const timeWidget = <K extends keyof typeof WIDGET_ICONS>(id: K, name: string, sa
 	icon: WIDGET_ICONS[id],
 	fields: durationFields,
 	compact: false,
-	pinned: false,
+	visibility: 'available' as const,
 	skin: 'simple' as const,
 	skins: [{ id: 'simple', name: 'Simple' }] as const,
 	initial: 0 as number | null
@@ -100,7 +103,7 @@ export const WIDGETS = [
 			new Set(value.map(({ id }) => id)).size === value.length,
 		fields: [{ name: 'items', type: 'array' }],
 		compact: false,
-		pinned: false,
+		visibility: 'available',
 		skin: 'simple',
 		skins: [{ id: 'simple', name: 'Simple' }],
 		initial: [] as FoodItem[],
@@ -117,7 +120,7 @@ export const WIDGETS = [
 		storage: { section: 'counters', key: 'weight' },
 		icon: WIDGET_ICONS.weight,
 		compact: true,
-		pinned: false,
+		visibility: 'available',
 		skin: 'scale',
 		skins: [
 			{ id: 'simple', name: 'Simple' },
@@ -137,7 +140,7 @@ export const WIDGETS = [
 		storage: { section: 'counters', key: 'steps' },
 		icon: WIDGET_ICONS.steps,
 		compact: true,
-		pinned: false,
+		visibility: 'available',
 		skin: 'simple',
 		skins: [
 			{ id: 'simple', name: 'Simple' },
@@ -160,7 +163,7 @@ export const WIDGETS = [
 			{ name: 'durationMinutes', type: 'integer', nullable: true, min: 0, max: 1439 }
 		],
 		compact: false,
-		pinned: false,
+		visibility: 'available',
 		skin: 'lunar-seal',
 		skins: [
 			{ id: 'simple', name: 'Simple' },
@@ -183,7 +186,7 @@ export const WIDGETS = [
 		valid: (value: unknown) => typeof value === 'string',
 		fields: [{ name: 'text', type: 'string' }],
 		compact: false,
-		pinned: true,
+		visibility: 'pinned',
 		skin: 'simple',
 		skins: [{ id: 'simple', name: 'Simple' }],
 		initial: '',
@@ -205,10 +208,10 @@ export type WidgetSkin<K extends WidgetId = WidgetId> = Extract<
 	Widget,
 	{ id: K }
 >['skins'][number]['id'];
-export type WidgetSettings = { pinned: boolean; archived: boolean; skin: WidgetSkin };
+export type WidgetSettings = { visibility: WidgetVisibility; skin: WidgetSkin };
 export const COUNTERS = WIDGETS.filter((widget): widget is Counter => widget.kind === 'counter');
 export type LayoutState = {
-	widgets: { [K in WidgetId]: { pinned: boolean; archived: boolean; skin: WidgetSkin<K> } };
+	widgets: { [K in WidgetId]: { visibility: WidgetVisibility; skin: WidgetSkin<K> } };
 };
 export type WidgetValues = {
 	[K in WidgetId]: WidgetKindValues[Extract<Widget, { id: K }>['kind']];
@@ -249,9 +252,11 @@ export const widgetFor = <K extends WidgetId>(id: K) =>
 	WIDGETS.find((widget) => widget.id === id)! as Extract<Widget, { id: K }>;
 export const emptyLayout = (): LayoutState => ({
 	widgets: Object.fromEntries(
-		WIDGETS.map(({ id, pinned, skin }) => [id, { pinned, skin, archived: false }])
+		WIDGETS.map(({ id, visibility, skin }) => [id, { visibility, skin }])
 	) as LayoutState['widgets']
 });
+export const validWidgetVisibility = (value: unknown): value is WidgetVisibility =>
+	WIDGET_VISIBILITIES.some((visibility) => visibility === value);
 export const validWidgetSkin = (id: WidgetId, skin: unknown): skin is WidgetSkin =>
 	widgetFor(id).skins.some((option) => option.id === skin);
 export function validWidgetValue<K extends WidgetId>(
@@ -269,7 +274,6 @@ export function setWidgetSettings<K extends WidgetId>(
 	patch: Partial<LayoutState['widgets'][K]>
 ): LayoutState {
 	const next = { ...layout.widgets[id], ...patch };
-	if (next.archived) next.pinned = false;
 	return { widgets: { ...layout.widgets, [id]: next } };
 }
 export function manualWidgetValue<K extends WidgetId>(
@@ -318,8 +322,12 @@ export function setAutomatedWidgetValue<K extends WidgetId>(
 }
 export const isAttached = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	widgetValue(data, day, id) !== undefined;
-export const isVisible = (data: WidgetData, day: DateKey, id: WidgetId) =>
-	data.layout.widgets[id].pinned || isAttached(data, day, id);
+export function isVisible(data: WidgetData, day: DateKey, id: WidgetId) {
+	const { visibility } = data.layout.widgets[id];
+	return visibility === 'pinned' || (visibility !== 'hidden' && isAttached(data, day, id));
+}
+export const canAttachWidget = (data: WidgetData, day: DateKey, id: WidgetId) =>
+	data.layout.widgets[id].visibility === 'available' && !isAttached(data, day, id);
 export function dayWidget(data: WidgetData, day: DateKey, id: WidgetId): WidgetInstance {
 	const value = widgetValue(data, day, id);
 	return {
@@ -348,9 +356,9 @@ export function setWidgetValue<T extends WidgetData, K extends WidgetId>(
 }
 
 export const attachWidget = <T extends WidgetData>(data: T, day: DateKey, id: WidgetId) =>
-	data.layout.widgets[id].archived
-		? data
-		: setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId]);
+	canAttachWidget(data, day, id)
+		? setWidgetValue(data, day, id, widgetFor(id).initial as WidgetValues[WidgetId])
+		: data;
 
 export function clearManualWidgetValue<T extends WidgetData>(
 	data: T,

@@ -1,5 +1,11 @@
 import { isRecord } from './validation';
-import { WIDGETS, emptyLayout, validWidgetSkin, type LayoutState } from './widgets';
+import {
+	WIDGETS,
+	emptyLayout,
+	validWidgetSkin,
+	validWidgetVisibility,
+	type LayoutState
+} from './widgets';
 
 export function normalizeLayout(value: unknown): LayoutState {
 	const layout = emptyLayout();
@@ -8,13 +14,11 @@ export function normalizeLayout(value: unknown): LayoutState {
 		const settings = value.widgets[id];
 		if (
 			isRecord(settings) &&
-			typeof settings.pinned === 'boolean' &&
-			typeof settings.archived === 'boolean' &&
+			validWidgetVisibility(settings.visibility) &&
 			validWidgetSkin(id, settings.skin)
 		)
 			Object.assign(layout.widgets[id], {
-				pinned: settings.pinned && !settings.archived,
-				archived: settings.archived,
+				visibility: settings.visibility,
 				skin: settings.skin
 			});
 	}

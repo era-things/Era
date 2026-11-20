@@ -8,7 +8,7 @@ test('an HTTP agent can discover widgets, create a measure, and populate values 
 	const definitions = await (await request.get('/api/widgets')).json();
 	expect(definitions.widgets.some((item: { id: string }) => item.id === 'reading')).toBe(true);
 	expect(
-		(await request.patch('/api/widgets/reading', { data: { archived: false, pinned: true } })).ok()
+		(await request.patch('/api/widgets/reading', { data: { visibility: 'pinned' } })).ok()
 	).toBe(true);
 	const date = localToday();
 	const url = `/api/days/${date}/widgets/reading`;
@@ -45,29 +45,23 @@ test('an HTTP agent can discover widgets, create a measure, and populate values 
 	expect((await request.delete(url)).status()).toBe(204);
 });
 
-test('a rejected edit refreshes state without blocking later UI writes', async ({
-	page,
-	request
-}) => {
-	await request.patch('/api/widgets/gym', { data: { pinned: true } });
+test('external writes remain hidden until the widget is restored', async ({ page, request }) => {
+	await request.patch('/api/widgets/gym', { data: { visibility: 'hidden' } });
+	const url = `/api/days/${localToday()}/widgets/gym/automated`;
+	expect((await request.put(url, { data: { durationMinutes: 60 } })).status()).toBe(204);
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const hours = today.getByRole('spinbutton', { name: 'Gym time hours', exact: true });
-	await expect(hours).toHaveValue('0');
-	// An agent archives Gym after the browser read it, before it has a day entry.
-	await request.patch('/api/widgets/gym', { data: { archived: true } });
-	await hours.fill('1');
-	await hours.press('Tab');
-	await expect(page.getByRole('alert')).toContainText('Restore this widget');
 	await expect(hours).toHaveCount(0);
-	await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.locator('.widget-catalog summary').click();
-	await page.getByRole('button', { name: 'Star Gym time', exact: true }).click();
+	await page.getByText('Hidden widgets', { exact: false }).click();
+	await page.getByRole('button', { name: 'Restore Gym time', exact: true }).click();
 	await expect
-		.poll(async () => (await (await request.get('/api/widgets/gym')).json()).settings.archived)
-		.toBe(false);
+		.poll(async () => (await (await request.get('/api/widgets/gym')).json()).settings.visibility)
+		.toBe('available');
+	await page.getByRole('tab', { name: 'Today', exact: true }).click();
+	await expect(hours).toHaveValue('1');
 });
 
 test('the dashboard shows the latest sync while Era preserves manual entries', async ({

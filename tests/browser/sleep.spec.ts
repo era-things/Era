@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 import { localToday } from '../../src/lib/calendar';
 
 test('sleep quality appears at the right edge only when reported', async ({ page, request }) => {
@@ -118,14 +118,12 @@ test('full-row sleep edits, pinning and records survive reload', async ({ page }
 	await expect(preview.getByText('Simple', { exact: true })).toBeVisible();
 	await preview.getByRole('button', { name: 'Next Sleep appearance' }).click();
 	await expect(preview.getByText('Lunar seal', { exact: true })).toBeVisible();
-	const pin = page.getByRole('button', { name: 'Pin Sleep', exact: true });
-	await pin.click();
-	await expect(pin).toHaveAttribute('aria-pressed', 'true');
+	await pinWidget(page, 'Sleep');
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await selected.getByRole('button', { name: 'Next day', exact: true }).click();
 	await expect(selected.getByRole('region', { name: 'Sleep', exact: true })).toBeVisible();
 	await expect(selected.getByRole('textbox', { name: 'Sleep start time' })).toHaveValue('');
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await pin.click();
+	await widgetVisibility(page, 'Sleep').click();
 });

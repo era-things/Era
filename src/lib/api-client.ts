@@ -21,7 +21,7 @@ export function apiRequests(before: CalendarData, after: CalendarData): ApiReque
 		requests.push({ url, method, body });
 	for (const { id } of WIDGETS) {
 		const patch = Object.fromEntries(
-			(['pinned', 'archived', 'skin'] as const)
+			(['visibility', 'skin'] as const)
 				.filter((field) => before.layout.widgets[id][field] !== after.layout.widgets[id][field])
 				.map((field) => [field, after.layout.widgets[id][field]])
 		);

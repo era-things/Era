@@ -1,73 +1,70 @@
-import { test, expect } from './fixtures';
+import { test, expect, widgetVisibility } from './fixtures';
 
-test('catalog stars and archives persist, filter day choices, and preserve saved widgets', async ({
-	page
-}) => {
+test('the visibility button cycles in place and hidden widgets can be restored', async ({ page }) => {
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	const tomorrow = page.getByRole('complementary', { name: 'Tomorrow', exact: true });
+	const weight = today.getByRole('spinbutton', { name: 'Weight (kg)', exact: true });
+	const tomorrowWeight = tomorrow.getByRole('spinbutton', { name: 'Weight (kg)', exact: true });
 	await today.getByRole('button', { name: 'Add widget', exact: true }).click();
 	await today.getByRole('button', { name: 'Weight', exact: true }).click();
-	await today.getByRole('spinbutton', { name: 'Weight (kg)', exact: true }).fill('72.5');
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	const catalog = page.locator('.widget-catalog');
-	const normal = page.getByRole('region', { name: 'Widgets', exact: true });
-	await expect(catalog).not.toHaveAttribute('open', '');
-	await normal
-		.getByRole('group', { name: 'Weight appearance', exact: true })
-		.getByRole('button', { name: 'Next Weight appearance' })
-		.click();
-	await normal.getByRole('button', { name: 'Pin Weight', exact: true }).click();
-	await normal.getByRole('button', { name: 'Archive Weight', exact: true }).click();
-	await expect(normal.getByRole('button', { name: 'Pin Weight', exact: true })).toHaveCount(0);
-	await expect(catalog.locator('summary')).toBeFocused();
-	await catalog.locator('summary').press('Enter');
-	await expect(catalog.getByRole('button', { name: 'Star Weight', exact: true })).toBeVisible();
-	await expect(catalog.getByRole('button', { name: 'Pin Weight', exact: true })).toHaveCount(0);
-	await expect(catalog.getByText('Display', { exact: true })).toBeVisible();
-	// Move more than one card to exercise layout observers after dynamic insertion.
-	await normal.getByRole('button', { name: 'Archive Steam game time', exact: true }).click();
-	await expect(
-		catalog.getByRole('button', { name: 'Star Steam game time', exact: true })
-	).toBeVisible();
-	const cards = catalog.locator('.built-in-row');
-	await expect(cards).toHaveCount(2);
+	await weight.fill('72.5');
+
+	const layout = page.getByRole('tab', { name: 'Layout', exact: true });
+	const todayTab = page.getByRole('tab', { name: 'Today', exact: true });
+	await layout.click();
+	const appearance = page.getByRole('group', { name: 'Weight appearance', exact: true });
+	await appearance.getByRole('button', { name: 'Next Weight appearance' }).click();
+	const visibility = widgetVisibility(page, 'Weight');
+	await expect(visibility).toHaveText('Available');
+	await visibility.press('Enter');
+	await expect(visibility).toHaveText('With data');
+	await expect(visibility).toBeFocused();
+	await todayTab.click();
+	await expect(weight).toHaveValue('72.5');
+	await expect(tomorrowWeight).toHaveCount(0);
+	const add = tomorrow.getByRole('button', { name: 'Add widget', exact: true });
+	await add.click();
+	await expect(tomorrow.getByRole('button', { name: 'Weight', exact: true })).toHaveCount(0);
+
+	await layout.click();
+	await visibility.click();
+	await expect(visibility).toHaveText('Pinned');
+	await todayTab.click();
+	await expect(tomorrowWeight).toBeVisible();
+	await layout.click();
+	await visibility.click();
+	await expect(visibility).toHaveText('Available');
+	await page.getByRole('button', { name: 'Hide Weight', exact: true }).click();
+
+	const hidden = page.locator('.hidden-widgets');
+	const summary = hidden.locator('summary');
+	await expect(summary).toHaveText('Hidden widgets 1');
+	await expect(summary).toBeFocused();
+	await expect(hidden).not.toHaveAttribute('open', '');
+	await expect(visibility).toHaveCount(0);
+	await summary.press('Enter');
+	await expect(hidden.getByRole('button', { name: 'Restore Weight', exact: true })).toBeVisible();
+
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await expect(catalog).not.toHaveAttribute('open', '');
-	await expect(normal.getByRole('button', { name: 'Pin Weight', exact: true })).toHaveCount(0);
-	await page.getByRole('tab', { name: 'Today', exact: true }).click();
-	await expect(today.getByRole('spinbutton', { name: 'Weight (kg)', exact: true })).toHaveValue(
-		'72.5'
-	);
-	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
-	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
-	await selected.getByRole('button', { name: 'Next day', exact: true }).click();
-	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)', exact: true })).toHaveCount(
-		0
-	);
-	await selected.getByRole('button', { name: 'Add widget', exact: true }).click();
-	await expect(selected.getByRole('button', { name: 'Weight', exact: true })).toHaveCount(0);
-	await expect(selected.getByRole('button', { name: 'Steam game time', exact: true })).toHaveCount(
-		0
-	);
-	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await catalog.locator('summary').click();
-	await catalog.getByRole('button', { name: 'Star Weight', exact: true }).click();
-	await expect(catalog.getByRole('button', { name: 'Star Weight', exact: true })).toHaveCount(0);
-	await expect(normal.getByRole('button', { name: 'Pin Weight', exact: true })).toBeFocused();
-	await expect(normal.getByRole('button', { name: 'Pin Weight', exact: true })).toHaveAttribute(
-		'aria-pressed',
-		'false'
-	);
-	await expect(normal.getByText('Display', { exact: true })).toBeVisible();
-	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
-	// The day menu may still be open from the earlier check.
-	const add = selected.getByRole('button', { name: 'Add widget', exact: true });
+	await expect(hidden).not.toHaveAttribute('open', '');
+	await todayTab.click();
+	await expect(weight).toHaveCount(0);
+	await expect(tomorrowWeight).toHaveCount(0);
 	if ((await add.getAttribute('aria-expanded')) === 'false') await add.click();
-	await expect(selected.getByRole('button', { name: 'Weight', exact: true })).toBeVisible();
-	await selected.getByRole('button', { name: 'Weight', exact: true }).click();
-	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)', exact: true })).toHaveValue(
-		''
-	);
+	await expect(tomorrow.getByRole('button', { name: 'Weight', exact: true })).toHaveCount(0);
+
+	await layout.click();
+	await summary.click();
+	await hidden.getByRole('button', { name: 'Restore Weight', exact: true }).click();
+	await expect(hidden).toHaveCount(0);
+	await expect(visibility).toBeFocused();
+	await expect(visibility).toHaveText('Available');
+	await expect(appearance.getByText('Display', { exact: true })).toBeVisible();
+	await todayTab.click();
+	await expect(weight).toHaveValue('72.5');
+	if ((await add.getAttribute('aria-expanded')) === 'false') await add.click();
+	await expect(tomorrow.getByRole('button', { name: 'Weight', exact: true })).toBeVisible();
 });

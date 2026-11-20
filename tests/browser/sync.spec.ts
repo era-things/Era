@@ -5,7 +5,7 @@ test('saved edits refresh another tab and failed writes can be retried', async (
 	context,
 	request
 }) => {
-	await request.patch('/api/widgets/reading', { data: { pinned: true } });
+	await request.patch('/api/widgets/reading', { data: { visibility: 'pinned' } });
 	const other = await context.newPage();
 	for (const tab of [page, other]) {
 		await tab.goto('/today');

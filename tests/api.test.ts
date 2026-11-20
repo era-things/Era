@@ -40,7 +40,7 @@ test('import restores a complete Era backup into an empty calendar', async () =>
 		const day = '2026-11-17';
 		const data = setWidgetValue(emptyCalendar(), day, 'phone', 180);
 		data.automated[day] = { phone: 222, steps: null };
-		data.layout = setWidgetSettings(data.layout, 'phone', { pinned: true });
+		data.layout = setWidgetSettings(data.layout, 'phone', { visibility: 'pinned' });
 		data.emojis[day] = '🎉';
 		data.notes[day] = 'First line\nSecond line';
 		data.counters[day] = { steps: 0, weight: 72.5 };
@@ -258,15 +258,14 @@ test('automated sleep metrics persist independently of the clock duration', asyn
 	}
 });
 
-test('automated writes attach an archived widget only on days with data', async () => {
+test('automated writes show a with-data widget only on days with data', async () => {
 	const { store, call } = client();
 	const day = 'days/2026-11-17';
 	const path = `${day}/widgets/gym`;
 	const otherDay = 'days/2026-11-18/widgets/gym';
 	const value = { durationMinutes: 45 };
 	try {
-		expect((await call('widgets/gym', 'PATCH', { archived: true })).status).toBe(200);
-		expect((await call(path, 'PUT', value)).status).toBe(409);
+		expect((await call('widgets/gym', 'PATCH', { visibility: 'with-data' })).status).toBe(200);
 		for (let attempt = 0; attempt < 2; attempt++) {
 			expect((await call(`${path}/automated`, 'PUT', value)).status).toBe(204);
 		}
@@ -281,7 +280,7 @@ test('automated writes attach an archived widget only on days with data', async 
 			attached: false,
 			visible: false
 		});
-		expect(store.read().layout.widgets.gym.archived).toBe(true);
+		expect(store.read().layout.widgets.gym.visibility).toBe('with-data');
 	} finally {
 		store.db.close();
 	}
@@ -387,22 +386,29 @@ test('sleep infers an omitted field, checks consistency, and returns clock strin
 	}
 });
 
-test('catalog state is enforced on new attachments and preserves existing entries', async () => {
+test('hidden widgets accept manual and automated API writes without appearing on the day', async () => {
 	const { store, call } = client();
+	const day = 'days/2026-11-17';
+	const path = `${day}/widgets/weight`;
 	try {
-		await call('days/2026-11-17/widgets/weight', 'PUT', { value: 72.5 });
-		await call('widgets/weight', 'PATCH', { pinned: true, skin: 'display' });
-		const response = await call('widgets/weight', 'PATCH', { archived: true });
-		expect((await response.json()).settings).toEqual({
-			archived: true,
-			pinned: false,
-			skin: 'display'
+		expect((await call('widgets/weight', 'PATCH', { visibility: 'sometimes' })).status).toBe(400);
+		const response = await call('widgets/weight', 'PATCH', { visibility: 'hidden', skin: 'display' });
+		expect((await response.json()).settings).toEqual({ visibility: 'hidden', skin: 'display' });
+		expect((await call(path, 'PUT', { value: 72.5 })).status).toBe(200);
+		expect((await call(`${path}/automated`, 'PUT', { value: 73 })).status).toBe(204);
+		expect(await (await call(path)).json()).toMatchObject({
+			attached: true,
+			visible: false,
+			manualValue: { value: 72.5 },
+			value: { value: 73 }
 		});
-		expect((await call('days/2026-11-18/widgets/weight', 'PUT', { value: 73 })).status).toBe(409);
-		expect((await call('widgets/weight', 'PATCH', { pinned: true })).status).toBe(409);
-		expect((await call('days/2026-11-17/widgets/weight', 'PUT', { value: 73 })).status).toBe(200);
-		await call('widgets/weight', 'PATCH', { archived: false });
-		expect((await call('days/2026-11-18/widgets/weight', 'PUT', { value: 73 })).status).toBe(200);
+		const { widgets } = await (await call(day)).json();
+		expect(widgets.some((widget: { id: string }) => widget.id === 'weight')).toBe(false);
+		await call('widgets/weight', 'PATCH', { visibility: 'with-data' });
+		expect(await (await call(path)).json()).toMatchObject({
+			visible: true,
+			value: { value: 73 }
+		});
 	} finally {
 		store.db.close();
 	}
@@ -444,7 +450,7 @@ test('UI semantic requests reproduce all app data and can be retried safely', as
 		]);
 		next = setWidgetValue(next, '2026-11-17', 'weight', null);
 		next = setWidgetValue(next, '2026-11-17', 'sleep', { start: 1380, end: 390, duration: 450 });
-		next.layout = setWidgetSettings(next.layout, 'steps', { skin: 'pedometer', pinned: true });
+		next.layout = setWidgetSettings(next.layout, 'steps', { skin: 'pedometer', visibility: 'pinned' });
 		next.emojis = { '2026-11-17': '⭐' };
 		next.measures = {
 			definitions: [{ id: 'read', name: 'Read', type: 'boolean', palette: 'green' }],

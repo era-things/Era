@@ -1,4 +1,4 @@
-import { test as base } from '@playwright/test';
+import { expect, test as base, type Page } from '@playwright/test';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { seedData } from './api-helpers';
 import { productionOrigins, usesDevServer } from './servers';
@@ -19,3 +19,15 @@ export const test = base.extend<{ resetCalendar: void }>({
 		{ auto: true }
 	]
 });
+
+export function widgetVisibility(page: Page, name: string) {
+	return page.getByRole('button', { name: name + ' visibility:' });
+}
+
+export async function pinWidget(page: Page, name: string) {
+	const visibility = widgetVisibility(page, name);
+	await expect(visibility).toHaveText('Available');
+	await visibility.click();
+	await visibility.click();
+	await expect(visibility).toHaveText('Pinned');
+}

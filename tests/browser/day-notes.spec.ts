@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 
 test('day notes save while typing, remain isolated and survive navigation and reload', async ({
 	page
@@ -42,8 +42,8 @@ test('Layout configures Note pinning and empty day attachments', async ({ page }
 	await expect(page.getByRole('img', { name: 'Note appearance preview' })).toContainText(
 		'A walk after lunch.'
 	);
-	const pin = page.getByRole('button', { name: 'Pin Note', exact: true });
-	await expect(pin).toHaveAttribute('aria-pressed', 'true');
+	const pin = widgetVisibility(page, 'Note');
+	await expect(pin).toHaveText('Pinned');
 	await pin.click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(today.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText(
@@ -57,8 +57,7 @@ test('Layout configures Note pinning and empty day attachments', async ({ page }
 	await expect(tomorrow.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText('Note');
 	await expect(yesterday.getByRole('textbox', { name: 'Notes', exact: true })).toHaveCount(0);
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await expect(pin).toHaveAttribute('aria-pressed', 'false');
-	await pin.click();
+	await pinWidget(page, 'Note');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(yesterday.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText('Note');
 	await expect(today.getByRole('textbox', { name: 'Notes', exact: true })).toHaveText(

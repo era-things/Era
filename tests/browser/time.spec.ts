@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, pinWidget } from './fixtures';
 import { localToday } from '../../src/lib/calendar';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { TIME_WIDGETS, setWidgetValue } from '../../src/lib/widgets';
@@ -128,7 +128,7 @@ test('time widgets form one block, edit and persist, and support pinning per act
 	await expect(minutes).toHaveValue('15');
 
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Pin Steam game time', exact: true }).click();
+	await pinWidget(page, 'Steam game time');
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await selected.getByRole('button', { name: 'Next day', exact: true }).click();

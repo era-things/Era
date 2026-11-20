@@ -37,20 +37,20 @@ test('Note pin settings merge independently of empty attached notes', () => {
 		store.apply(
 			changes(initial, {
 				...initial,
-				layout: setWidgetSettings(initial.layout, 'note', { pinned: false })
+				layout: setWidgetSettings(initial.layout, 'note', { visibility: 'available' })
 			})
 		);
 		store.apply(changes(initial, setWidgetValue(initial, '2026-11-15', 'note', '')));
-		assert.equal(store.read().layout.widgets.note.pinned, false);
+		assert.equal(store.read().layout.widgets.note.visibility, 'available');
 		assert.deepEqual(store.read().notes, { '2026-11-15': '' });
 		const before = store.read();
 		store.apply(
 			changes(before, {
 				...before,
-				layout: setWidgetSettings(before.layout, 'note', { pinned: true })
+				layout: setWidgetSettings(before.layout, 'note', { visibility: 'pinned' })
 			})
 		);
-		assert.equal(store.read().layout.widgets.note.pinned, true);
+		assert.equal(store.read().layout.widgets.note.visibility, 'pinned');
 		assert.deepEqual(store.read().notes, { '2026-11-15': '' });
 	} finally {
 		store.db.close();

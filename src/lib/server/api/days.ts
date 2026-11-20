@@ -13,7 +13,6 @@ import {
 import {
 	WIDGETS,
 	isVisible,
-	isAttached,
 	clearManualWidgetValue,
 	removeWidgetValue,
 	setAutomatedWidgetValue,
@@ -63,17 +62,6 @@ function writeDayWidget(
 	}
 	const value = parseWidget(id, payload);
 	const data = store.update((current) => {
-		if (
-			source === 'manual' &&
-			current.layout.widgets[id].archived &&
-			!isAttached(current, date, id)
-		)
-			fail(
-				409,
-				'widget_archived',
-				'Restore this widget from the catalog before adding it to a new day.',
-				'archived'
-			);
 		const setValue = source === 'automated' ? setAutomatedWidgetValue : setWidgetValue;
 		const next = setValue(current, date, id, value);
 		return apps === undefined ? next : {

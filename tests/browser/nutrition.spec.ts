@@ -1,13 +1,13 @@
 import { writeData } from './api-helpers';
 import { setWidgetSettings } from '../../src/lib/widgets';
-import { test, expect } from './fixtures';
+import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 
 test('nutrition rows support inline editing, persistence and quantity deletion', async ({
 	page
 }) => {
 	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
-	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
+	await pinWidget(page, 'Nutrition');
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const itemToggle = today.getByRole('button', { name: '0 items', exact: true });
@@ -68,11 +68,11 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(quantity).toHaveText('×2');
 	await expect(today.getByRole('columnheader', { name: 'Protein', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: true }).click();
+	await widgetVisibility(page, 'Nutrition').click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(today.getByRole('button', { name: '1 item', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Pin Nutrition', exact: true, pressed: false }).click();
+	await pinWidget(page, 'Nutrition');
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await selected.getByRole('button', { name: '1 item', exact: true }).click();
@@ -112,7 +112,7 @@ test('copy a previous nutrition item without crypto.randomUUID', async ({ page }
 		const before = await (await page.request.get('/api/data')).json();
 		const next = {
 			...before,
-			layout: setWidgetSettings(before.layout, 'nutrition', { pinned: true }),
+			layout: setWidgetSettings(before.layout, 'nutrition', { visibility: 'pinned' }),
 			nutrition: {
 				[key(-2)]: [{ ...item, id: 'older', quantity: 2 }],
 				[key(-1)]: [item],

@@ -41,11 +41,8 @@ export function records(data: CalendarData, { includeDefaultSettings = false } =
 		for (const [id, value] of Object.entries(values)) put(value, 'value', day, id);
 	for (const widget of WIDGETS) {
 		const settings = data.layout.widgets[widget.id];
-		for (const field of ['pinned', 'skin', 'archived'] as const)
-			if (
-				includeDefaultSettings ||
-				settings[field] !== (field === 'archived' ? false : widget[field])
-			)
+		for (const field of ['visibility', 'skin'] as const)
+			if (includeDefaultSettings || settings[field] !== widget[field])
 				put(settings[field], 'widget', widget.id, field);
 	}
 	for (const [day, values] of Object.entries(data.counters))

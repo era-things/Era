@@ -17,9 +17,10 @@ as 26px rows. Add them per day through + or pin them in Layout. Activity duratio
 are stored as whole minutes (up to 24 hours); clearing a value keeps its widget
 attached. Phone, Gym, Reading, Movie, and Steam show only an icon and duration.
 
-Layout's collapsed Widget catalog holds archived widgets. Star one to return it
-to the normal widget list and day's Add widget menu. Archive beside Pin moves it
-back, unpins it, and preserves existing day entries and skin settings.
+In Layout, click a widget's visibility button to cycle between Pinned,
+Available, and With data. Hide moves it to the collapsed Hidden widgets section.
+Hidden widgets keep their entries and skin and continue to receive API updates.
+Restore returns a hidden widget to Available.
 
 ## Development
 
@@ -125,7 +126,8 @@ merge. For a live database backup use SQLite's online backup facility or
   editors for emojis, measures, and reminders. The columns scroll horizontally
   on narrow screens.
 - Layout previews built-in widgets and their skins before custom measures.
-  Pinned widgets appear on every day; unpinned widgets can be added through +.
+  Pinned widgets appear every day, Available widgets can be added through +,
+  and With data widgets appear on days with saved entries.
   Nutrition shows daily kcal, protein, fat, and carb totals with an expandable food log in
   each day editor. Food entries accept decimal values and can be added, edited,
   or removed. Each item has quantity controls starting at ×1; its nutrient values

@@ -6,7 +6,8 @@
 		type Widget,
 		type LayoutState,
 		type WidgetId,
-		type WidgetSettings
+		type WidgetSettings,
+		type WidgetVisibility
 	} from '../widgets';
 	import { createResourceId } from '../resource-id';
 	import WidgetPreview from './WidgetPreview.svelte';
@@ -32,18 +33,31 @@
 	let deleting = $state<string | null>(null);
 	let nameInput = $state<HTMLInputElement>();
 	let masonryReady = $state(false);
-	let catalogOpen = $state(false);
+	let hiddenOpen = $state(false);
 	let manager: HTMLDivElement;
-	const normalWidgets = $derived(WIDGETS.filter(({ id }) => !layout.widgets[id].archived));
-	const catalogWidgets = $derived(WIDGETS.filter(({ id }) => layout.widgets[id].archived));
-	async function moveWidget(id: WidgetId, archived: boolean) {
-		onsettings(id, { archived });
+	const visibleWidgets = $derived(
+		WIDGETS.filter(({ id }) => layout.widgets[id].visibility !== 'hidden')
+	);
+	const hiddenWidgets = $derived(
+		WIDGETS.filter(({ id }) => layout.widgets[id].visibility === 'hidden')
+	);
+	const visibilityOptions = {
+		pinned: { label: 'Pinned', description: 'Show every day', next: 'available' },
+		available: { label: 'Available', description: 'Offer in Add widget', next: 'with-data' },
+		'with-data': { label: 'With data', description: 'Show on days with saved entries', next: 'pinned' }
+	} as const satisfies Record<
+		Exclude<WidgetVisibility, 'hidden'>,
+		{ label: string; description: string; next: Exclude<WidgetVisibility, 'hidden'> }
+	>;
+	async function setHidden(id: WidgetId, hidden: boolean) {
+		if (!hidden && hiddenWidgets.length === 1) hiddenOpen = false;
+		onsettings(id, { visibility: hidden ? 'hidden' : 'available' });
 		await tick();
-		const target = archived
-			? catalogOpen
-				? `[data-widget-id="${id}"] .star-button`
-				: '.widget-catalog summary'
-			: `[data-widget-id="${id}"] .pin-button`;
+		const target = hidden
+			? hiddenOpen
+				? `[data-widget-id="${id}"] .restore-widget`
+				: '.hidden-widgets summary'
+			: `[data-widget-id="${id}"] .visibility-button`;
 		manager.querySelector<HTMLElement>(target)?.focus();
 	}
 	function masonry(node: HTMLDivElement) {
@@ -111,46 +125,34 @@
 	}
 </script>
 
-{#snippet widgetCard(definition: Widget, catalog: boolean)}
+{#snippet widgetCard(definition: Widget)}
 	{@const settings = layout.widgets[definition.id]}
-	<div
-		class="built-in-row"
-		data-widget-id={definition.id}
-		class:pinned={settings.pinned}
-		class:has-skins={definition.skins.length > 1}
-	>
-		<div class="built-in-controls">
-			<span>{definition.name}</span>
-			<div class="widget-actions">
-				{#if catalog}
+	{@const visibility = settings.visibility}
+	{#if visibility !== 'hidden'}
+		{@const option = visibilityOptions[visibility]}
+		<div
+			class="built-in-row"
+			data-widget-id={definition.id}
+			class:pinned={visibility === 'pinned'}
+			class:has-skins={definition.skins.length > 1}
+		>
+			<div class="built-in-controls">
+				<span>{definition.name}</span>
+				<div class="widget-actions">
 					<button
 						type="button"
-						class="widget-action star-button"
-						aria-label={'Star ' + definition.name}
-						title={'Add ' + definition.name + ' to widgets'}
-						onclick={() => moveWidget(definition.id, false)}
-					>
-						<svg
-							aria-hidden="true"
-							viewBox="0 0 24 24"
-							width="14"
-							height="14"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-linejoin="round"
-							><path
-								d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"
-							/></svg
-						>
-					</button>
-				{:else}
+						class="widget-action visibility-button"
+						data-visibility={visibility}
+						aria-label={`${definition.name} visibility: ${option.label}. Change to ${visibilityOptions[option.next].label}`}
+						title={`${option.description}. Click to change to ${visibilityOptions[option.next].label}.`}
+						onclick={() => onsettings(definition.id, { visibility: option.next })}
+					>{option.label}</button>
 					<button
 						type="button"
-						class="widget-action archive-button"
-						aria-label={'Archive ' + definition.name}
-						title={'Move ' + definition.name + ' to catalog'}
-						onclick={() => moveWidget(definition.id, true)}
+						class="widget-action hide-widget"
+						aria-label={'Hide ' + definition.name}
+						title={'Hide ' + definition.name}
+						onclick={() => setHidden(definition.id, true)}
 					>
 						<svg
 							aria-hidden="true"
@@ -161,39 +163,20 @@
 							stroke="currentColor"
 							stroke-width="1.5"
 							stroke-linecap="round"
-							stroke-linejoin="round"><path d="M4 8h16v12H4ZM3 4h18v4H3Zm6 8h6" /></svg
-						>
-					</button>
-					<button
-						type="button"
-						class="widget-action pin-button"
-						aria-label={'Pin ' + definition.name}
-						aria-pressed={settings.pinned}
-						title={(settings.pinned ? 'Unpin ' : 'Pin ') + definition.name}
-						onclick={() => onsettings(definition.id, { pinned: !settings.pinned })}
-					>
-						<svg
-							aria-hidden="true"
-							viewBox="0 0 24 24"
-							width="14"
-							height="14"
-							fill={settings.pinned ? 'currentColor' : 'none'}
-							stroke="currentColor"
-							stroke-width="1.5"
-							stroke-linecap="round"
 							stroke-linejoin="round"
-							><path d="m16 3 5 5-3 1-4 4 1 4-2 2-4-4-6 6 6-6-4-4 2-2 4 1 4-4Z" /></svg
 						>
+							<path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.6 10.6 0 0 1 12 5c6 0 10 7 10 7a16 16 0 0 1-2.2 2.8M6.4 6.4C3.6 8.5 2 12 2 12s4 7 10 7a10 10 0 0 0 5-1.4" />
+						</svg>
 					</button>
-				{/if}
+				</div>
 			</div>
+			<WidgetPreview
+				{definition}
+				{settings}
+				onchange={(skin) => onsettings(definition.id, { skin })}
+			/>
 		</div>
-		<WidgetPreview
-			{definition}
-			{settings}
-			onchange={(skin) => onsettings(definition.id, { skin })}
-		/>
-	</div>
+	{/if}
 {/snippet}
 
 <div
@@ -206,25 +189,25 @@
 	<section class="built-in-measures" aria-label="Widgets">
 		<h2>Widgets</h2>
 		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
-			{#each normalWidgets as definition (definition.id)}{@render widgetCard(
-					definition,
-					false
-				)}{/each}
+			{#each visibleWidgets as definition (definition.id)}{@render widgetCard(definition)}{/each}
 		</div>
-		{#if !normalWidgets.length}<p class="empty">
-				Star widgets in the catalog to add them here.
-			</p>{/if}
 	</section>
-	<details class="widget-catalog" bind:open={catalogOpen}>
-		<summary>Widget catalog <span class="catalog-count">{catalogWidgets.length}</span></summary>
-		<div class="built-in-cards" data-masonry={masonryReady} use:masonry>
-			{#each catalogWidgets as definition (definition.id)}{@render widgetCard(
-					definition,
-					true
-				)}{/each}
-		</div>
-		{#if !catalogWidgets.length}<p class="empty">No archived widgets.</p>{/if}
-	</details>
+	{#if hiddenWidgets.length}
+		<details class="hidden-widgets" bind:open={hiddenOpen}>
+			<summary>Hidden widgets <span class="hidden-count">{hiddenWidgets.length}</span></summary>
+			{#each hiddenWidgets as definition (definition.id)}
+				<div class="hidden-widget" data-widget-id={definition.id}>
+					<span>{definition.name}</span>
+					<button
+						type="button"
+						class="restore-widget"
+						aria-label={'Restore ' + definition.name}
+						onclick={() => setHidden(definition.id, false)}
+					>Restore</button>
+				</div>
+			{/each}
+		</details>
+	{/if}
 	<div class="manager-heading">
 		<h2>Custom measures</h2>
 		<button type="button" onclick={() => edit()}>+ New measure</button>
@@ -315,7 +298,7 @@
 	}
 	.manager-heading,
 	.built-in-measures,
-	.widget-catalog,
+	.hidden-widgets,
 	.measure-list,
 	.measure-form {
 		max-width: 680px;
@@ -379,44 +362,56 @@
 	.widget-action {
 		display: grid;
 		place-items: center;
-		width: 24px;
 		height: 24px;
-		padding: 0;
+		padding: 0 6px;
 		color: var(--muted);
-		justify-self: end;
+		white-space: nowrap;
 	}
-	.widget-action svg {
-		display: block;
+	.hide-widget {
+		width: 24px;
+		padding: 0;
 	}
-	.pin-button[aria-pressed='true'] {
+	.visibility-button {
+		min-width: 68px;
+	}
+	.visibility-button[data-visibility='pinned'] {
 		color: var(--accent);
 		background: #dfe7da;
 		border-color: var(--accent);
 	}
-	.widget-catalog {
+	.hidden-widgets {
 		margin-bottom: 20px;
 		padding: 0 12px 10px;
 		border: 1px solid var(--line);
 		border-radius: 8px;
 	}
-	.widget-catalog:not([open]) {
+	.hidden-widgets:not([open]) {
 		padding-bottom: 0;
 	}
-	.widget-catalog summary {
+	.hidden-widgets summary {
 		padding: 10px 0;
 		cursor: pointer;
 		font-size: 14px;
 		font-weight: 600;
 	}
-	.widget-catalog summary:focus-visible {
+	.hidden-widgets summary:focus-visible {
 		outline: 2px solid var(--accent);
 		outline-offset: 2px;
 	}
-	.catalog-count {
+	.hidden-count {
 		margin-left: 6px;
 		font-size: 12px;
 		font-weight: 400;
 		color: var(--muted);
+	}
+	.hidden-widget {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 6px 0;
+		border-top: 1px solid var(--line);
+		font-size: 14px;
 	}
 	.manager-heading {
 		display: flex;

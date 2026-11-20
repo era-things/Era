@@ -13,29 +13,31 @@ Writes are validated and committed in a SQLite transaction.
 | ------ | -------------- | --------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/widgets`     | `{widgets: [...]}` with IDs, names, kinds, units where relevant, skins, settings, default values, and editable fields |
 | GET    | `/widgets/:id` | One widget definition and its settings                                                                                |
-| PATCH  | `/widgets/:id` | Change any of `pinned`, `archived`, or `skin`                                                                         |
+| PATCH  | `/widgets/:id` | Change `visibility` or `skin`                                                                                         |
 
 Built-in IDs: `nutrition`, `weight`, `steps`, `sleep`, `phone`, `gym`, `reading`,
 `movie`, `steam`, `note`. New visual widget types still require application code.
 Custom numeric and boolean measures can be created through the API below.
 
-Restore Reading from the catalog and pin it:
+Pin Reading:
 
 ```sh
 curl -X PATCH http://127.0.0.1:5173/api/widgets/reading \
   -H 'Content-Type: application/json' \
-  -d '{"archived":false,"pinned":true}'
+  -d '{"visibility":"pinned"}'
 ```
 
-Archiving automatically unpins a widget. Archived widgets cannot be attached to
-new days, but their existing day entries remain readable and editable. Restoring
-a widget preserves its skin and daily values.
+`pinned` shows the widget every day. `available` shows saved entries and offers the
+widget in Add widget on other days. `with-data` only shows days with entries.
+`hidden` hides the widget from the day view and Add widget. The dedicated daily
+widget endpoint supports reads and writes in every mode. Changing visibility
+preserves the widget's skin and daily values.
 
 ## Daily widgets
 
 | Method | Path                                | Result                                                                                                            |
 | ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| GET    | `/days/:date`                       | `{date, emoji, widgets, measures}` for that day; widgets include the visible pinned defaults and existing entries |
+| GET    | `/days/:date`                       | `{date, emoji, widgets, measures}` with the widgets visible on that day |
 | GET    | `/days/:date/widgets/:id`           | Read the effective value and both stored values                                                                   |
 | PUT    | `/days/:date/widgets/:id`           | Set the manual value and return the daily widget                                                                  |
 | PUT    | `/days/:date/widgets/:id/automated` | Set the automated value and return 204                                                                            |
@@ -189,7 +191,7 @@ curl -X PUT http://127.0.0.1:5173/api/days/2026-11-17/measures/water \
 
 400 means an invalid value, unknown field, or malformed JSON. 403 means a
 cross-site browser write. 404 means an unknown resource, 405 means an unsupported method,
-409 means a duplicate definition/name or a widget archive conflict, and
+409 means a duplicate definition or name, and
 415 means the content type must be JSON.
 
 There are no stale-version conflicts or `before`/`after` payloads. `/api/calendar`

@@ -53,19 +53,17 @@ widgets with saved values, optional pinning, and a shared contiguous block.
 
 ## Layout settings
 
-The normal widget list contains widgets available in the day's Add widget menu.
-A collapsed **Widget catalog** drawer contains archived widgets, using the same
-preview cards. Its star button moves a widget back to the normal list. Normal
-cards have Archive beside Pin. Archive unpins the widget and excludes it from new
-day attachments; it preserves skin settings and all existing daily entries.
-Existing day entries remain visible and editable. All current widgets start in
-the normal list. The catalog drawer starts closed on entering Layout.
+The widget cards have one button that shows and cycles their visibility through
+Pinned, Available, and With data. The card stays in place as its mode changes.
+Hide moves the widget into **Hidden widgets**, a collapsed section with names and
+Restore buttons. Restoring returns the widget to Available with its skin and
+data intact. API writes work in every mode.
 
 Keep skin previews at their real proportions. Skin selectors sit close to the
 bottom border: **4px bottom padding** on cards with a selector. Avoid empty space
 below controls that a returning user does not need.
 
-Use 24px pin buttons and 6px card top padding, matching the header-to-preview gap.
+Use 24px visibility controls and 6px card top padding, matching the header-to-preview gap.
 Align names and full-width previews
 at the left edge; center compact previews such as Weight and Steps. Align pin
 buttons with the title row and preview area's right edge.

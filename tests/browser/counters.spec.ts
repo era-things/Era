@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 
 test('built-in weight and steps share a row, persist, and retain values when unpinned', async ({
 	page
@@ -6,7 +6,7 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await page.goto('/layout');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 	for (const name of ['Nutrition', 'Weight', 'Steps'])
-		await page.getByRole('button', { name: 'Pin ' + name, exact: true }).click();
+		await pinWidget(page, name);
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const weight = today.getByRole('spinbutton', { name: 'Weight (kg)', exact: true });
@@ -131,12 +131,12 @@ test('built-in weight and steps share a row, persist, and retain values when unp
 	await expect(weight).toHaveCSS('outline-style', 'none');
 	await expect(today.locator('.weight-scale .counter-readout')).toHaveCSS('outline-width', '2px');
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Pin Weight', exact: true, pressed: true }).click();
+	await widgetVisibility(page, 'Weight').click();
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
 	await expect(weight).toHaveValue('72.65');
 	await expect(steps).toHaveValue('8200');
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Pin Weight', exact: true, pressed: false }).click();
+	await pinWidget(page, 'Weight');
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	const selected = page.getByRole('complementary', { name: 'Selected day', exact: true });
 	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveValue('72.65');
@@ -175,11 +175,8 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveCount(0);
 	await expect(selected.getByRole('heading', { name: 'Nutrition', exact: true })).toHaveCount(0);
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
-	for (const name of ['Nutrition', 'Weight', 'Steps']) {
-		const pin = page.getByRole('button', { name: 'Pin ' + name, exact: true });
-		await expect(pin).toHaveAttribute('aria-pressed', 'false');
-		await pin.click();
-	}
+	for (const name of ['Nutrition', 'Weight', 'Steps'])
+		await pinWidget(page, name);
 	const cards = page.locator('.built-in-row');
 	const nutritionCard = await cards.nth(0).boundingBox();
 	const weightCard = await cards.nth(1).boundingBox();
@@ -196,7 +193,7 @@ test('unpinned built-ins are added per day and pinned ones appear on empty days'
 	await expect(selected.getByRole('button', { name: '0 items', exact: true })).toBeVisible();
 	await page.getByRole('tab', { name: 'Layout', exact: true }).click();
 	for (const name of ['Nutrition', 'Weight', 'Steps'])
-		await page.getByRole('button', { name: 'Pin ' + name, exact: true }).click();
+		await widgetVisibility(page, name).click();
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	await expect(selected.getByRole('spinbutton', { name: 'Weight (kg)' })).toHaveCount(0);
 	await expect(selected.getByRole('heading', { name: 'Nutrition', exact: true })).toHaveCount(0);

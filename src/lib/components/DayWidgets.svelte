@@ -4,6 +4,7 @@
 	import {
 		WIDGETS,
 		attachWidget,
+		canAttachWidget,
 		dayWidget,
 		isVisible,
 		setWidgetValue,
@@ -47,9 +48,7 @@
 		onchange({ ...data, measures: setDayMeasure(data.measures, day, id, value) });
 	}
 	const choices = $derived([
-		...WIDGETS.filter(
-			({ id }) => !data.layout.widgets[id].archived && !isVisible(data, day, id)
-		).map(({ id, name }) => ({
+		...WIDGETS.filter(({ id }) => canAttachWidget(data, day, id)).map(({ id, name }) => ({
 			id: 'widget-' + id,
 			name,
 			color: '',

@@ -18,9 +18,9 @@ const day = '2026-11-15';
 test('all widgets use the same pinned, attached and visible lifecycle', () => {
 	let data = emptyCalendar();
 	for (const widget of WIDGETS) {
-		expect(isVisible(data, day, widget.id)).toBe(widget.pinned);
+		expect(isVisible(data, day, widget.id)).toBe(widget.visibility === 'pinned');
 		expect(isAttached(data, day, widget.id)).toBe(false);
-		data = { ...data, layout: setWidgetSettings(data.layout, widget.id, { pinned: false }) };
+		data = { ...data, layout: setWidgetSettings(data.layout, widget.id, { visibility: 'available' }) };
 		expect(isVisible(data, day, widget.id)).toBe(false);
 		data = attachWidget(data, day, widget.id);
 		expect(isVisible(data, day, widget.id)).toBe(true);
@@ -45,29 +45,25 @@ test('clearing values keeps attachment and preserves other dates and widget data
 	expect(setWidgetValue(data, day, 'steps', 1.5)).toBe(data);
 });
 
-test('archiving unpins and blocks new attachments without losing existing values or skins', () => {
+test('with-data and hidden modes preserve saved entries and appearance', () => {
 	let data = setWidgetValue(emptyCalendar(), day, 'weight', 72.5);
-	data.layout = setWidgetSettings(data.layout, 'weight', { pinned: true, skin: 'display' });
-	data = { ...data, layout: setWidgetSettings(data.layout, 'weight', { archived: true }) };
-	expect(data.layout.widgets.weight).toEqual({ pinned: false, archived: true, skin: 'display' });
+	data.layout = setWidgetSettings(data.layout, 'weight', { visibility: 'with-data', skin: 'display' });
 	expect(isVisible(data, day, 'weight')).toBe(true);
 	expect(isVisible(data, '2026-11-16', 'weight')).toBe(false);
 	expect(attachWidget(data, '2026-11-16', 'weight')).toBe(data);
+	const hidden = {
+		...data,
+		layout: setWidgetSettings(data.layout, 'weight', { visibility: 'hidden' })
+	};
+	expect(isAttached(hidden, day, 'weight')).toBe(true);
+	expect(isVisible(hidden, day, 'weight')).toBe(false);
+	expect(attachWidget(hidden, '2026-11-16', 'weight')).toBe(hidden);
 	const store = openCalendar(':memory:');
 	try {
-		store.apply(changes(emptyCalendar(), data));
+		store.apply(changes(emptyCalendar(), hidden));
+		expect(store.read()).toEqual(hidden);
+		store.apply(changes(hidden, data));
 		expect(store.read()).toEqual(data);
-		const restored = {
-			...data,
-			layout: setWidgetSettings(data.layout, 'weight', { archived: false })
-		};
-		store.apply(changes(data, restored));
-		expect(store.read().layout.widgets.weight).toEqual({
-			pinned: false,
-			archived: false,
-			skin: 'display'
-		});
-		expect(store.read().counters[day].weight).toBe(72.5);
 	} finally {
 		store.db.close();
 	}
@@ -86,7 +82,7 @@ test('settings, daily values and different widgets merge independently; stale se
 		store.apply(
 			changes(initial, {
 				...initial,
-				layout: setWidgetSettings(initial.layout, 'weight', { pinned: true })
+				layout: setWidgetSettings(initial.layout, 'weight', { visibility: 'pinned' })
 			})
 		);
 		store.apply(
@@ -100,14 +96,13 @@ test('settings, daily values and different widgets merge independently; stale se
 		const before = store.read();
 		expect(before.layout.widgets.weight).toEqual({
 			skin: 'display',
-			pinned: true,
-			archived: false
+			visibility: 'pinned'
 		});
 		expect(before.layout.widgets.steps.skin).toBe('pedometer');
 		store.apply(
 			changes(before, {
 				...before,
-				layout: setWidgetSettings(before.layout, 'weight', { pinned: false })
+				layout: setWidgetSettings(before.layout, 'weight', { visibility: 'available' })
 			})
 		);
 		expect(store.read().counters[day]).toEqual({ weight: 72.65, steps: 0 });
@@ -130,7 +125,15 @@ test('empty attachments round-trip through storage for every widget', () => {
 	const store = openCalendar(':memory:');
 	try {
 		const initial = emptyCalendar();
-		const next = WIDGETS.reduce((data, widget) => attachWidget(data, day, widget.id), initial);
+		const next = WIDGETS.reduce(
+			(data, { id }) =>
+				attachWidget(
+					{ ...data, layout: setWidgetSettings(data.layout, id, { visibility: 'available' }) },
+					day,
+					id
+				),
+			initial
+		);
 		store.apply(changes(initial, next));
 		expect(store.read()).toEqual(next);
 	} finally {
@@ -146,17 +149,13 @@ test('direct object validation rejects invalid settings, values, dates and unkno
 			data.layout.widgets.steps.skin = 'scale';
 		},
 		(data: any) => {
-			data.layout.widgets.weight.pinned = 'true';
+			data.layout.widgets.weight.visibility = 'sometimes';
 		},
 		(data: any) => {
-			data.layout.widgets.weight.archived = 'true';
+			data.layout.widgets.weight.visibility = true;
 		},
 		(data: any) => {
-			data.layout.widgets.weight.archived = true;
-			data.layout.widgets.weight.pinned = true;
-		},
-		(data: any) => {
-			data.layout.widgets.unknown = { pinned: true, skin: 'simple' };
+			data.layout.widgets.unknown = { visibility: 'pinned', skin: 'simple' };
 		},
 		(data: any) => {
 			data.counters[day] = { steps: 1.5 };

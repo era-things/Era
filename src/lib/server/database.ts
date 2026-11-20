@@ -16,7 +16,7 @@ import { normalizeSleep } from '../sleep';
 import { normalizeTime } from '../time';
 import { normalizeScreenApps } from '../screen-apps';
 import { normalizeGitHubActivity } from '../github-activity';
-import { normalizeAutomatedValues } from '../widgets';
+import { normalizeAutomatedValues, WIDGETS } from '../widgets';
 
 export function validate(data: unknown): asserts data is CalendarData {
 	if (!isRecord(data)) throw new Error('Invalid calendar data');
@@ -42,14 +42,35 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 	if (dirname(path) !== '.') mkdirSync(dirname(path), { recursive: true });
 	const db = new Database(path, { create: true });
 	db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;');
-	const version = db.query('PRAGMA user_version').get() as { user_version: number };
-	if (version.user_version === 0)
-		db.transaction(() => {
+	db.transaction(() => {
+		const { user_version: version } = db.query('PRAGMA user_version').get() as {
+			user_version: number;
+		};
+		if (version === 0) {
 			db.exec(
-				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=2'
+				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=3'
 			);
-		})();
-	else if (version.user_version !== 2) throw new Error('Unknown database version');
+		} else if (version === 2) {
+			const get = db.query<{ value: string }, [string]>('SELECT value FROM records WHERE key=?');
+			const remove = db.query('DELETE FROM records WHERE key IN (?, ?)');
+			const insert = db.query('INSERT INTO records(key,value) VALUES (?,?)');
+			for (const widget of WIDGETS) {
+				const pinnedKey = JSON.stringify(['widget', widget.id, 'pinned']);
+				const archivedKey = JSON.stringify(['widget', widget.id, 'archived']);
+				// In version 2, Note was the only widget pinned by default.
+				const pinned = get.get(pinnedKey)?.value ?? String(widget.id === 'note');
+				const archived = get.get(archivedKey)?.value === 'true';
+				const visibility = archived ? 'with-data' : pinned === 'true' ? 'pinned' : 'available';
+				if (visibility !== widget.visibility)
+					insert.run(
+						JSON.stringify(['widget', widget.id, 'visibility']),
+						JSON.stringify(visibility)
+					);
+				remove.run(pinnedKey, archivedKey);
+			}
+			db.exec('PRAGMA user_version=3');
+		} else if (version !== 3) throw new Error('Unknown database version');
+	}).immediate();
 	const list = db.query<{ key: string; value: string }, []>(
 		'SELECT key,value FROM records ORDER BY rowid'
 	);
