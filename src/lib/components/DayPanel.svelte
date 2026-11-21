@@ -5,6 +5,7 @@
 	import type { Snippet } from 'svelte';
 	import DayReminders from './DayReminders.svelte';
 	import type { Reminder } from '../reminders';
+	import { reflow } from '../widget-motion';
 	let {
 		selected,
 		today,
@@ -36,7 +37,7 @@
 	} = $props();
 </script>
 
-<aside class="day-panel" aria-label={label}>
+<aside class="day-panel" aria-label={label} use:reflow>
 	<div class="day-panel-heading">
 		<EmojiSelector value={emoji} onchange={onEmojiChange} />
 		<div class="panel-date" aria-live="polite" aria-atomic="true">

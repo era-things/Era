@@ -28,7 +28,8 @@ curl -X PATCH http://127.0.0.1:5173/api/widgets/reading \
 ```
 
 `pinned` shows the widget every day. `available` shows saved entries and offers the
-widget in Add widget on other days. `with-data` only shows days with entries.
+widget in Add widget on other days. `with-data` shows days with nonempty widget
+values. An empty attachment or a zero-minute activity stays stored but is hidden.
 `hidden` hides the widget from the day view and Add widget. The dedicated daily
 widget endpoint supports reads and writes in every mode. Changing visibility
 preserves the widget's skin and daily values.

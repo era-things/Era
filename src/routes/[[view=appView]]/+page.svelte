@@ -54,7 +54,8 @@
 	let syncState = $state<SyncState>({
 		data: untrack(() => data.calendar),
 		error: '',
-		retryable: false
+		retryable: false,
+		remoteRevision: 0
 	});
 	const sync = createCalendarSync(
 		untrack(() => syncState.data),
@@ -399,6 +400,10 @@
 		<DayWidgets
 			data={calendarData}
 			{day}
+			remoteRevision={(section === 'today' && day === today) ||
+			(section === 'calendar' && mode === 'vertical' && day === selected)
+				? syncState.remoteRevision
+				: 0}
 			onmanage={showLayout}
 			onchange={(data) => saveData({ ...calendarData, ...data })}
 		/>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ScreenAppShare } from '../screen-apps';
+	import { pop, reflow } from '../widget-motion';
 	let { apps }: { apps: readonly ScreenAppShare[] } = $props();
 	const colors = ['#917bc5', '#789b87', '#6b94b7', '#bb8964', '#b97d9b'];
 
@@ -17,9 +18,9 @@
 			<span style:width={`${app.share}%`} style:background={colors[index % colors.length]}></span>
 		{/each}
 	</div>
-	<ul aria-label="Screen time by app" role="list">
+	<ul aria-label="Screen time by app" role="list" use:reflow>
 		{#each apps as app, index (app.package)}
-			<li>
+			<li transition:pop>
 				<span class="mark" style:background={colors[index % colors.length]} aria-hidden="true"
 				></span>
 				<span class="app-name">{app.name}</span>

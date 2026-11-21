@@ -10,6 +10,7 @@
 		type WidgetVisibility
 	} from '../widgets';
 	import { createResourceId } from '../resource-id';
+	import { pop, reflow } from '../widget-motion';
 	import WidgetPreview from './WidgetPreview.svelte';
 	let {
 		measures,
@@ -44,7 +45,7 @@
 	const visibilityOptions = {
 		pinned: { label: 'Pinned', description: 'Show every day', next: 'available' },
 		available: { label: 'Available', description: 'Offer in Add widget', next: 'with-data' },
-		'with-data': { label: 'With data', description: 'Show on days with saved entries', next: 'pinned' }
+		'with-data': { label: 'With data', description: 'Show on days with nonempty entries', next: 'pinned' }
 	} as const satisfies Record<
 		Exclude<WidgetVisibility, 'hidden'>,
 		{ label: string; description: string; next: Exclude<WidgetVisibility, 'hidden'> }
@@ -249,10 +250,10 @@
 			</div>
 		</form>
 	{/if}
-	<div class="measure-list">
+	<div class="measure-list" use:reflow>
 		{#each measures as measure (measure.id)}
 			{@const p = paletteFor(measure.palette)}
-			<div class="measure-row">
+			<div class="measure-row" transition:pop>
 				<span
 					class="palette-strip"
 					aria-label={p.name + ' palette'}

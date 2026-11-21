@@ -105,6 +105,7 @@ test('rejected edits refresh authoritative state and do not block later writes',
 
 test('a stale refresh cannot overwrite an edit even after that edit has saved', async () => {
 	const initial = emptyCalendar();
+	const latest = { ...initial, notes: { [day]: 'Newer edit' }, emojis: { [day]: '🎉' } };
 	const stale = deferred<Response>();
 	let reads = 0;
 	const sync = createCalendarSync(
@@ -113,19 +114,21 @@ test('a stale refresh cannot overwrite an edit even after that edit has saved', 
 		async (url) => {
 			if (url === '/api/data') {
 				reads++;
-				return stale.promise;
+				return reads === 1 ? stale.promise : Response.json(latest);
 			}
 			return ok();
 		}
 	);
 	const refreshing = sync.refresh();
 	sync.save('notes', { [day]: 'Newer edit' });
-	await sync.refresh(); // pending writes suppress refreshes
+	const notified = sync.refresh(); // a notification while saving defers its refresh
+	expect(reads).toBe(1);
+	await notified;
 	await sync.flush();
 	stale.resolve(Response.json(initial));
 	await refreshing;
-	expect(reads).toBe(1);
-	expect(sync.state.data.notes[day]).toBe('Newer edit');
+	expect(reads).toBe(2);
+	expect(sync.state.data).toEqual(latest);
 });
 
 test('an edit arriving during rejection recovery is drained before export', async () => {

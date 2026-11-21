@@ -6,6 +6,7 @@ import {
 	emptyLayout,
 	isAttached,
 	isVisible,
+	setAutomatedWidgetValue,
 	setWidgetSettings,
 	setWidgetValue,
 	validWidgetSkin
@@ -43,6 +44,34 @@ test('clearing values keeps attachment and preserves other dates and widget data
 	});
 	expect(data.counters[day].weight).toBe(72.65);
 	expect(setWidgetValue(data, day, 'steps', 1.5)).toBe(data);
+});
+
+test('with-data hides empty attachments and shows recorded values for every widget', () => {
+	for (const widget of WIDGETS) {
+		const { id } = widget;
+		const available = setWidgetSettings(emptyLayout(), id, { visibility: 'available' });
+		const attached = attachWidget({ ...emptyCalendar(), layout: available }, day, id);
+		const layout = setWidgetSettings(available, id, { visibility: 'with-data' });
+		const data = { ...attached, layout };
+		expect(isAttached(data, day, id)).toBe(true);
+		expect(isVisible(data, day, id)).toBe(false);
+		const sample = widget.kind === 'nutrition' ? [...widget.sample] : widget.sample;
+		expect(isVisible(setWidgetValue(data, day, id, sample), day, id)).toBe(true);
+	}
+});
+
+test('with-data uses the effective value and recognizes automated sleep and app details', () => {
+	const initial = emptyCalendar();
+	for (const id of ['reading', 'phone', 'sleep'] as const)
+		initial.layout = setWidgetSettings(initial.layout, id, { visibility: 'with-data' });
+	const reading = setWidgetValue(initial, day, 'reading', 25);
+	expect(isVisible(setAutomatedWidgetValue(reading, day, 'reading', 0), day, 'reading')).toBe(false);
+	const phone = setAutomatedWidgetValue(initial, day, 'phone', 0);
+	expect(isVisible(phone, day, 'phone')).toBe(false);
+	phone.screenApps[day] = [{ package: 'example.app', name: 'Example', minutes: 12 }];
+	expect(isVisible(phone, day, 'phone')).toBe(true);
+	const sleep = setAutomatedWidgetValue(initial, day, 'sleep', { start: null, end: null, duration: 450 });
+	expect(isVisible(sleep, day, 'sleep')).toBe(true);
 });
 
 test('with-data and hidden modes preserve saved entries and appearance', () => {

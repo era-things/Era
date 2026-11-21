@@ -362,6 +362,21 @@ h1 {
 .day.past .day-emoji {
 	opacity: 0.65;
 }
+.widget-drawer {
+	interpolate-size: allow-keywords;
+}
+.widget-drawer::details-content {
+	block-size: 0;
+	overflow: clip;
+}
+.widget-drawer[open]::details-content {
+	block-size: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.widget-drawer::details-content {
+		transition: block-size 180ms ease-out, content-visibility 180ms allow-discrete;
+	}
+}
 .emoji-error {
 	font-size: 11px;
 	line-height: 1.4;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DateKey } from '../calendar';
 	import { PERIODIC_PERIODS, type Reminder } from '../reminders';
+	import { pop } from '../widget-motion';
 	import ReminderForm from './ReminderForm.svelte';
 	let {
 		reminder,
@@ -18,7 +19,7 @@
 	let deleting = $state(false);
 </script>
 
-<details class="reminder-drawer">
+<details class="reminder-drawer" transition:pop>
 	<summary
 		><span>{reminder.text}</span>{#if reminder.period !== 'once'}<span class="period"
 				>{PERIODIC_PERIODS.find((p) => p.value === reminder.period)!.label}</span

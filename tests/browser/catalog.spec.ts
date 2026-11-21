@@ -1,4 +1,38 @@
 import { test, expect, widgetVisibility } from './fixtures';
+import { localToday } from '../../src/lib/calendar';
+
+test('switching to With data hides an empty Reading widget and preserves the attachment', async ({
+	page,
+	request
+}) => {
+	await page.goto('/today');
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	const reading = today.getByRole('region', { name: 'Reading time', exact: true });
+	await today.getByRole('button', { name: 'Add widget', exact: true }).click();
+	await today.getByRole('button', { name: 'Reading time', exact: true }).click();
+	await expect(reading).toBeVisible();
+
+	const layout = page.getByRole('tab', { name: 'Layout', exact: true });
+	const todayTab = page.getByRole('tab', { name: 'Today', exact: true });
+	await layout.click();
+	await widgetVisibility(page, 'Reading time').click();
+	await expect(widgetVisibility(page, 'Reading time')).toHaveText('With data');
+	await todayTab.click();
+	await expect(reading).toHaveCount(0);
+
+	const url = `/api/days/${localToday()}/widgets/reading`;
+	await expect
+		.poll(async () => (await (await request.get(url)).json()).visible)
+		.toBe(false);
+	expect(await (await request.get(url)).json()).toMatchObject({
+		attached: true,
+		value: { durationMinutes: 0 }
+	});
+	expect((await request.put(url, { data: { durationMinutes: 25 } })).ok()).toBe(true);
+	await page.reload();
+	await expect(reading).toBeVisible();
+});
 
 test('the visibility button cycles in place and hidden widgets can be restored', async ({ page }) => {
 	await page.goto('/today');

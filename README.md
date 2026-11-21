@@ -127,7 +127,7 @@ merge. For a live database backup use SQLite's online backup facility or
   on narrow screens.
 - Layout previews built-in widgets and their skins before custom measures.
   Pinned widgets appear every day, Available widgets can be added through +,
-  and With data widgets appear on days with saved entries.
+  and With data widgets appear on days with nonempty entries.
   Nutrition shows daily kcal, protein, fat, and carb totals with an expandable food log in
   each day editor. Food entries accept decimal values and can be added, edited,
   or removed. Each item has quantity controls starting at ×1; its nutrient values

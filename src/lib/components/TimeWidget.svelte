@@ -5,6 +5,7 @@
 	import ScreenTimeBreakdown from './ScreenTimeBreakdown.svelte';
 	import WidgetIcon from './WidgetIcon.svelte';
 	import { widgetFor, type TimeId } from '../widgets';
+	import { pop } from '../widget-motion';
 	let {
 		id,
 		value,
@@ -90,7 +91,7 @@
 
 <section class={id} aria-label={name} title={name}>
 	{#if hasBreakdown}
-		<details>
+		<details class="widget-drawer" out:pop>
 			<summary class="time-widget">{@render row(false)}</summary>
 			<ScreenTimeBreakdown {apps} />
 		</details>
@@ -100,6 +101,12 @@
 </section>
 
 <style>
+	section {
+		display: grid;
+	}
+	section > :is(details, .time-widget) {
+		grid-area: 1 / 1;
+	}
 	.time-widget {
 		display: flex;
 		align-items: center;

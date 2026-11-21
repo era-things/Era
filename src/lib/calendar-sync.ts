@@ -1,7 +1,12 @@
 import { apiRequests, type ApiRequest } from './api-client';
 import type { BackupPreview, CalendarData } from './data-export';
 
-export type SyncState = { data: CalendarData; error: string; retryable: boolean };
+export type SyncState = {
+	data: CalendarData;
+	error: string;
+	retryable: boolean;
+	remoteRevision: number;
+};
 export type SyncRequest = (url: string, init?: RequestInit) => Promise<Response>;
 
 export function createCalendarSync(
@@ -9,27 +14,31 @@ export function createCalendarSync(
 	onchange: (state: SyncState) => void,
 	request: SyncRequest = (...args) => fetch(...args)
 ) {
-	let state: SyncState = { data: initial, error: '', retryable: false };
+	let state: SyncState = { data: initial, error: '', retryable: false, remoteRevision: 0 };
 	const queue: ApiRequest[] = [];
 	let pending: Promise<void> | undefined;
 	let importing = false;
 	let generation = 0;
-	let channel: BroadcastChannel | undefined;
+	let refreshNeeded = false;
 	const publish = (patch: Partial<SyncState>) => {
 		state = { ...state, ...patch };
 		onchange(state);
 	};
 
-	async function refresh() {
+	async function refresh(remote = true) {
+		refreshNeeded = true;
 		if (queue.length || importing) return;
 		const ticket = ++generation;
 		try {
 			const response = await request('/api/data', { cache: 'no-store' });
 			if (!response.ok) return;
 			const data: CalendarData = await response.json();
-			if (ticket === generation && !queue.length) publish({ data });
+			if (ticket === generation) {
+				refreshNeeded = false;
+				publish({ data, remoteRevision: state.remoteRevision + Number(remote) });
+			}
 		} catch {
-			/* Retry on next focus. */
+			/* Retry on the next notification or focus. */
 		}
 	}
 
@@ -59,8 +68,8 @@ export function createCalendarSync(
 				queue.shift();
 			}
 			publish({ error: rejected, retryable: false });
-			if (rejected) await refresh();
-			channel?.postMessage('saved');
+			if (rejected) await refresh(false);
+			else if (refreshNeeded) void refresh();
 		} catch (error) {
 			publish({
 				retryable: true,
@@ -134,16 +143,18 @@ export function createCalendarSync(
 			const response = await postBackup('/api/data/import', body, preview);
 			if (response.status === 409) return (await response.json()).preview;
 			publish({ data: await response.json(), error: '', retryable: false });
-			channel?.postMessage('saved');
 		} finally {
 			importing = false;
+			if (refreshNeeded) void refresh();
 		}
 	}
 
 	function connect() {
-		channel = new BroadcastChannel('era-saves');
-		channel.onmessage = refresh;
-		window.addEventListener('focus', refresh);
+		const events = new EventSource('/api/events');
+		const refreshRemote = () => void refresh();
+		events.onopen = refreshRemote;
+		events.onmessage = refreshRemote;
+		window.addEventListener('focus', refreshRemote);
 		const warn = (event: BeforeUnloadEvent) => {
 			if (queue.length) {
 				event.preventDefault();
@@ -152,10 +163,10 @@ export function createCalendarSync(
 		};
 		window.addEventListener('beforeunload', warn);
 		return () => {
-			channel?.close();
-			channel = undefined;
+			events.close();
+			refreshNeeded = false;
 			generation++;
-			window.removeEventListener('focus', refresh);
+			window.removeEventListener('focus', refreshRemote);
 			window.removeEventListener('beforeunload', warn);
 		};
 	}

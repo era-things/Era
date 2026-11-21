@@ -1,14 +1,17 @@
 <script lang="ts">
 	import Chevron from './Chevron.svelte';
 	import { paletteFor, type Measure, type MeasureValue } from '../measures';
+	import { highlightRemote, pop, reflow } from '../widget-motion';
 	let {
 		measures,
 		values,
+		remoteRevision,
 		onchange,
 		onremove
 	}: {
 		measures: Measure[];
 		values: Record<string, MeasureValue>;
+		remoteRevision: number;
 		onchange: (id: string, value: MeasureValue) => void;
 		onremove: (id: string) => void;
 	} = $props();
@@ -41,7 +44,7 @@
 	}
 </script>
 
-<section class="day-measures" aria-label="Custom measurements">
+<section class="day-measures" aria-label="Custom measurements" use:reflow>
 	{#each measures as measure (measure.id)}
 		{@const p = paletteFor(measure.palette)}
 		<article
@@ -49,6 +52,8 @@
 			style:--measure-faint={p.faint}
 			style:--measure-bright={p.bright}
 			aria-label={measure.name}
+			use:highlightRemote={{ revision: remoteRevision, value: values[measure.id] }}
+			transition:pop
 		>
 			<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
 				{#if measure.type === 'boolean'}
@@ -111,6 +116,9 @@
 	.day-measures {
 		display: grid;
 		gap: 10px;
+	}
+	.day-measures:not(:has(> .measure-card)) {
+		display: none;
 	}
 	.card-heading {
 		display: flex;

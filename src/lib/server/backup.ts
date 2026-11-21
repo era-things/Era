@@ -73,16 +73,14 @@ export function restoreBackup(
 	expectedPreview?: unknown
 ) {
 	const incoming = backupRecords(backup);
-	return store.db
-		.transaction(() => {
-			const current = store.read();
-			const { merged, preview } = planImport(current, incoming);
-			if (expectedPreview !== undefined && !isDeepStrictEqual(expectedPreview, preview))
-				throw new BackupChanged(preview);
-			store.apply(changes(current, merged));
-			const restored = store.read();
-			if (!isDeepStrictEqual(restored, merged)) throw new Error('Import did not round-trip');
-			return restored;
-		})
-		.immediate();
+	return store.transaction(() => {
+		const current = store.read();
+		const { merged, preview } = planImport(current, incoming);
+		if (expectedPreview !== undefined && !isDeepStrictEqual(expectedPreview, preview))
+			throw new BackupChanged(preview);
+		store.apply(changes(current, merged));
+		const restored = store.read();
+		if (!isDeepStrictEqual(restored, merged)) throw new Error('Import did not round-trip');
+		return restored;
+	});
 }

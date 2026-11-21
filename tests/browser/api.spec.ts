@@ -79,11 +79,9 @@ test('the dashboard shows the latest sync while Era preserves manual entries', a
 	await expect(minutes).toHaveValue('00');
 	await expect(minutes).toBeEditable();
 	expect((await report(222)).status()).toBe(204);
-	await page.reload();
 	await expect(minutes).toHaveValue('42');
 	await expect(minutes).not.toBeEditable();
 	expect((await report(230)).status()).toBe(204);
-	await page.reload();
 	await expect(minutes).toHaveValue('50');
 	await expect(today.getByRole('button', { name: 'Use synced value', exact: true })).toHaveCount(0);
 	expect(await (await request.get(url)).json()).toMatchObject({

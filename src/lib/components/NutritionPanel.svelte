@@ -2,6 +2,7 @@
 	import Chevron from './Chevron.svelte';
 	import { NUTRIENTS, nutritionTotals, type FoodItem } from '../nutrition';
 	import { createResourceId } from '../resource-id';
+	import { pop, reflow, unfold } from '../widget-motion';
 	import NutritionHistory from './NutritionHistory.svelte';
 	import NutritionItemRow from './NutritionItemRow.svelte';
 	let {
@@ -56,7 +57,13 @@
 			type="button"
 			aria-expanded={itemsOpen}
 			aria-controls={itemsId}
-			onclick={() => (itemsOpen = !itemsOpen)}
+			onclick={() => {
+				if (itemsOpen) {
+					focusId = null;
+					expanded = null;
+				}
+				itemsOpen = !itemsOpen;
+			}}
 		>
 			<Chevron direction={itemsOpen ? 'down' : 'right'} size={10} />
 			{items.length}
@@ -71,54 +78,58 @@
 			</div>
 		{/each}
 	</dl>
-	<div class="items" id={itemsId} hidden={!itemsOpen}>
-		{#if items.length}
-			<table aria-label="Nutrition items">
-				<colgroup>
-					<col class="quantity-column" />
-					<col />
-					<col class="kcal-column" />
-					{#each NUTRIENTS.slice(1) as nutrient (nutrient.key)}
-						<col class="macro-column" />
-					{/each}
-				</colgroup>
-				<thead>
-					<tr>
-						<th scope="col" aria-label="Quantity">Q</th>
-						<th scope="col">Name</th>
-						{#each NUTRIENTS as nutrient (nutrient.key)}
-							<th scope="col" aria-label={nutrient.label}>{nutrient.shortLabel}</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each items as item (item.id)}
-						<NutritionItemRow
-							{item}
-							{readonly}
-							bind:expanded
-							autofocus={focusId === item.id}
-							onchange={(next) => update(item.id, next)}
-						/>
-					{/each}
-				</tbody>
-			</table>
+	<div id={itemsId}>
+		{#if itemsOpen}
+			<div class="items" use:reflow transition:unfold>
+				{#if items.length}
+					<table aria-label="Nutrition items" transition:pop>
+						<colgroup>
+							<col class="quantity-column" />
+							<col />
+							<col class="kcal-column" />
+							{#each NUTRIENTS.slice(1) as nutrient (nutrient.key)}
+								<col class="macro-column" />
+							{/each}
+						</colgroup>
+						<thead>
+							<tr>
+								<th scope="col" aria-label="Quantity">Q</th>
+								<th scope="col">Name</th>
+								{#each NUTRIENTS as nutrient (nutrient.key)}
+									<th scope="col" aria-label={nutrient.label}>{nutrient.shortLabel}</th>
+								{/each}
+							</tr>
+						</thead>
+						<tbody use:reflow>
+							{#each items as item (item.id)}
+								<NutritionItemRow
+									{item}
+									{readonly}
+									bind:expanded
+									autofocus={focusId === item.id}
+									onchange={(next) => update(item.id, next)}
+								/>
+							{/each}
+						</tbody>
+					</table>
+				{/if}
+				{#if !readonly}<div class="item-actions">
+						<button class="add-item" type="button" aria-label="Add item" onclick={() => add()}
+							><svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.7"
+								stroke-linecap="round"
+								aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg
+							></button
+						>
+						<NutritionHistory items={history} onselect={add} />
+					</div>{/if}
+			</div>
 		{/if}
-		{#if !readonly}<div class="item-actions">
-				<button class="add-item" type="button" aria-label="Add item" onclick={() => add()}
-					><svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.7"
-						stroke-linecap="round"
-						aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg
-					></button
-				>
-				<NutritionHistory items={history} onselect={add} />
-			</div>{/if}
 	</div>
 </section>
 

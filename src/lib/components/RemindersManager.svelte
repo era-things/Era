@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DateKey } from '../calendar';
 	import type { Reminder } from '../reminders';
+	import { reflow } from '../widget-motion';
 	import ReminderEditor from './ReminderEditor.svelte';
 	import ReminderForm from './ReminderForm.svelte';
 	let {
@@ -32,7 +33,7 @@
 	<div class="manager-content">
 		<div class="period-groups">
 			{#each groups as group (group.value)}
-				<section class="period-group" aria-label={group.label + ' reminders'}>
+				<section class="period-group" aria-label={group.label + ' reminders'} use:reflow>
 					<div class="group-heading">
 						<h2>{group.label}</h2>
 						<button

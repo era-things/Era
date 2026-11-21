@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { GitHubActivity, GitHubRepository } from '../github-activity';
 	import Chevron from './Chevron.svelte';
+	import { pop, reflow } from '../widget-motion';
 
 	let { activity }: { activity: GitHubActivity } = $props();
 	const number = new Intl.NumberFormat('en-US');
@@ -54,11 +55,11 @@
 
 <section class="github-activity" aria-label="GitHub activity">
 	{#if top}
-		<details>
+		<details class="widget-drawer" out:pop>
 			<summary class="activity-row">{@render collapsed()}</summary>
-			<ul class="repository-list" aria-label="Updated repositories" role="list">
+			<ul class="repository-list" aria-label="Updated repositories" role="list" use:reflow>
 				{#each repositories as repo (repo.name)}
-					<li>
+					<li transition:pop>
 						{#if repo.url}
 							<a class="repository-row" href={repo.url} target="_blank" rel="noopener noreferrer">
 								{@render repository(repo)}
@@ -77,10 +78,14 @@
 
 <style>
 	.github-activity {
+		display: grid;
 		--activity-surface: #343f49;
 		--activity-text: #f0f3f4;
 		--activity-muted: #c2cfd8;
 		font-variant-numeric: tabular-nums;
+	}
+	.github-activity > :is(details, .activity-row) {
+		grid-area: 1 / 1;
 	}
 	.activity-row {
 		display: flex;

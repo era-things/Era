@@ -88,12 +88,13 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	expect(saved.ok()).toBe(true);
 	expect(saved.request().postDataJSON()).toEqual({ quantity: 2.35 });
 	await expect(quantity).toHaveText('×2.35');
-	await expect(totals).toContainText('235');
+	await expect(totals).toContainText('360');
 	await expect(totals).toContainText('29.38');
 	await expect(kcal).toHaveValue('100');
 	const list = await (await request.get(items)).json();
 	expect(list.items).toContainEqual({ ...external, id: 'snack' });
 	expect((await request.delete(`${items}/snack`)).status()).toBe(204);
+	await expect(totals).toContainText('235');
 
 	await page.reload();
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');

@@ -80,6 +80,20 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 	);
 	const remove = db.query('DELETE FROM records WHERE key=?');
 	const read = () => decode(list.all());
+	const listeners = new Set<() => void>();
+	const totalChanges = db.query<{ count: number }, []>('SELECT total_changes() AS count');
+
+	function commit<T>(write: () => T): T {
+		// A nested write belongs to the outer transaction's notification.
+		if (!listeners.size || db.inTransaction) return write();
+		const before = totalChanges.get()!.count;
+		const result = write();
+		if (totalChanges.get()!.count !== before) {
+			for (const listener of listeners) listener();
+		}
+		return result;
+	}
+
 	const apply = db.transaction((edits: Change[]) => {
 		for (const { key, before, after } of edits) {
 			const path: unknown = JSON.parse(key);
@@ -108,8 +122,16 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 	return {
 		db,
 		read,
-		apply: (edits: Change[]) => apply.immediate(edits),
-		update: (mutate: (data: CalendarData) => CalendarData) => update.immediate(mutate)
+		subscribe(listener: () => void) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		apply: (edits: Change[]) => commit(() => apply.immediate(edits)),
+		update: (mutate: (data: CalendarData) => CalendarData) =>
+			commit(() => update.immediate(mutate)),
+		transaction: <T>(write: () => T): T => commit(() => db.transaction(write).immediate())
 	};
 }
 let connection: ReturnType<typeof openCalendar>;

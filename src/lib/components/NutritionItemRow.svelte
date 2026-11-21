@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { NUTRIENTS, validFoodQuantity, type FoodItem, type Nutrients } from '../nutrition';
+	import { pop } from '../widget-motion';
 	let {
 		item,
 		onchange,
@@ -75,7 +76,7 @@
 	}
 </script>
 
-<tr aria-label={label}>
+<tr aria-label={label} transition:pop>
 	<td
 		class="quantity-cell"
 		bind:this={quantityCell}

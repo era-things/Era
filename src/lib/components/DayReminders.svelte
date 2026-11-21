@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import type { Reminder } from '../reminders';
 	import type { DateKey } from '../calendar';
+	import { pop, reflow } from '../widget-motion';
 	let {
 		reminders,
 		selected,
@@ -82,10 +83,10 @@
 			<button type="button" aria-label="Cancel new reminder" onclick={close}>×</button>
 		</form>
 	{/if}
-	{#if reminders.length}<ul>
+	{#if reminders.length}<ul use:reflow transition:pop>
 			{#each reminders as reminder (reminder.id)}
 				{@const completed = reminder.completedDates.includes(selected)}
-				<li class:completed>
+				<li class:completed transition:pop>
 					<span>{reminder.text}</span><button
 						class="completion-button"
 						type="button"

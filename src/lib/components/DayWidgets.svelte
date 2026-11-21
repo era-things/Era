@@ -11,19 +11,22 @@
 		type WidgetId,
 		type WidgetData
 	} from '../widgets';
-	import { previousNutritionItems } from '../nutrition';
+	import { nutritionTotals, previousNutritionItems } from '../nutrition';
 	import { paletteFor, setDayMeasure, type MeasureValue } from '../measures';
+	import { highlightRemote, pop, reflow } from '../widget-motion';
 	import BuiltInWidget from './BuiltInWidget.svelte';
 	import DayMeasures from './DayMeasures.svelte';
 	import GitHubActivityWidget from './GitHubActivityWidget.svelte';
 	let {
 		data,
 		day,
+		remoteRevision,
 		onchange,
 		onmanage
 	}: {
 		data: WidgetData & Pick<CalendarData, 'githubActivity'>;
 		day: DateKey;
+		remoteRevision: number;
 		onchange: (data: WidgetData) => boolean;
 		onmanage: () => void;
 	} = $props();
@@ -33,6 +36,20 @@
 	const mainWidgets = $derived(visible.filter(({ placement }) => placement === 'main'));
 	const footerWidgets = $derived(visible.filter(({ placement }) => placement === 'footer'));
 	const gitHubActivity = $derived(data.githubActivity[day]);
+	function highlightValue(id: WidgetId) {
+		const widget = dayWidget(data, day, id);
+		switch (widget.kind) {
+			case 'sleep':
+				return JSON.stringify(widget.value);
+			case 'nutrition':
+				return JSON.stringify(nutritionTotals(widget.value));
+			case 'time':
+			case 'counter':
+				return widget.value;
+			default:
+				return undefined;
+		}
+	}
 	const history = $derived.by(() => {
 		const nutrition = { ...data.nutrition };
 		for (const [date, values] of Object.entries(data.automated)) {
@@ -74,36 +91,51 @@
 	/>
 {/snippet}
 
-<section class="day-widget-stack" aria-label="Day widgets">
-	{#if mainWidgets.length || timeWidgets.length || gitHubActivity}
-		<div class="day-widgets">
-			{#each mainWidgets as definition (definition.id)}
-				<div class:compact-widget={definition.compact} class:full-widget={!definition.compact}>
+<section class="day-widget-stack" aria-label="Day widgets" use:reflow>
+	<div class="day-widgets" use:reflow>
+		{#each mainWidgets as definition (definition.id)}
+			<div
+				class:compact-widget={definition.compact}
+				class:full-widget={!definition.compact}
+				use:highlightRemote={{ revision: remoteRevision, value: highlightValue(definition.id) }}
+				transition:pop
+			>
+				{@render widget(definition.id)}
+			</div>
+		{/each}
+		<div class="time-widget-block" role="group" aria-label="Hours in a day" use:reflow>
+			{#each timeWidgets as definition (definition.id)}
+				<div
+					class="time-widget-row"
+					use:highlightRemote={{ revision: remoteRevision, value: highlightValue(definition.id) }}
+					transition:pop
+				>
 					{@render widget(definition.id)}
 				</div>
 			{/each}
-			{#if timeWidgets.length}
-				<div class="full-widget time-widget-block" role="group" aria-label="Hours in a day">
-					{#each timeWidgets as definition (definition.id)}
-						<div class="time-widget-row">
-							{@render widget(definition.id)}
-						</div>
-					{/each}
-				</div>
-			{/if}
-			{#if gitHubActivity}
-				<div class="full-widget"><GitHubActivityWidget activity={gitHubActivity} /></div>
-			{/if}
 		</div>
-	{/if}
-	{#if attached.length}<DayMeasures
-			measures={attached}
-			values={measureValues}
-			onchange={changeMeasure}
-			onremove={(id) => changeMeasure(id)}
-		/>{/if}
+		{#if gitHubActivity}
+			<div
+				class="full-widget"
+				use:highlightRemote={{
+					revision: remoteRevision,
+					value: `${gitHubActivity.commits}/${gitHubActivity.additions}/${gitHubActivity.deletions}`
+				}}
+				transition:pop
+			>
+				<GitHubActivityWidget activity={gitHubActivity} />
+			</div>
+		{/if}
+	</div>
+	<DayMeasures
+		measures={attached}
+		values={measureValues}
+		{remoteRevision}
+		onchange={changeMeasure}
+		onremove={(id) => changeMeasure(id)}
+	/>
 	{#each footerWidgets as definition (definition.id)}
-		{@render widget(definition.id)}
+		<div transition:pop>{@render widget(definition.id)}</div>
 	{/each}
 	{#if choosing}<div class="widget-chooser">
 			{#each choices as choice (choice.id)}<button
@@ -140,7 +172,8 @@
 		gap: 10px;
 		margin-top: 14px;
 	}
-	.full-widget {
+	.full-widget,
+	.time-widget-block {
 		flex: 0 0 100%;
 		min-width: 0;
 	}
@@ -151,6 +184,10 @@
 	.time-widget-block {
 		overflow: clip;
 		border-radius: 4px;
+	}
+	.day-widgets:not(:has(> :not(.time-widget-block), .time-widget-row)),
+	.time-widget-block:not(:has(> .time-widget-row)) {
+		display: none;
 	}
 	.time-widget-row :global(.sleep-widget),
 	.time-widget-row :global(.time-widget) {

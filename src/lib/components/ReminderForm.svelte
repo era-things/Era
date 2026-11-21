@@ -36,15 +36,19 @@
 	});
 	let error = $state('');
 	let textInput = $state<HTMLTextAreaElement>();
+	const savedText = $derived(reminder?.text ?? '');
+	const savedStart = $derived(reminder?.start ?? selected);
+	const savedOverride = $derived(reminder?.overrideEmoji ?? false);
+	const savedPeriod = $derived(reminder?.period ?? 'once');
+	const savedLeadDays = $derived(reminder?.leadDays ?? 0);
 	function reset() {
-		const source = reminder ?? createReminder('', selected);
 		draft = {
-			text: source.text,
-			start: source.start,
-			overrideEmoji: source.overrideEmoji,
-			period: source.period === 'once' ? 'weekly' : source.period,
-			leadMode: source.leadDays === 'always' ? 'always' : 'days',
-			leadDays: source.leadDays === 'always' ? 0 : source.leadDays
+			text: savedText,
+			start: savedStart,
+			overrideEmoji: savedOverride,
+			period: savedPeriod === 'once' ? 'weekly' : savedPeriod,
+			leadMode: savedLeadDays === 'always' ? 'always' : 'days',
+			leadDays: savedLeadDays === 'always' ? 0 : savedLeadDays
 		};
 		error = '';
 	}

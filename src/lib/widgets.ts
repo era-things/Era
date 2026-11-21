@@ -1,6 +1,6 @@
 import type { CalendarData } from './data-export';
 import { isDateKey, type DateKey } from './calendar';
-import { validFoodItem, type FoodItem } from './nutrition';
+import { NUTRIENTS, validFoodItem, type FoodItem } from './nutrition';
 import { emptySleep, validSleep, type Sleep } from './sleep';
 import { validTime } from './duration';
 import type { ScreenApp } from './screen-apps';
@@ -19,6 +19,10 @@ export type WidgetKind = keyof WidgetKindValues;
 export const WIDGET_VISIBILITIES = ['pinned', 'available', 'with-data', 'hidden'] as const;
 export type WidgetVisibility = (typeof WIDGET_VISIBILITIES)[number];
 
+type WidgetDataContext = { automated: boolean; screenApps?: readonly ScreenApp[] };
+const hasPositiveValue = (value: number | null) => value !== null && value > 0;
+const initialSleep = emptySleep();
+
 type WidgetContract = {
 	[K in WidgetKind]: {
 		id: string;
@@ -27,6 +31,7 @@ type WidgetContract = {
 		placement: 'main' | 'time' | 'footer';
 		storage: { section: string; key?: string };
 		valid: (value: unknown) => value is WidgetKindValues[K];
+		hasData: (value: WidgetKindValues[K], context: WidgetDataContext) => boolean;
 		fields: readonly WidgetField[];
 		compact: boolean;
 		visibility: WidgetVisibility;
@@ -81,6 +86,7 @@ const timeWidget = <K extends keyof typeof WIDGET_ICONS>(id: K, name: string, sa
 	placement: 'time' as const,
 	storage: { section: 'time', key: id } as const,
 	valid: (value: unknown): value is number | null => value === null || validTime(value),
+	hasData: hasPositiveValue,
 	icon: WIDGET_ICONS[id],
 	fields: durationFields,
 	compact: false,
@@ -101,6 +107,8 @@ export const WIDGETS = [
 			Array.isArray(value) &&
 			value.every(validFoodItem) &&
 			new Set(value.map(({ id }) => id)).size === value.length,
+		hasData: (items) =>
+			items.some((item) => item.name.trim() !== '' || NUTRIENTS.some(({ key }) => item[key] > 0)),
 		fields: [{ name: 'items', type: 'array' }],
 		compact: false,
 		visibility: 'available',
@@ -117,6 +125,7 @@ export const WIDGETS = [
 		kind: 'counter',
 		placement: 'main',
 		...counterBehavior(false),
+		hasData: (value) => value !== null,
 		storage: { section: 'counters', key: 'weight' },
 		icon: WIDGET_ICONS.weight,
 		compact: true,
@@ -137,6 +146,7 @@ export const WIDGETS = [
 		kind: 'counter',
 		placement: 'main',
 		...counterBehavior(true),
+		hasData: hasPositiveValue,
 		storage: { section: 'counters', key: 'steps' },
 		icon: WIDGET_ICONS.steps,
 		compact: true,
@@ -157,6 +167,11 @@ export const WIDGETS = [
 		placement: 'time',
 		storage: { section: 'sleep' },
 		valid: validSleep,
+		hasData: (value, { automated }) =>
+			value.start !== null ||
+			value.end !== null ||
+			value.metrics !== undefined ||
+			(hasPositiveValue(value.duration) && (automated || value.duration !== initialSleep.duration)),
 		fields: [
 			{ name: 'startTime', type: 'time', nullable: true },
 			{ name: 'wakeUpTime', type: 'time', nullable: true },
@@ -169,10 +184,14 @@ export const WIDGETS = [
 			{ id: 'simple', name: 'Simple' },
 			{ id: 'lunar-seal', name: 'Lunar seal' }
 		],
-		initial: emptySleep(),
+		initial: initialSleep,
 		sample: { start: 1395, end: 405, duration: 450 } as Sleep
 	},
-	timeWidget('phone', 'Phone screen time', 135),
+	{
+		...timeWidget('phone', 'Phone screen time', 135),
+		hasData: (value: number | null, { screenApps }: WidgetDataContext) =>
+			hasPositiveValue(value) || !!screenApps?.length
+	},
 	timeWidget('gym', 'Gym time', 70),
 	timeWidget('reading', 'Reading time', 45),
 	timeWidget('movie', 'Movie time', 116),
@@ -184,6 +203,7 @@ export const WIDGETS = [
 		placement: 'footer',
 		storage: { section: 'notes' },
 		valid: (value: unknown) => typeof value === 'string',
+		hasData: (value) => value.trim() !== '',
 		fields: [{ name: 'text', type: 'string' }],
 		compact: false,
 		visibility: 'pinned',
@@ -322,9 +342,19 @@ export function setAutomatedWidgetValue<K extends WidgetId>(
 }
 export const isAttached = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	widgetValue(data, day, id) !== undefined;
-export function isVisible(data: WidgetData, day: DateKey, id: WidgetId) {
+export function isVisible<K extends WidgetId>(data: WidgetData, day: DateKey, id: K) {
 	const { visibility } = data.layout.widgets[id];
-	return visibility === 'pinned' || (visibility !== 'hidden' && isAttached(data, day, id));
+	if (visibility === 'pinned') return true;
+	if (visibility === 'hidden') return false;
+	const value = widgetValue(data, day, id);
+	if (value === undefined) return false;
+	if (visibility === 'available') return true;
+	const automated = data.automated[day]?.[id] !== undefined;
+	const hasData = widgetFor(id).hasData as (
+		value: WidgetValues[K],
+		context: WidgetDataContext
+	) => boolean;
+	return hasData(value, { automated, screenApps: automated ? data.screenApps[day] : undefined });
 }
 export const canAttachWidget = (data: WidgetData, day: DateKey, id: WidgetId) =>
 	data.layout.widgets[id].visibility === 'available' && !isAttached(data, day, id);
