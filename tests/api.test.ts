@@ -6,6 +6,7 @@ import { serializeDataExport } from '../src/lib/data-export';
 import { apiRequests } from '../src/lib/api-client';
 import { setWidgetValue, setWidgetSettings } from '../src/lib/widgets';
 import { createReminder } from '../src/lib/reminders';
+import { currentEraDay } from '../src/lib/server/era-day';
 
 function client() {
 	const store = openCalendar(':memory:');
@@ -33,6 +34,19 @@ function client() {
 		);
 	return { store, call };
 }
+
+test('the API reports the current Era date without caching it', async () => {
+	const { store, call } = client();
+	try {
+		const before = currentEraDay();
+		const response = await call('today');
+		expect(response.status).toBe(200);
+		expect(response.headers.get('cache-control')).toBe('no-store');
+		expect([before, currentEraDay()]).toContainEqual(await response.json());
+	} finally {
+		store.db.close();
+	}
+});
 
 test('import restores a complete Era backup into an empty calendar', async () => {
 	const { store, call } = client();

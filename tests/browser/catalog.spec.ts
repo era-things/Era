@@ -1,5 +1,5 @@
 import { test, expect, widgetVisibility } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 
 test('switching to With data hides an empty Reading widget and preserves the attachment', async ({
 	page,
@@ -21,7 +21,7 @@ test('switching to With data hides an empty Reading widget and preserves the att
 	await todayTab.click();
 	await expect(reading).toHaveCount(0);
 
-	const url = `/api/days/${localToday()}/widgets/reading`;
+	const url = `/api/days/${eraToday()}/widgets/reading`;
 	await expect
 		.poll(async () => (await (await request.get(url)).json()).visible)
 		.toBe(false);

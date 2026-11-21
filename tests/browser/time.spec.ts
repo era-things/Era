@@ -1,11 +1,11 @@
 import { test, expect, pinWidget } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { TIME_WIDGETS, setWidgetValue } from '../../src/lib/widgets';
 import { seedData } from './api-helpers';
 
 test('screen time shows the app name or opens a usage-share drawer', async ({ page, request }) => {
-	const path = `/api/days/${localToday()}/widgets/phone/automated`;
+	const path = `/api/days/${eraToday()}/widgets/phone/automated`;
 	const youTube = { package: 'com.youtube', name: 'YouTube', minutes: 45 };
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });
 	const phone = today.getByRole('region', { name: 'Phone screen time', exact: true });
@@ -59,7 +59,7 @@ test('screen time shows the app name or opens a usage-share drawer', async ({ pa
 test('time widgets form one block, edit and persist, and support pinning per activity', async ({
 	page
 }) => {
-	const date = localToday();
+	const date = eraToday();
 	let data = setWidgetValue(emptyCalendar(), date, 'sleep', {
 		start: 1395,
 		end: 405,

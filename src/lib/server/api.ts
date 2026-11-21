@@ -1,4 +1,5 @@
 import { calendar } from './database';
+import { currentEraDay } from './era-day';
 import { BackupChanged, InvalidBackup, previewBackup, restoreBackup } from './backup';
 import {
 	ApiError,
@@ -47,6 +48,7 @@ function importData({ store, body, headers }: ApiContext) {
 }
 
 const routes: ApiRoute[] = [
+	{ pattern: /^today$/, methods: { GET: () => reply(currentEraDay()) } },
 	{ pattern: /^data$/, methods: { GET: ({ store }) => reply(store.read()) } },
 	{ pattern: /^data\/import$/, methods: { POST: importData } },
 	{

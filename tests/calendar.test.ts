@@ -6,7 +6,7 @@ import {
 	daysBetween,
 	daysInYear,
 	formatDate,
-	localToday,
+	eraToday,
 	daysInRange,
 	relativeDay,
 	weekdayOffset
@@ -52,8 +52,20 @@ test('the timeline is continuous across leap days and year boundaries', () => {
 	}
 });
 
-test('today uses local calendar parts and labels use date-only values', () => {
-	assert.equal(localToday(new Date(2026, 9, 30, 23, 59)), '2026-10-30');
+test('Era Today rolls at 04:00 in its timezone, including at a year boundary', () => {
+	for (const [instant, day] of [
+		['2026-12-31T20:59:59.999Z', '2026-12-31'],
+		['2026-12-31T21:00:00.000Z', '2026-12-31'],
+		['2027-01-01T00:59:59.999Z', '2026-12-31'],
+		['2027-01-01T01:00:00.000Z', '2027-01-01']
+	]) {
+		assert.equal(eraToday(new Date(instant)), day);
+	}
+	assert.equal(eraToday(new Date('2026-03-08T07:59:59Z'), 'America/New_York'), '2026-03-07');
+	assert.equal(eraToday(new Date('2026-03-08T08:00:00Z'), 'America/New_York'), '2026-03-08');
+});
+
+test('relative labels use date-only values', () => {
 	assert.equal(formatDate('2026-10-30'), 'Friday, October 30, 2026');
 	assert.equal(relativeDay('2026-10-30', '2026-10-30'), 'Today');
 	assert.equal(relativeDay('2026-10-29', '2026-10-30'), 'Yesterday');

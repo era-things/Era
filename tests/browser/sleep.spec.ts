@@ -1,8 +1,8 @@
 import { test, expect, pinWidget, widgetVisibility } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 
 test('sleep quality appears at the right edge only when reported', async ({ page, request }) => {
-	const path = `/api/days/${localToday()}/widgets/sleep/automated`;
+	const path = `/api/days/${eraToday()}/widgets/sleep/automated`;
 	const times = { startTime: '21:00', wakeUpTime: '08:00' };
 	const report = async (score?: number) => {
 		const response = await request.put(path, {

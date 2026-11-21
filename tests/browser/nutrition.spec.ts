@@ -1,5 +1,5 @@
 import { writeData } from './api-helpers';
-import { localToday } from '../../src/lib/calendar';
+import { addDays, eraToday } from '../../src/lib/calendar';
 import { setWidgetSettings } from '../../src/lib/widgets';
 import { test, expect, pinWidget, widgetVisibility } from './fixtures';
 
@@ -76,7 +76,7 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	await expect(quantity).toHaveText('×2');
 	await quantity.dblclick();
 	await editQuantity.fill('2.35');
-	const items = `/api/days/${localToday()}/widgets/nutrition/items`;
+	const items = `/api/days/${eraToday()}/widgets/nutrition/items`;
 	const external = { name: 'Snack', quantity: 1, kcal: 125, protein: 0, fat: 0, carbs: 0 };
 	expect((await request.put(`${items}/snack`, { data: external })).ok()).toBe(true);
 	const save = page.waitForResponse((response) =>
@@ -132,11 +132,8 @@ test('copy a previous nutrition item without crypto.randomUUID', async ({ page }
 		Object.defineProperty(crypto, 'randomUUID', { value: undefined });
 	});
 	{
-		const key = (offset: number) => {
-			const date = new Date();
-			date.setDate(date.getDate() + offset);
-			return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-		};
+		const today = eraToday();
+		const key = (offset: number) => addDays(today, offset);
 		const item = {
 			id: 'source',
 			name: 'Porridge',

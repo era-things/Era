@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { localToday } from '../calendar';
+	import type { DateKey } from '../calendar';
 	import { serializeDataExport, type BackupPreview, type CalendarData } from '../data-export';
 	let {
+		today,
 		readExport,
 		previewImport,
 		importBackup
 	}: {
+		today: DateKey;
 		readExport: () => Promise<CalendarData>;
 		previewImport: (body: string) => Promise<BackupPreview>;
 		importBackup: (body: string, preview: BackupPreview) => Promise<BackupPreview | undefined>;
@@ -23,7 +25,7 @@
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement('a');
 			link.href = url;
-			link.download = `era-${localToday()}.json`;
+			link.download = `era-${today}.json`;
 			link.click();
 			setTimeout(() => URL.revokeObjectURL(url), 1000);
 			error = '';

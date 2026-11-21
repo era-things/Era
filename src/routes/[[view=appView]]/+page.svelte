@@ -26,7 +26,7 @@
 	import {
 		addDays,
 		daysInRange,
-		localToday,
+		eraToday,
 		relativeDay,
 		yearOf,
 		type DateKey
@@ -174,8 +174,13 @@
 	});
 
 	onMount(() => {
+		const minuteMs = 60_000;
+		let timer: number | undefined;
 		const refreshToday = () => {
-			browserToday = localToday();
+			const now = new Date();
+			browserToday = eraToday(now, data.timeZone);
+			window.clearTimeout(timer);
+			timer = window.setTimeout(refreshToday, minuteMs - (now.getTime() % minuteMs));
 		};
 		refreshToday();
 		const disconnectSync = sync.connect();
@@ -199,8 +204,8 @@
 		});
 		resizeObserver.observe(viewport);
 
-		const timer = window.setInterval(refreshToday, 60_000);
 		window.addEventListener('focus', refreshToday);
+		document.addEventListener('visibilitychange', refreshToday);
 		window.addEventListener('pagehide', saveView);
 		return () => {
 			saveView();
@@ -208,8 +213,9 @@
 			positioning++;
 			resizeObserver.disconnect();
 			clearTimeout(saveTimer);
-			window.clearInterval(timer);
+			window.clearTimeout(timer);
 			window.removeEventListener('focus', refreshToday);
+			document.removeEventListener('visibilitychange', refreshToday);
 			window.removeEventListener('pagehide', saveView);
 		};
 	});
@@ -553,6 +559,6 @@
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel {readExport} {previewImport} {importBackup} />
+		<SettingsPanel {today} {readExport} {previewImport} {importBackup} />
 	{/if}
 </main>

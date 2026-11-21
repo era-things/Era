@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { setWidgetSettings, setWidgetValue, widgetFor } from '../../src/lib/widgets';
 import { seedData } from '../browser/api-helpers';
 
 test('capture compact counters and their appearance previews', async ({ page }, testInfo) => {
-	const today = localToday();
+	const today = eraToday();
 	let data = setWidgetValue(emptyCalendar(), today, 'nutrition', [
 		...widgetFor('nutrition').sample
 	]);

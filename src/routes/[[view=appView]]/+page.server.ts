@@ -1,8 +1,8 @@
 import { calendar } from '../../lib/server/database';
+import { currentEraDay } from '../../lib/server/era-day';
 import type { PageServerLoad } from './$types';
 
-// Render a complete overview on the server. The browser refines "today" to its local date.
-export const load: PageServerLoad = () => ({
-	calendar: calendar().read(),
-	today: new Date().toISOString().slice(0, 10)
-});
+export const load: PageServerLoad = () => {
+	const { date: today, timeZone } = currentEraDay();
+	return { calendar: calendar().read(), today, timeZone };
+};

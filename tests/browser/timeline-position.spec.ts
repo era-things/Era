@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { addDays, localToday } from '../../src/lib/calendar';
+import { addDays, eraToday } from '../../src/lib/calendar';
 
 async function ready(page: Page) {
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -97,7 +97,7 @@ test('resizing and reloading with a different width preserves the visible date',
 }) => {
 	await page.goto('/');
 	await ready(page);
-	const anchor = page.locator(`#day-${addDays(localToday(), -730)}`);
+	const anchor = page.locator(`#day-${addDays(eraToday(), -730)}`);
 	await anchor.evaluate(async (day) => {
 		day.scrollIntoView({ block: 'center', inline: 'center' });
 		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));

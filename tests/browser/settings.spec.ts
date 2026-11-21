@@ -1,13 +1,13 @@
 import { test, expect } from './fixtures';
 import { emptyCalendar } from '../../src/lib/calendar-records';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 import { serializeDataExport } from '../../src/lib/data-export';
 
 test('Settings previews an import and merges only the supplied daily values', async ({
 	page,
 	request
 }) => {
-	const day = localToday();
+	const day = eraToday();
 	const widgets = `/api/days/${day}/widgets`;
 	expect((await request.put(`${widgets}/steps/automated`, { data: { value: 100 } })).ok()).toBe(
 		true

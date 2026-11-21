@@ -1,11 +1,11 @@
 import { test, expect } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 
 test('GitHub shows daily totals and expands when repository details arrive', async ({
 	page,
 	request
 }) => {
-	const url = `/api/days/${localToday()}/github-activity`;
+	const url = `/api/days/${eraToday()}/github-activity`;
 	const repoUrl = 'https://github.com/era-things/Era';
 	const totals = { commits: 6, additions: 418, deletions: 92 };
 	const today = page.getByRole('complementary', { name: 'Today', exact: true });

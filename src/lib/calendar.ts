@@ -15,8 +15,22 @@ const fullDate = new Intl.DateTimeFormat('en-US', {
 	timeZone: 'UTC'
 });
 
-export function localToday(now = new Date()): DateKey {
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+export const DEFAULT_ERA_TIME_ZONE = 'Europe/Moscow';
+const DAY_START_HOUR = 4;
+
+export function eraToday(now = new Date(), timeZone = DEFAULT_ERA_TIME_ZONE): DateKey {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		hourCycle: 'h23'
+	}).formatToParts(now);
+	const part = (type: Intl.DateTimeFormatPartTypes) =>
+		parts.find((part) => part.type === type)!.value;
+	const date = `${part('year').padStart(4, '0')}-${part('month')}-${part('day')}`;
+	return Number(part('hour')) < DAY_START_HOUR ? addDays(date, -1) : date;
 }
 
 export function asDate(key: DateKey): Date {

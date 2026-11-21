@@ -34,6 +34,19 @@ test('each view opens directly and Today survives reload at its own URL', async 
 	expect((await page.request.get('/%74oday')).status()).toBe(200);
 });
 
+test('Today advances at 04:00 in an open tab', async ({ page }) => {
+	await page.clock.install({ time: new Date('2027-01-01T00:55:00Z') });
+	await page.clock.pauseAt(new Date('2027-01-01T00:59:59Z'));
+	await page.goto('/today');
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	const today = page.getByRole('complementary', { name: 'Today', exact: true });
+	await expect(today.locator('time')).toHaveAttribute('datetime', '2026-12-31');
+	await page.clock.runFor(999);
+	await expect(today.locator('time')).toHaveAttribute('datetime', '2026-12-31');
+	await page.clock.runFor(1);
+	await expect(today.locator('time')).toHaveAttribute('datetime', '2027-01-01');
+});
+
 test('tab links create history entries and keyboard navigation follows the URL', async ({
 	page
 }) => {

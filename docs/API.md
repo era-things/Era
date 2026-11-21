@@ -7,6 +7,13 @@ unauthenticated and intended for use on a private LAN.
 A successful write replaces the addressed value using the latest backend state.
 Writes are validated and committed in a SQLite transaction.
 
+## Today's date
+
+`GET /api/today` returns `{"date":"2026-11-20","timeZone":"Europe/Moscow"}` when
+Era considers November 20 to be Today. The date rolls over at 04:00 in the server's
+configured Era timezone. Use this date for writes intended for Today. Explicit
+dates in write URLs refer to their stated calendar dates.
+
 ## Discover widgets and settings
 
 | Method | Path           | Result                                                                                                                |

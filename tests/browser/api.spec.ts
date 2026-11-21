@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 
 test('an HTTP agent can discover widgets, create a measure, and populate values visible in the app', async ({
 	page,
@@ -10,7 +10,7 @@ test('an HTTP agent can discover widgets, create a measure, and populate values 
 	expect(
 		(await request.patch('/api/widgets/reading', { data: { visibility: 'pinned' } })).ok()
 	).toBe(true);
-	const date = localToday();
+	const date = eraToday();
 	const url = `/api/days/${date}/widgets/reading`;
 	const crossSite = await request.delete(url, { headers: { origin: 'https://example.com' } });
 	expect(crossSite.status()).toBe(403);
@@ -47,7 +47,7 @@ test('an HTTP agent can discover widgets, create a measure, and populate values 
 
 test('external writes remain hidden until the widget is restored', async ({ page, request }) => {
 	await request.patch('/api/widgets/gym', { data: { visibility: 'hidden' } });
-	const url = `/api/days/${localToday()}/widgets/gym/automated`;
+	const url = `/api/days/${eraToday()}/widgets/gym/automated`;
 	expect((await request.put(url, { data: { durationMinutes: 60 } })).status()).toBe(204);
 	await page.goto('/today');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -68,7 +68,7 @@ test('the dashboard shows the latest sync while Era preserves manual entries', a
 	page,
 	request
 }) => {
-	const url = `/api/days/${localToday()}/widgets/phone`;
+	const url = `/api/days/${eraToday()}/widgets/phone`;
 	const report = async (durationMinutes: number) =>
 		request.put(`${url}/automated`, { data: { durationMinutes } });
 	expect((await request.put(url, { data: { durationMinutes: 180 } })).ok()).toBe(true);

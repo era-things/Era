@@ -164,8 +164,10 @@ merge. For a live database backup use SQLite's online backup facility or
 - Fixed toolbar and date readout; the grid scrolls on both axes on narrow screens.
 
 Calendar arithmetic uses date-only keys and UTC to avoid daylight saving errors.
-The server initially seeds today in UTC. After hydration the browser uses its
-local calendar date, refreshing every minute and on window focus.
+Era's day starts at 04:00 in the app's timezone. From midnight until 04:00,
+Today still refers to the previous date. The default timezone is Europe/Moscow.
+Set `ERA_TIME_ZONE` to an IANA timezone on the server to change it. The app and
+`GET /api/today` use the same rule, and an open tab updates at the cutoff.
 
 ## Project map
 

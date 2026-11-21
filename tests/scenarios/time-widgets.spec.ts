@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { TIME_WIDGETS, setWidgetValue, widgetFor } from '../../src/lib/widgets';
 import { seedData } from '../browser/api-helpers';
 
 test('capture populated and empty time widgets on Today', async ({ page }, testInfo) => {
-	const today = localToday();
+	const today = eraToday();
 	let data = setWidgetValue(emptyCalendar(), today, 'sleep', widgetFor('sleep').sample);
 	for (const widget of TIME_WIDGETS) {
 		data = setWidgetValue(data, today, widget.id, widget.id === 'gym' ? null : widget.sample);

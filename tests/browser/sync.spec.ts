@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { localToday } from '../../src/lib/calendar';
+import { eraToday } from '../../src/lib/calendar';
 import { createReminder } from '../../src/lib/reminders';
 
 test('saved edits refresh another tab and failed writes can be retried', async ({
@@ -38,7 +38,7 @@ test('saved edits refresh another tab and failed writes can be retried', async (
 });
 
 test('pushed updates preserve a draft for a different reminder', async ({ page, request }) => {
-	const existing = createReminder('Existing reminder', localToday());
+	const existing = createReminder('Existing reminder', eraToday());
 	expect((await request.put('/api/reminders/' + existing.id, { data: existing })).ok()).toBe(true);
 	await page.goto('/reminders');
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
@@ -47,7 +47,7 @@ test('pushed updates preserve a draft for a different reminder', async ({ page, 
 	const draft = reminders.getByRole('textbox', { name: 'Text', exact: true });
 	await draft.fill('Draft in progress');
 
-	const added = createReminder('Added remotely', localToday());
+	const added = createReminder('Added remotely', eraToday());
 	expect((await request.put('/api/reminders/' + added.id, { data: added })).ok()).toBe(true);
 	await expect(reminders.getByText(added.text, { exact: true })).toBeVisible();
 	await expect(draft).toHaveValue('Draft in progress');
@@ -91,7 +91,7 @@ test('live widgets highlight changes and animate their rows and drawers', async 
 			);
 		}
 	});
-	const day = `/api/days/${localToday()}/widgets`;
+	const day = `/api/days/${eraToday()}/widgets`;
 	const reading = `${day}/reading`;
 	expect((await request.put(reading, { data: { durationMinutes: 25 } })).ok()).toBe(true);
 	await expect(main).toHaveAttribute('data-motion', /\|introend:time\|/);
@@ -118,7 +118,7 @@ test('live widgets highlight changes and animate their rows and drawers', async 
 	expect((await request.delete(`${items}/snack`)).ok()).toBe(true);
 	await expect(main).toHaveAttribute('data-motion', /\|outroend:Nutrition items\|/);
 
-	const gitHub = `/api/days/${localToday()}/github-activity`;
+	const gitHub = `/api/days/${eraToday()}/github-activity`;
 	const totals = { commits: 1, additions: 20, deletions: 5 };
 	expect(
 		(
