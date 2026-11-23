@@ -90,7 +90,7 @@
 					>
 						<span class="name">{item.name}</span>
 						<span class="nutrients"
-							>{#each NUTRIENTS as nutrient}<span>{item[nutrient.key]} {nutrient.shortLabel}</span
+							>{#each NUTRIENTS as nutrient}<span>{Math.round(item[nutrient.key])} {nutrient.shortLabel}</span
 								>{/each}</span
 						>
 					</button>

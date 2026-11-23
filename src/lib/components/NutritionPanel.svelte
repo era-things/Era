@@ -21,7 +21,7 @@
 	let itemsOpen = $state(false);
 	const itemsId = $props.id();
 	const totals = $derived(nutritionTotals(items));
-	const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+	const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 	function add(source?: FoodItem) {
 		const item: FoodItem = {
 			name: '',

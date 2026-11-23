@@ -30,12 +30,15 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	const protein = today.getByRole('spinbutton', { name: 'Protein of Lunch', exact: true });
 	await protein.fill('12.5');
 	await protein.press('Enter');
+	await expect(protein).toHaveValue('13');
+	await protein.focus();
+	await expect(protein).toHaveValue('12.5');
 	await kcal.fill('999');
 	await kcal.press('Escape');
 	await expect(kcal).toHaveValue('100');
 	await protein.fill('-1');
 	await protein.press('Tab');
-	await expect(protein).toHaveValue('12.5');
+	await expect(protein).toHaveValue('13');
 	const totals = today.locator('dl[aria-label="Day nutrition totals"]');
 	await expect(totals).toContainText('100');
 	const quantity = today.getByRole('button', { name: /Quantity of Lunch, currently/ });
@@ -89,10 +92,11 @@ test('nutrition rows support inline editing, persistence and quantity deletion',
 	expect(saved.request().postDataJSON()).toEqual({ quantity: 2.35 });
 	await expect(quantity).toHaveText('×2.35');
 	await expect(totals).toContainText('360');
-	await expect(totals).toContainText('29.38');
+	await expect(totals).toContainText('29');
 	await expect(kcal).toHaveValue('100');
 	const list = await (await request.get(items)).json();
 	expect(list.items).toContainEqual({ ...external, id: 'snack' });
+	expect(list.items).toContainEqual(expect.objectContaining({ name: 'Lunch', protein: 12.5 }));
 	expect((await request.delete(`${items}/snack`)).status()).toBe(204);
 	await expect(totals).toContainText('235');
 
@@ -138,10 +142,10 @@ test('copy a previous nutrition item without crypto.randomUUID', async ({ page }
 			id: 'source',
 			name: 'Porridge',
 			quantity: 3,
-			kcal: 250,
+			kcal: 249.6,
 			protein: 12,
 			fat: 6,
-			carbs: 35
+			carbs: 35.496
 		};
 		const before = await (await page.request.get('/api/data')).json();
 		const next = {
@@ -167,11 +171,15 @@ test('copy a previous nutrition item without crypto.randomUUID', async ({ page }
 	await search.fill('other');
 	await expect(menu).toContainText('No matching items');
 	await search.fill('porr');
+	await expect(menu.getByRole('button', { name: /Porridge/ })).toContainText('250 kcal');
 	await menu.getByRole('button', { name: /Porridge/ }).click();
 	await expect(menu).toHaveCount(0);
 	await expect(
 		today.getByRole('button', { name: 'Quantity of Porridge, currently 1', exact: true })
 	).toBeVisible();
+	await expect(today.locator('dl[aria-label="Day nutrition totals"] dd')).toHaveText([
+		'250', '12', '6', '35'
+	]);
 	for (const [label, value] of [
 		['kcal', '250'],
 		['Protein', '12'],
@@ -190,6 +198,7 @@ test('copy a previous nutrition item without crypto.randomUUID', async ({ page }
 		) as any;
 	expect(copied.id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
 	expect(copied.quantity).toBe(1);
+	expect(copied.kcal).toBe(249.6);
 	expect(days[Object.keys(days).sort()[1]][0].quantity).toBe(3);
 	await history.click();
 	await today.getByRole('heading', { name: 'Nutrition', exact: true }).click();

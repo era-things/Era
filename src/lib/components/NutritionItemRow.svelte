@@ -34,11 +34,20 @@
 	onMount(() => {
 		if (autofocus) nameInput.focus();
 	});
-	function commit(field: 'name' | keyof Nutrients, input: HTMLInputElement) {
-		const value = field === 'name' ? input.value.trim() : input.valueAsNumber;
-		if (input.checkValidity() && value !== item[field] && onchange({ ...item, [field]: value }))
-			return;
-		input.value = String(item[field]);
+	function commitName(input: HTMLInputElement) {
+		const name = input.value.trim();
+		if (input.validity.valid && name !== item.name && onchange({ ...item, name })) return;
+		input.value = item.name;
+	}
+	function commitNutrient(field: keyof Nutrients, input: HTMLInputElement) {
+		const previous = item[field];
+		const value = input.valueAsNumber;
+		const saved =
+			!readonly &&
+			input.validity.valid &&
+			value !== previous &&
+			onchange({ ...item, [field]: value });
+		input.value = String(Math.round(saved ? value : previous));
 	}
 	function keydown(event: KeyboardEvent, value: string | number) {
 		const input = event.currentTarget as HTMLInputElement;
@@ -160,7 +169,7 @@
 			value={item.name}
 			{readonly}
 			maxlength="120"
-			onblur={(event) => commit('name', event.currentTarget)}
+			onblur={(event) => commitName(event.currentTarget)}
 			onkeydown={(event) => keydown(event, item.name)}
 		/></td
 	>
@@ -177,9 +186,12 @@
 				step="any"
 				inputmode="decimal"
 				required
-				value={item[nutrient.key]}
+				value={Math.round(item[nutrient.key])}
 				{readonly}
-				onblur={(event) => commit(nutrient.key, event.currentTarget)}
+				onfocus={(event) => {
+					if (!readonly) event.currentTarget.value = String(item[nutrient.key]);
+				}}
+				onblur={(event) => commitNutrient(nutrient.key, event.currentTarget)}
 				onkeydown={(event) => keydown(event, item[nutrient.key])}
 			/></td
 		>

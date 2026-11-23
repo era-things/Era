@@ -43,8 +43,7 @@ export function validFoodItem(value: unknown): value is FoodItem {
 export function nutritionTotals(items: FoodItem[]): Nutrients {
 	const totals: Nutrients = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
 	for (const { key } of NUTRIENTS) {
-		totals[key] =
-			Math.round(items.reduce((sum, item) => sum + item[key] * item.quantity, 0) * 100) / 100;
+		totals[key] = items.reduce((sum, item) => sum + item[key] * item.quantity, 0);
 	}
 	return totals;
 }

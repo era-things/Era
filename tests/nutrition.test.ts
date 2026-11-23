@@ -46,13 +46,11 @@ test('nutrition totals follow additions, edits and removal, including decimal ma
 		fat: 14.5,
 		carbs: 75.2
 	});
-	assert.equal(
-		nutritionTotals([
-			{ ...snack, protein: 0.1 },
-			{ ...snack, protein: 0.2 }
-		]).protein,
-		0.3
-	);
+	const { protein } = nutritionTotals([
+		{ ...snack, protein: 0.1 },
+		{ ...snack, protein: 0.2 }
+	]);
+	assert.ok(Math.abs(protein - 0.3) < Number.EPSILON);
 	assert.equal(nutritionTotals([{ ...lunch, kcal: 600 }, snack]).kcal, 700);
 	assert.equal(nutritionTotals([snack]).kcal, 100);
 });
@@ -71,7 +69,7 @@ test('quantities multiply every nutrient and allow positive values with up to tw
 	assert.equal(validFoodItem({ ...lunch, quantity: Number.MAX_SAFE_INTEGER }), true);
 	assert.deepEqual(nutritionTotals([fraction]), {
 		kcal: 112.5,
-		protein: 6.38,
+		protein: 6.375,
 		fat: 3,
 		carbs: 13.75
 	});
