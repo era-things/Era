@@ -132,7 +132,9 @@ test('import restores a complete Era backup into an empty calendar', async () =>
 		data.counters[day] = { steps: 0, weight: 72.5 };
 		data.sleep[day] = { start: 1395, end: 420, duration: 465 };
 		data.githubActivity[day] = {
-			commits: 1, additions: 8, deletions: 2,
+			commits: 1,
+			additions: 8,
+			deletions: 2,
 			repositories: [
 				{
 					name: 'era-things/Era',
@@ -283,7 +285,9 @@ test('GitHub activity stores validated daily totals and replaces them on replay'
 			'/era-things/Era',
 			'https://user:secret@github.com/era-things/Era'
 		]) {
-			expect((await call(path, 'PUT', { ...value, repositories: [{ ...repo, url }] })).status).toBe(400);
+			expect((await call(path, 'PUT', { ...value, repositories: [{ ...repo, url }] })).status).toBe(
+				400
+			);
 		}
 		expect(await (await call(path)).json()).toEqual({ date, value: detailed });
 	} finally {
@@ -296,11 +300,15 @@ test('automated phone writes store and replace daily app usage alongside the tot
 	const day = '2026-11-17';
 	const path = `days/${day}/widgets/phone`;
 	const automated = `${path}/automated`;
-	const apps = [{ package: 'com.example.app', name: 'Example', minutes: 12, lastUsed: '2026-11-17T23:45:00Z' }];
+	const apps = [
+		{ package: 'com.example.app', name: 'Example', minutes: 12, lastUsed: '2026-11-17T23:45:00Z' }
+	];
 	try {
 		expect((await call(automated, 'PUT', { durationMinutes: 40, apps })).status).toBe(204);
 		expect((await call(automated, 'PUT', { durationMinutes: 42 })).status).toBe(204);
-		expect((await call(automated, 'PUT', { durationMinutes: 90, apps: [...apps, ...apps] })).status).toBe(400);
+		expect(
+			(await call(automated, 'PUT', { durationMinutes: 90, apps: [...apps, ...apps] })).status
+		).toBe(400);
 		const { automatedValue, value } = await (await call(path)).json();
 		expect(value).toEqual({ durationMinutes: 42 });
 		expect(automatedValue).toEqual({ durationMinutes: 42, apps });
@@ -322,8 +330,9 @@ test('phone app item writes preserve the automated duration and neighboring apps
 	const other = { package: 'com.example.other', name: 'Other', minutes: 3 };
 	try {
 		expect((await call(app, 'PUT', example)).status).toBe(409);
-		expect((await call(`${widget}/automated`, 'PUT', { durationMinutes: 40, apps: [other] })).status)
-			.toBe(204);
+		expect(
+			(await call(`${widget}/automated`, 'PUT', { durationMinutes: 40, apps: [other] })).status
+		).toBe(204);
 		expect((await call(app, 'PUT', example)).status).toBe(200);
 		expect((await call(app, 'PUT', example)).status).toBe(200);
 		expect((await call(app, 'PATCH', { minutes: 20 })).status).toBe(200);
@@ -353,13 +362,20 @@ test('GitHub repository item writes preserve daily totals and match names case-i
 	const repo = `${repositories}/era-things/Era`;
 	const totals = { commits: 5, additions: 140, deletions: 12 };
 	const other = { name: 'Other', commits: 1, additions: 100, deletions: 4 };
-	const detail = { commits: 2, additions: 10, deletions: 3, url: 'https://github.com/era-things/Era' };
+	const detail = {
+		commits: 2,
+		additions: 10,
+		deletions: 3,
+		url: 'https://github.com/era-things/Era'
+	};
 	try {
 		expect((await call(repo, 'PUT', detail)).status).toBe(409);
 		expect((await call(activity, 'PUT', { ...totals, repositories: [other] })).status).toBe(204);
 		expect((await call(repo, 'PUT', detail)).status).toBe(200);
-		expect(await (await call(`${repositories}/ERA-THINGS/era`, 'PUT', detail)).json())
-			.toEqual({ name: 'era-things/Era', ...detail });
+		expect(await (await call(`${repositories}/ERA-THINGS/era`, 'PUT', detail)).json()).toEqual({
+			name: 'era-things/Era',
+			...detail
+		});
 		const update = await call(`${repositories}/ERA-THINGS/era`, 'PATCH', { additions: 22 });
 		const updated = { name: 'era-things/Era', ...detail, additions: 22 };
 		expect(await update.json()).toEqual(updated);
@@ -386,9 +402,14 @@ test('automated sleep metrics persist independently of the clock duration', asyn
 	const clocks = { startTime: '23:00', wakeUpTime: '07:00' };
 	const metrics = { asleepMinutes: 440, awakeMinutes: 25, score: 83 };
 	try {
-		expect((await call(`${path}/automated`, 'PUT', {
-			...clocks, metrics: { ...metrics, score: 101 }
-		})).status).toBe(400);
+		expect(
+			(
+				await call(`${path}/automated`, 'PUT', {
+					...clocks,
+					metrics: { ...metrics, score: 101 }
+				})
+			).status
+		).toBe(400);
 		expect((await call(`${path}/automated`, 'PUT', { ...clocks, metrics })).status).toBe(204);
 		const { automatedValue } = await (await call(path)).json();
 		expect(automatedValue).toEqual({ ...clocks, durationMinutes: 480, metrics });
@@ -544,7 +565,10 @@ test('hidden widgets accept manual and automated API writes without appearing on
 	const path = `${day}/widgets/weight`;
 	try {
 		expect((await call('widgets/weight', 'PATCH', { visibility: 'sometimes' })).status).toBe(400);
-		const response = await call('widgets/weight', 'PATCH', { visibility: 'hidden', skin: 'display' });
+		const response = await call('widgets/weight', 'PATCH', {
+			visibility: 'hidden',
+			skin: 'display'
+		});
 		expect((await response.json()).settings).toEqual({ visibility: 'hidden', skin: 'display' });
 		expect((await call(path, 'PUT', { value: 72.5 })).status).toBe(200);
 		expect((await call(`${path}/automated`, 'PUT', { value: 73 })).status).toBe(204);
@@ -630,7 +654,10 @@ test('nutrition item writes preserve neighboring entries and concurrent changes'
 		expect((await call(`${items}/lunch`)).status).toBe(404);
 		expect(await (await call(items)).json()).toEqual({ items: [{ ...snack, id: 'snack' }] });
 		expect((await call(`${items}/snack`, 'DELETE')).status).toBe(204);
-		expect(await (await call(widget)).json()).toMatchObject({ attached: true, value: { items: [] } });
+		expect(await (await call(widget)).json()).toMatchObject({
+			attached: true,
+			value: { items: [] }
+		});
 	} finally {
 		store.db.close();
 	}
@@ -647,7 +674,10 @@ test('UI semantic requests reproduce all app data and can be retried safely', as
 		]);
 		next = setWidgetValue(next, '2026-11-17', 'weight', null);
 		next = setWidgetValue(next, '2026-11-17', 'sleep', { start: 1380, end: 390, duration: 450 });
-		next.layout = setWidgetSettings(next.layout, 'steps', { skin: 'pedometer', visibility: 'pinned' });
+		next.layout = setWidgetSettings(next.layout, 'steps', {
+			skin: 'pedometer',
+			visibility: 'pinned'
+		});
 		next.emojis = { '2026-11-17': '⭐' };
 		next.measures = {
 			definitions: [{ id: 'read', name: 'Read', type: 'boolean', palette: 'green' }],
