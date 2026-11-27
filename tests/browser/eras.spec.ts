@@ -1,10 +1,95 @@
-import { addDays, asDate, yearOf } from '../../src/lib/calendar';
+import { addDays, asDate, weekdayOffset, yearOf } from '../../src/lib/calendar';
 import { emptyCalendar } from '../../src/lib/calendar-records';
 import { VIEW_STORAGE_KEY, type SavedView } from '../../src/lib/view-state';
 import { seedData } from './api-helpers';
 import { test, expect } from './fixtures';
 
 const extendedTimelineTest = test.extend({ timelineDays: 300 });
+
+extendedTimelineTest(
+	'weekly era hours stack under their Monday column and follow era filters',
+	async ({ page, request }) => {
+		const { date: today } = await (await request.get('/api/today')).json();
+		const monday = addDays(today, -weekdayOffset(today) - 7);
+		const tuesday = addDays(monday, 1);
+		const wednesday = addDays(monday, 2);
+		const previousSunday = addDays(monday, -1);
+		await seedData(request, {
+			...emptyCalendar(),
+			eras: [
+				{
+					id: 'project',
+					name: 'Project',
+					description: '',
+					archived: false,
+					linkedValue: 'hours',
+					palette: 'blue'
+				},
+				{
+					id: 'training',
+					name: 'Training',
+					description: '',
+					archived: false,
+					linkedValue: 'hours',
+					palette: 'green'
+				},
+				{
+					id: 'steps',
+					name: 'Steps',
+					description: '',
+					archived: false,
+					linkedValue: 'number',
+					palette: 'rose'
+				}
+			],
+			eraDays: {
+				[previousSunday]: { project: { values: { hours: 60 } } },
+				[monday]: {
+					project: { values: { hours: 120 } },
+					steps: { values: { number: 5000, hours: 90 } }
+				},
+				[tuesday]: { project: { values: { hours: 60 } }, training: { values: { hours: 60 } } },
+				[wednesday]: { project: { marked: true } }
+			}
+		});
+		await page.goto('/eras');
+		const chart = page.getByRole('img', { name: 'Weekly hours by era' });
+		const project = chart.locator('[fill="#91b5d9"]');
+		const training = chart.locator('[fill="#9abb8b"]');
+		await expect(project).toHaveCount(2);
+		await expect(training).toHaveCount(1);
+		await expect(chart.locator('[fill="#d69aa8"]')).toHaveCount(0);
+		await expect(page.locator('#day-' + wednesday)).toHaveCSS('--era-fill', '#91b5d9');
+		await training.scrollIntoViewIfNeeded();
+
+		const day = (await page.locator('#day-' + monday).boundingBox())!;
+		const projectBar = (await project.last().boundingBox())!;
+		const trainingBar = (await training.boundingBox())!;
+		expect(trainingBar.x + trainingBar.width / 2).toBeCloseTo(day.x + day.width / 2, 0);
+		expect(trainingBar.width).toBeCloseTo(day.width, 0);
+		expect(projectBar.y).toBeCloseTo(trainingBar.y + trainingBar.height, 0);
+		await training.hover();
+		await expect(page.getByText('Project · 3h 00m')).toBeVisible();
+		await expect(page.getByText('Total · 4h 00m')).toBeVisible();
+		const selector = page.getByRole('navigation', { name: 'Eras', exact: true });
+		await selector.getByRole('button', { name: 'All', exact: true }).click();
+		await selector.getByRole('button', { name: 'Project', exact: true }).click();
+		await expect(project).toHaveCount(0);
+		await expect(training).toHaveCount(1);
+		await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+		await training.scrollIntoViewIfNeeded();
+		await expect
+			.poll(async () => {
+				const week = (await page.locator('#day-' + monday).boundingBox())!;
+				const bar = (await training.boundingBox())!;
+				return Math.max(
+					Math.abs(bar.x + bar.width / 2 - week.x - week.width / 2),
+					Math.abs(bar.width - week.width)
+				);
+			})
+			.toBeLessThan(0.5);
+	}
+);
 
 test('grid range marking can be undone and desktop sidebar width is remembered', async ({
 	page,
@@ -359,10 +444,13 @@ extendedTimelineTest(
 		await expect(stackTab).toBeFocused();
 		await expect(drawer).toBeVisible();
 		await expect(day).toBeHidden();
-		const reset = selector.getByRole('button', { name: 'Default' });
-		const project = selector.getByRole('button', { name: 'Pet Project' });
-		const winter = selector.getByRole('button', { name: 'Winter Arc' });
-		await expect(reset).toHaveAttribute('aria-pressed', 'true');
+		const trigger = selector.locator('button[aria-expanded]');
+		const filters = selector.getByRole('group', { name: 'Visible eras' });
+		const reset = filters.getByRole('button', { name: 'All', exact: true });
+		const project = filters.getByRole('button', { name: 'Pet Project' });
+		const winter = filters.getByRole('button', { name: 'Winter Arc' });
+		await expect(trigger).toHaveText('All');
+		await expect(filters).toBeHidden();
 		const cards = drawer.getByRole('article');
 		const projectCard = drawer.getByRole('article', { name: 'Pet Project' });
 		const winterCard = drawer.getByRole('article', { name: 'Winter Arc' });
@@ -439,14 +527,7 @@ extendedTimelineTest(
 		expect((await sidebar.boundingBox())!.y).toBeGreaterThanOrEqual(
 			mobileGrid.y + mobileGrid.height
 		);
-		const moreEras = selector.getByRole('button', { name: /more eras/ });
-		await expect(moreEras).toBeVisible();
-		const revealWinter = async () => {
-			if (!(await winter.isVisible())) await moreEras.click();
-			await expect(winter).toBeVisible();
-		};
-		await expect(reset).toBeVisible();
-		await expect(project).toBeVisible();
+		await expect(selector.getByRole('button')).toHaveCount(1);
 		const mobileSelector = (await selector.boundingBox())!;
 		const mobileMark = (await markRange.boundingBox())!;
 		const mobilePreview = (await dayPreview.boundingBox())!;
@@ -455,13 +536,6 @@ extendedTimelineTest(
 		expect(mobileMark.y + mobileMark.height / 2).toBeCloseTo(
 			mobileSelector.y + mobileSelector.height / 2
 		);
-		expect(
-			new Set(
-				await selector
-					.getByRole('button')
-					.evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top))
-			).size
-		).toBe(1);
 		await expect(square(newest)).toHaveCSS('background-color', 'rgb(180, 155, 209)');
 		await expect(square(gap)).toHaveCSS('background-color', 'rgb(132, 189, 182)');
 		const halves = 'conic-gradient(from 45deg, #b49bd1 0deg 180deg, #84bdb6 180deg 360deg)';
@@ -494,6 +568,11 @@ extendedTimelineTest(
 		);
 		await projectDays.click();
 
+		await trigger.click();
+		await expect(reset).toHaveAttribute('aria-pressed', 'true');
+		await expect(filters.getByRole('button', { pressed: true })).toHaveCount(5);
+		const filterBounds = (await filters.boundingBox())!;
+		expect(filterBounds.x + filterBounds.width).toBeLessThanOrEqual(390);
 		const pressedAfterClick = await project.evaluate(async (chip) => {
 			chip.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
 			await new Promise(requestAnimationFrame);
@@ -506,20 +585,17 @@ extendedTimelineTest(
 		await expect(projectCard).toBeVisible();
 		await expect(cards).toHaveCount(4);
 		await expect(reset).toHaveAttribute('aria-pressed', 'false');
-		await revealWinter();
+		await expect(trigger).toHaveText('Custom');
 		await expect(winter).toHaveAttribute('aria-pressed', 'true');
 		await expect(square(marked)).toHaveCSS('background-color', 'rgb(132, 189, 182)');
 		await expect(square(marked)).toHaveCSS('background-image', 'none');
 		await expect(square(newest)).not.toHaveAttribute('data-era-state');
 
-		const summer = selector.getByRole('button', { name: 'Summer training and weekend projects' });
-		const archived = selector.getByRole('button', { name: 'Archived' });
-		if (!(await summer.isVisible())) await moreEras.click();
+		const summer = filters.getByRole('button', { name: 'Summer training and weekend projects' });
 		await summer.click();
-		await archived.click();
-		await selector.getByRole('button', { name: 'Study' }).click();
-		await revealWinter();
-		await expect(selector.getByRole('button', { pressed: true })).toHaveCount(1);
+		await filters.getByRole('button', { name: 'Study' }).click();
+		await expect(filters.getByRole('button', { pressed: true })).toHaveCount(1);
+		await expect(trigger).toHaveText('Winter Arc');
 		await expect(cards).toHaveCount(4);
 		await expect(drawer.getByRole('heading', { name: 'Winter Arc' })).toBeVisible();
 		await expect(square(newest)).not.toHaveAttribute('data-era-state');
@@ -529,7 +605,7 @@ extendedTimelineTest(
 		await expect(selectedDay).toHaveAttribute('datetime', selectedDate!);
 
 		await reset.click();
-		await archived.click();
+		await expect(trigger).toHaveText('All');
 		await expect(reset).toHaveAttribute('aria-pressed', 'true');
 		await expect(square(marked)).toHaveCSS('--era-overlap-fill', halves);
 		await project.click();
@@ -550,9 +626,9 @@ extendedTimelineTest(
 		await project.dblclick({ delay: 150 });
 		await expect(page).toHaveURL('/eras');
 		await expect(selectedDay).toHaveAttribute('datetime', selectedDate!);
-		await expect(selector.getByRole('button', { pressed: true })).toHaveCount(1);
+		await expect(filters.getByRole('button', { pressed: true })).toHaveCount(1);
+		await expect(trigger).toHaveText('Pet Project');
 		await expect(project).toHaveAttribute('aria-pressed', 'true');
-		await revealWinter();
 		await expect(winter).toHaveAttribute('aria-pressed', 'false');
 		await expect(drawer.getByRole('heading', { name: 'Pet Project' })).toBeVisible();
 		await expect(square(newest)).toHaveAccessibleName(/Pet Project \(0h 00m\)$/);
@@ -564,6 +640,9 @@ extendedTimelineTest(
 		await expect(square(gap)).not.toHaveAttribute('data-era-state');
 		await expect(square(unrelated)).toHaveCSS('background-color', unrelatedColor);
 		await expect(square(older)).toHaveAccessibleName(/Pet Project \(1h 35m\)$/);
+		await winter.press('Escape');
+		await expect(filters).toBeHidden();
+		await expect(trigger).toBeFocused();
 		await square(marked).hover();
 		await expect(page.getByRole('group', { name: 'Day preview' })).toContainText('Winter Arc');
 		await square(marked).click();
@@ -579,18 +658,25 @@ extendedTimelineTest(
 			.toBe('Edited from Eras');
 
 		await stackTab.click();
+		await trigger.click();
 		await project.click();
-		await expect(selector.getByRole('button', { pressed: true })).toHaveCount(0);
+		await expect(filters.getByRole('button', { pressed: true })).toHaveCount(0);
+		await expect(trigger).toHaveText('Custom');
 		await expect(cards).toHaveCount(4);
 		await expect(square(marked)).not.toHaveAttribute('data-era-state');
-		await revealWinter();
 		await winter.press('Shift+Enter');
 		await expect(square(gap)).toHaveCSS('background-color', 'rgb(132, 189, 182)');
 		await expect(square(newest)).not.toHaveAttribute('data-era-state');
 		await reset.click();
 		await expect(page).toHaveURL('/eras');
 		await expect(square(marked)).toHaveCSS('--era-overlap-fill', halves);
+		await expect(filters).toBeVisible();
+		const row = (await selector.boundingBox())!;
+		await page.mouse.click(row.x + row.width - 4, row.y + row.height / 2);
+		await expect(filters).toBeHidden();
+		await trigger.click();
 		await dayTab.click();
+		await expect(filters).toBeHidden();
 		await expect(drawer).toBeHidden();
 		await expect(grid).toBeVisible();
 		await expect(day).toBeVisible();
@@ -709,8 +795,10 @@ test('overlapping eras, daily time, range marking, and archive round-trip', asyn
 	await stack.getByText('Archived (1)', { exact: true }).click();
 	await expect(projectCard.getByRole('button', { name: 'Restore' })).toBeVisible();
 	const selector = page.getByRole('navigation', { name: 'Eras', exact: true });
-	const archivedEra = selector.getByRole('button', { name: 'Pet Project' });
-	await expect(archivedEra).toHaveAttribute('aria-pressed', 'true');
+	const trigger = selector.locator('button[aria-expanded]');
+	const filters = selector.getByRole('group', { name: 'Visible eras' });
+	const archivedEra = filters.getByRole('button', { name: 'Pet Project' });
+	await expect(trigger).toHaveText('Pet Project');
 	const eraPath = new URL(page.url()).search;
 	const id = new URLSearchParams(eraPath).get('era');
 	await expect
@@ -730,11 +818,16 @@ test('overlapping eras, daily time, range marking, and archive round-trip', asyn
 	await day.getByRole('button', { name: 'Add widget', exact: true }).click();
 	await expect(day.getByRole('button', { name: 'Pet Project timer', exact: true })).toHaveCount(0);
 	await stackTab.click();
-	await selector.getByRole('button', { name: 'Default' }).click();
-	await expect(archivedEra).toHaveCount(0);
-	await selector.getByRole('button', { name: 'Archived' }).click();
+	await trigger.click();
+	await expect(archivedEra).toHaveAttribute('aria-pressed', 'true');
+	await filters.getByRole('button', { name: 'All', exact: true }).click();
+	await expect(trigger).toHaveText('All');
+	if (!(await filters.isVisible())) await trigger.click();
+	await expect(filters.getByText('Archived', { exact: true })).toBeVisible();
 	await expect(archivedEra).toHaveAttribute('aria-pressed', 'true');
 	await archivedEra.dblclick();
+	await expect(trigger).toHaveText('Pet Project');
+	await archivedEra.press('Escape');
 	await projectCard.getByRole('button', { name: 'Restore' }).click();
 	await expect(projectCard.getByRole('button', { name: 'Archive', exact: true })).toBeVisible();
 	await expect

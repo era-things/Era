@@ -11,7 +11,9 @@
 	import type { DayEmojis } from '../day-emojis';
 	import type { Era, EraDays } from '../eras';
 	import { timelineEraColors } from '../timeline-eras';
+	import { weeklyEraHours } from '../weekly-era-hours';
 	import DaySquare from './DaySquare.svelte';
+	import WeeklyEraHours from './WeeklyEraHours.svelte';
 
 	let {
 		firstYear,
@@ -93,6 +95,11 @@
 	});
 	const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 	const eraColors = $derived(eras?.length ? timelineEraColors(eras, eraDays) : undefined);
+	const hours = $derived(
+		mode === 'horizontal' && eras?.some((era) => era.linkedValue === 'hours')
+			? weeklyEraHours(eras, eraDays, days[0].key, days[days.length - 1].key)
+			: undefined
+	);
 
 	$effect(() => {
 		cellSize;
@@ -148,6 +155,9 @@
 				/>
 			{/each}
 		</div>
+		{#if hours}
+			<WeeklyEraHours data={hours} />
+		{/if}
 	</div>
 {:else}
 	<div class="vertical-timeline">

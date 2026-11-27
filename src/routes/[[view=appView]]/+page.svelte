@@ -102,7 +102,6 @@
 		return routeEra ? [routeEra] : calendarData.eras;
 	});
 	const visibleEraIds = $derived(new Set(visibleEras?.map(({ id }) => id)));
-	const selectedEra = $derived(visibleEras?.length === 1 ? visibleEras[0] : undefined);
 	const markableEras = $derived(calendarData.eras.filter((era) => !era.archived));
 	let rangePicking = $state(false);
 	let rangeAnchor = $state<DateKey>();
@@ -121,7 +120,6 @@
 	let hoveredDay = $state<DateKey>();
 	let focusedDay = $state<DateKey>();
 	let eraTimelineWidth = $state(0);
-	let eraFilterWidth = $state(0);
 	let sidebarWidth = $state<number>();
 	let sidebar = $state<HTMLElement>();
 	let measuredSidebarWidth = $state(0);
@@ -851,12 +849,10 @@
 									/>
 								</button>
 							{/if}
-							<div class="era-filter-row" bind:clientWidth={eraFilterWidth}>
+							<div class="era-filter-row">
 								<EraSelector
 									eras={calendarData.eras}
-									availableWidth={eraFilterWidth}
 									visibleIds={visibleEraIds}
-									{selectedEra}
 									onreset={resetEraVisibility}
 									ontoggle={toggleEraVisibility}
 									onisolate={isolateEra}

@@ -44,6 +44,7 @@
 		"@lezer/highlight": "^1.2.5",
 		"@lezer/markdown": "^1.8.1",
 		"@silkdown/core": "file:vendor/silkdown",
+		"echarts": "^6.1.0",
 		"emoji-picker-element": "^1.29.1",
 		"emoji-picker-element-data": "^1.8.0"
 	},
