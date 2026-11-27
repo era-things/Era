@@ -1,13 +1,18 @@
 <script lang="ts">
 	import type { DateKey } from '../calendar';
 	import { serializeDataExport, type BackupPreview, type CalendarData } from '../data-export';
+	import { DEFAULT_TIMELINE_COLOR } from '../timeline-color';
 	let {
 		today,
+		timelineColor,
+		onTimelineColor,
 		readExport,
 		previewImport,
 		importBackup
 	}: {
 		today: DateKey;
+		timelineColor: string;
+		onTimelineColor: (color: string) => void;
 		readExport: () => Promise<CalendarData>;
 		previewImport: (body: string) => Promise<BackupPreview>;
 		importBackup: (body: string, preview: BackupPreview) => Promise<BackupPreview | undefined>;
@@ -110,7 +115,7 @@
 				<strong>{days(pending.preview.overwrittenDays)}</strong>.
 			</p>
 			{#if pending.preview.overwritesOtherData}
-				<p>This also updates existing widget settings, measure definitions, or reminders.</p>
+				<p>This also updates existing settings, measure definitions, reminders, or eras.</p>
 			{/if}
 			<div class="backup-actions">
 				<button type="button" disabled={importing} onclick={confirmImport}>Confirm import</button>
@@ -125,6 +130,25 @@
 			</div>
 		</div>
 	{/if}
+	<div class="timeline-setting">
+		<label>
+			Grid color
+			<input
+				type="color"
+				value={timelineColor}
+				disabled={importing}
+				onchange={(event) => onTimelineColor(event.currentTarget.value)}
+			/>
+		</label>
+		<span class="year-swatches" aria-hidden="true"><span></span><span></span></span>
+		{#if timelineColor !== DEFAULT_TIMELINE_COLOR}
+			<button
+				type="button"
+				disabled={importing}
+				onclick={() => onTimelineColor(DEFAULT_TIMELINE_COLOR)}>Reset grid color</button
+			>
+		{/if}
+	</div>
 </div>
 
 {#snippet transferIcon(arrow: string)}
@@ -155,6 +179,38 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 8px;
+	}
+	.timeline-setting {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 16px;
+	}
+	.timeline-setting label,
+	.year-swatches {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 12px;
+	}
+	input[type='color'] {
+		width: 36px;
+		height: 28px;
+		padding: 2px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: transparent;
+		cursor: pointer;
+	}
+	.year-swatches span {
+		width: 18px;
+		height: 18px;
+		border-radius: 1px;
+		background: var(--year-light);
+	}
+	.year-swatches span:last-child {
+		background: var(--year-dark);
 	}
 	p {
 		margin: 0;

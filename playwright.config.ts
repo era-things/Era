@@ -23,7 +23,7 @@ export default defineConfig({
 		channel: 'chrome',
 		viewport: { width: 1280, height: 800 },
 		screenshot: 'only-on-failure',
-		trace: 'retain-on-failure'
+		trace: 'off'
 	},
 	webServer: warm
 		? undefined
@@ -38,6 +38,7 @@ export default defineConfig({
 					url: origin,
 					env: {
 						ERA_DB: ':memory:',
+						ERA_VERIFY_TIMELINE: '1',
 						PORT: new URL(origin).port,
 						HOST: '127.0.0.1',
 						ORIGIN: origin

@@ -16,6 +16,7 @@ import { silkdown } from '@silkdown/core';
 import '@silkdown/core/theme.css';
 
 export type MarkdownEditor = { setValue: (value: string) => void; destroy: () => void };
+export type MarkdownEditorOptions = { label?: string; placeholder?: string };
 
 const highlighting = HighlightStyle.define(
 	defaultHighlightStyle.specs.filter((style) => style.tag !== tags.heading)
@@ -25,7 +26,8 @@ export function createMarkdownEditor(
 	root: HTMLElement,
 	value: string,
 	onchange: (value: string) => void,
-	readonly: boolean
+	readonly: boolean,
+	{ label = 'Notes', placeholder: hint = 'Note' }: MarkdownEditorOptions = {}
 ): MarkdownEditor {
 	let syncing = false;
 	const view = new EditorView({
@@ -49,9 +51,9 @@ export function createMarkdownEditor(
 				keymap.of([...defaultKeymap, indentWithTab]),
 				drawSelection(),
 				syntaxHighlighting(highlighting),
-				placeholder('Note'),
+				...(hint ? [placeholder(hint)] : []),
 				EditorView.contentAttributes.of({
-					'aria-label': 'Notes',
+					'aria-label': label,
 					'aria-multiline': 'true',
 					'aria-readonly': String(readonly)
 				}),

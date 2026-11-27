@@ -1,7 +1,60 @@
 import { test, expect } from './fixtures';
 import { emptyCalendar } from '../../src/lib/calendar-records';
-import { eraToday } from '../../src/lib/calendar';
+import { addDays, eraToday } from '../../src/lib/calendar';
 import { serializeDataExport } from '../../src/lib/data-export';
+import { DEFAULT_TIMELINE_COLOR } from '../../src/lib/timeline-color';
+
+test('the saved grid color alternates by year in Grid and Eras', async ({ page, request }) => {
+	const today = '2026-02-12';
+	await page.clock.setFixedTime(new Date(today + 'T12:00:00Z'));
+	const priorYear = '2025-12-31';
+	const currentYear = '2026-01-01';
+	const yesterday = addDays(today, -1);
+	const tomorrow = addDays(today, 1);
+	const square = (date: string) => page.locator('#day-' + date);
+	const background = (date: string) =>
+		square(date).evaluate((element) => getComputedStyle(element).backgroundColor);
+
+	await page.goto('/');
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	const original = await background(priorYear);
+	const current = await background(currentYear);
+	expect(current).not.toBe(original);
+	expect(await background('2026-02-01')).toBe(current);
+	await expect(square(yesterday)).toHaveCSS('border-top-width', '0px');
+	await expect(square(today)).toHaveCSS('background-color', 'rgb(35, 105, 91)');
+	await expect(square(tomorrow)).toHaveCSS('border-top-width', '1px');
+	expect(await background(tomorrow)).not.toBe(await background(yesterday));
+
+	await page.getByRole('tab', { name: 'Settings' }).click();
+	const picker = page.getByLabel('Grid color');
+	await expect(picker).toHaveValue(DEFAULT_TIMELINE_COLOR);
+	await picker.fill('#406c99');
+	await expect
+		.poll(async () => (await (await request.get('/api/data')).json()).timelineColor)
+		.toBe('#406c99');
+	await page.reload();
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	await expect(picker).toHaveValue('#406c99');
+	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
+	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+	const updated = await background(priorYear);
+	const alternate = await background(currentYear);
+	expect(updated).not.toBe(original);
+	expect(alternate).not.toBe(updated);
+	await page.getByRole('tab', { name: 'Eras', exact: true }).click();
+	await expect(square(priorYear)).toHaveCSS('background-color', updated);
+	await expect(square(currentYear)).toHaveCSS('background-color', alternate);
+	await expect(square(yesterday)).toHaveCSS('border-top-width', '0px');
+	await expect(square(tomorrow)).toHaveCSS('border-top-width', '1px');
+
+	await page.getByRole('tab', { name: 'Settings' }).click();
+	await page.getByRole('button', { name: 'Reset grid color' }).click();
+	await expect(picker).toHaveValue(DEFAULT_TIMELINE_COLOR);
+	await expect
+		.poll(async () => (await (await request.get('/api/data')).json()).timelineColor)
+		.toBe(DEFAULT_TIMELINE_COLOR);
+});
 
 test('Settings previews an import and merges only the supplied daily values', async ({
 	page,

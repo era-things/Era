@@ -1,8 +1,8 @@
 export const APP_VIEWS = [
 	{
-		id: 'horizontal',
-		label: 'Weekdays',
-		path: '/weekdays',
+		id: 'eras',
+		label: 'Eras',
+		path: '/eras',
 		section: 'calendar',
 		mode: 'horizontal'
 	},

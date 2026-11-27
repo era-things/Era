@@ -10,8 +10,12 @@ import type { SleepDays } from './sleep';
 import type { TimeDays } from './time';
 import type { ScreenApp } from './screen-apps';
 import type { GitHubActivity } from './github-activity';
+import type { Era, EraDays } from './eras';
 
 export type CalendarData = {
+	timelineColor: string;
+	eras: Era[];
+	eraDays: EraDays;
 	emojis: DayEmojis;
 	measures: MeasuresState;
 	reminders: Reminder[];

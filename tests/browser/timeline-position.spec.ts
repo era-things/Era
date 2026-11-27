@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { addDays, eraToday } from '../../src/lib/calendar';
 
+test.use({ timelineDays: 'full' });
+
 async function ready(page: Page) {
 	await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
 }
@@ -67,15 +69,22 @@ test('the first visible grid frame is positioned at today, including slow hydrat
 test('grid and weekdays retain their positions across tabs and reloads', async ({ page }) => {
 	await page.goto('/');
 	await ready(page);
+	const selected = addDays(eraToday(), -1);
+	await page.locator('#day-' + selected).click();
+	await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+	const zoom = page.getByRole('button', { name: 'Reset zoom to 100%' });
 	await page.locator('#timeline-panel').evaluate((el) => {
 		el.scrollTop += 230;
 	});
 	const grid = await position(page);
 	await page.getByRole('tab', { name: 'Today', exact: true }).click();
+	await expect(page.locator('#timeline-panel')).toHaveCount(0);
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	await ready(page);
 	expect(await position(page)).toEqual(grid);
-	await page.getByRole('tab', { name: 'Weekdays', exact: true }).click();
+	await expect(page.locator('#day-' + selected)).toHaveAttribute('aria-pressed', 'true');
+	await expect(zoom).toHaveText('125%');
+	await page.getByRole('tab', { name: 'Eras', exact: true }).click();
 	await ready(page);
 	await page.locator('#timeline-panel').evaluate((el) => {
 		el.scrollLeft += 270;
@@ -84,7 +93,7 @@ test('grid and weekdays retain their positions across tabs and reloads', async (
 	await page.getByRole('tab', { name: 'Grid', exact: true }).click();
 	await ready(page);
 	expect(await position(page)).toEqual(grid);
-	await page.getByRole('tab', { name: 'Weekdays', exact: true }).click();
+	await page.getByRole('tab', { name: 'Eras', exact: true }).click();
 	await ready(page);
 	expect(await position(page)).toEqual(weekdays);
 	await page.reload();
@@ -135,7 +144,9 @@ test('back and forward restore each history entry instead of the latest stored p
 	expect(await position(page)).toEqual(second);
 });
 
-test('history restores a hidden calendar without losing its saved position', async ({ page }) => {
+test('history restores an unmounted calendar without losing its saved position', async ({
+	page
+}) => {
 	await page.goto('/?visit=hidden');
 	await ready(page);
 	await page.locator('#timeline-panel').evaluate((el) => {
@@ -184,4 +195,5 @@ test('initial positioning still works when browser storage is unavailable', asyn
 	await page.goto('/');
 	await ready(page);
 	await expect(page.locator('.day.today')).toBeInViewport();
+	expect(await page.locator('.vertical-days .day').count()).toBeGreaterThanOrEqual(3650);
 });

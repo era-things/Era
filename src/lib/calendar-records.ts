@@ -4,10 +4,15 @@ import type { FoodItem } from './nutrition';
 import type { Reminder } from './reminders';
 import { WIDGETS, emptyLayout, type WidgetId, type CounterId } from './widgets';
 import type { TimeId } from './widgets';
+import type { Era, EraDay } from './eras';
+import { DEFAULT_TIMELINE_COLOR } from './timeline-color';
 
 export type Section = keyof CalendarData;
 export type Change = { key: string; before: string | null; after: string | null };
 export const emptyCalendar = (): CalendarData => ({
+	timelineColor: DEFAULT_TIMELINE_COLOR,
+	eras: [],
+	eraDays: {},
 	emojis: {},
 	notes: {},
 	measures: { definitions: [], days: {} },
@@ -23,10 +28,15 @@ export const emptyCalendar = (): CalendarData => ({
 });
 
 // Keys identify independently editable records. Missing rows differ from stored JSON null.
-export function records(data: CalendarData, { includeDefaultSettings = false } = {}) {
+export function records(
+	data: CalendarData,
+	{ includeDefaultSettings = false, includeDefaultTimelineColor = false } = {}
+) {
 	const rows = new Map<string, string>();
 	const put = (value: unknown, ...path: string[]) =>
 		rows.set(JSON.stringify(path), JSON.stringify(value));
+	if (includeDefaultTimelineColor || data.timelineColor !== DEFAULT_TIMELINE_COLOR)
+		put(data.timelineColor, 'timeline-color');
 	for (const [day, value] of Object.entries(data.notes)) put(value, 'note', day);
 	for (const [day, value] of Object.entries(data.sleep)) put(value, 'sleep', day);
 	for (const [day, apps] of Object.entries(data.screenApps)) put(apps, 'screen-apps', day);
@@ -52,6 +62,12 @@ export function records(data: CalendarData, { includeDefaultSettings = false } =
 		for (const item of items) put(item, 'food', day, item.id);
 	}
 	for (const r of data.reminders) put(r, 'reminder', r.id);
+	for (const era of data.eras) put(era, 'era', era.id);
+	for (const [day, entries] of Object.entries(data.eraDays))
+		for (const [id, entry] of Object.entries(entries)) {
+			if (entry.marked) put(true, 'era-mark', day, id);
+			if (entry.values) put(entry.values, 'era-value', day, id);
+		}
 	return rows;
 }
 
@@ -66,6 +82,18 @@ export function changes(before: CalendarData, after: CalendarData): Change[] {
 type Decoder = (data: CalendarData, day: string, id: string, value: unknown) => void;
 const decoders = new Map<string, Decoder>(
 	Object.entries({
+		'timeline-color': (data, _day, _id, value) => {
+			data.timelineColor = value as string;
+		},
+		era: (data, _day, _id, value) => {
+			data.eras.push(value as Era);
+		},
+		'era-mark': (data, day, id, value) => {
+			((data.eraDays[day] ??= {})[id] ??= {}).marked = value as true;
+		},
+		'era-value': (data, day, id, value) => {
+			((data.eraDays[day] ??= {})[id] ??= {}).values = value as EraDay['values'];
+		},
 		'automated-value': (data, day, id, value) => {
 			Object.assign((data.automated[day] ??= {}), { [id]: value });
 		},

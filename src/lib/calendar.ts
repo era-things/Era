@@ -59,8 +59,9 @@ export function addDays(key: DateKey, amount: number): DateKey {
 }
 
 export function daysInYear(year: number): CalendarDay[] {
-	const first = `${year}-01-01`;
-	const count = daysBetween(first, `${year + 1}-01-01`);
+	const prefix = String(year).padStart(4, '0');
+	const first = prefix + '-01-01';
+	const count = daysBetween(first, prefix + '-12-31') + 1;
 	return Array.from({ length: count }, (_, index) => ({
 		key: addDays(first, index),
 		dayOfYear: index + 1

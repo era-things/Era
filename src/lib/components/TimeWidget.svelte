@@ -5,28 +5,34 @@
 	import ScreenTimeBreakdown from './ScreenTimeBreakdown.svelte';
 	import WidgetIcon from './WidgetIcon.svelte';
 	import { widgetFor, type TimeId } from '../widgets';
+	import { WIDGET_ICONS } from '../widget-icons';
+	import { eraPalette, type Era } from '../eras';
 	import { pop } from '../widget-motion';
 	let {
 		id,
+		era,
 		value,
 		screenApps = [],
 		readonly = false,
 		onchange
 	}: {
-		id: TimeId;
 		value: number | null;
 		screenApps?: readonly ScreenApp[];
 		readonly?: boolean;
 		onchange: (value: number | null) => boolean | void;
-	} = $props();
-	const definition = $derived(widgetFor(id));
-	const name = $derived(definition.name);
+	} & (
+		| { id: TimeId; era?: never }
+		| { id?: never; era: Pick<Era, 'name' | 'palette'> & { remove: () => void } }
+	) = $props();
+	const definition = $derived(id ? widgetFor(id) : undefined);
+	const color = $derived(era ? eraPalette(era) : undefined);
+	const name = $derived(era ? era.name : definition!.name);
 	const hours = $derived(formatDurationPart(value, 'hours'));
 	const minutes = $derived(formatDurationPart(value, 'minutes'));
 	const units = ['hours', 'minutes'] as const;
 	const apps = $derived(screenAppShares(screenApps, value));
 	const top = $derived(apps[0]);
-	const hasBreakdown = $derived(apps.length > 1);
+	const hasBreakdown = $derived(!era && apps.length > 1);
 	function change(event: Event, unit: 'hours' | 'minutes') {
 		const input = event.currentTarget as HTMLInputElement;
 		input.setCustomValidity('');
@@ -47,7 +53,7 @@
 </script>
 
 {#snippet row(editable: boolean)}
-	<WidgetIcon icon={definition.icon} />
+	<WidgetIcon icon={definition?.icon ?? WIDGET_ICONS.clock} />
 	<span class="time-duration" role="group" aria-label={name + ' duration'}>
 		{#each units as unit}
 			{#if editable}
@@ -78,6 +84,15 @@
 			{/if}
 		{/each}
 	</span>
+	{#if era}
+		<span class="era-name" title={name}>{name}</span>
+		<button
+			type="button"
+			class="remove-time"
+			aria-label={'Remove ' + name + ' timer'}
+			onclick={era.remove}>×</button
+		>
+	{/if}
 	{#if top}
 		<span class="app-summary">
 			<span class="summary-name" title={top.name}>{top.name}</span>
@@ -89,7 +104,13 @@
 	{/if}
 {/snippet}
 
-<section class={id} aria-label={name} title={name}>
+<section
+	class={id ?? 'era-time'}
+	aria-label={era ? name + ' timer' : name}
+	title={name}
+	style:--era-fill={color?.faint}
+	style:--era-color={color?.bright}
+>
 	{#if hasBreakdown}
 		<details class="widget-drawer" out:pop>
 			<summary class="time-widget">{@render row(false)}</summary>
@@ -212,6 +233,33 @@
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.era-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 11px;
+	}
+	.remove-time {
+		flex-shrink: 0;
+		margin-inline-start: auto;
+		border: 0;
+		border-radius: 2px;
+		padding: 0 4px;
+		line-height: 18px;
+		color: var(--time-muted);
+		background: transparent;
+	}
+	.remove-time:hover {
+		background: var(--line);
+		color: var(--ink);
+	}
+	.era-time {
+		--time-ink: var(--ink);
+		--time-muted: var(--muted);
+		--time-accent: var(--era-color);
+		--time-surface: var(--era-fill);
 	}
 	.drawer-chevron {
 		display: inline-flex;

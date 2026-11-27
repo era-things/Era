@@ -1,4 +1,5 @@
 import type { CalendarData } from './data-export';
+import { ERA_FIELDS, ERA_VALUE_KINDS } from './eras';
 import { widgetBody } from './api-values';
 import { FOOD_ITEM_FIELDS, type FoodItem } from './nutrition';
 import { WIDGETS, manualWidgetValue } from './widgets';
@@ -42,6 +43,47 @@ export function apiRequests(before: CalendarData, after: CalendarData): ApiReque
 	const requests: ApiRequest[] = [];
 	const add = (url: string, method: ApiRequest['method'], body?: unknown) =>
 		requests.push({ url, method, body });
+	if (before.timelineColor !== after.timelineColor)
+		add('/api/settings/timeline-color', 'PUT', { color: after.timelineColor });
+	const previousEras = new Map(before.eras.map((era) => [era.id, era]));
+	const nextEraIds = new Set(after.eras.map(({ id }) => id));
+	for (const { id, autoMarkedThrough, ...fields } of after.eras) {
+		const era = previousEras.get(id);
+		const active = autoMarkedThrough !== undefined;
+		if (!era) add(`/api/eras/${id}`, 'PUT', { ...fields, active });
+		else {
+			const patch = Object.fromEntries(
+				ERA_FIELDS.filter((field) => era[field] !== fields[field]).map((field) => [
+					field,
+					fields[field] ?? null
+				])
+			);
+			if (active !== (era.autoMarkedThrough !== undefined)) patch.active = active;
+			if (Object.keys(patch).length) add(`/api/eras/${id}`, 'PATCH', patch);
+		}
+	}
+	const marks = new Map<string, { mark: string[]; unmark: string[] }>();
+	for (const date of keys(before.eraDays, after.eraDays)) {
+		const old = before.eraDays[date] ?? {};
+		const next = after.eraDays[date] ?? {};
+		for (const id of keys(old, next)) {
+			if (!nextEraIds.has(id)) continue;
+			if (old[id]?.marked !== next[id]?.marked) {
+				const edits = marks.get(id) ?? { mark: [], unmark: [] };
+				edits[next[id]?.marked ? 'mark' : 'unmark'].push(date);
+				marks.set(id, edits);
+			}
+			for (const kind of ERA_VALUE_KINDS) {
+				const value = next[id]?.values?.[kind];
+				if (old[id]?.values?.[kind] === value) continue;
+				const url = `/api/days/${date}/eras/${id}/values/${kind}`;
+				if (value === undefined) add(url, 'DELETE');
+				else add(url, 'PUT', { value });
+			}
+		}
+	}
+	for (const [id, edits] of marks) add(`/api/eras/${id}/days`, 'PATCH', edits);
+	for (const id of previousEras.keys()) if (!nextEraIds.has(id)) add(`/api/eras/${id}`, 'DELETE');
 	for (const { id } of WIDGETS) {
 		const patch = Object.fromEntries(
 			(['visibility', 'skin'] as const)

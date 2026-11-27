@@ -6,6 +6,18 @@ import { emptyLayout, setWidgetSettings } from '../src/lib/widgets';
 
 test('export preserves all dates, zero/false values, emoji and reminder completion history', () => {
 	const data: CalendarData = {
+		...emptyCalendar(),
+		eras: [
+			{
+				id: 'project',
+				name: 'Pet Project',
+				description: 'Ship a demo',
+				archived: false,
+				linkedValue: 'hours',
+				palette: 'violet'
+			}
+		],
+		eraDays: { '2000-01-01': { project: { marked: true, values: { hours: 0 } } } },
 		time: { '2000-01-01': { phone: 135, gym: 0, reading: null, movie: 116, steam: 90 } },
 		automated: { '2000-01-01': { phone: 222, steps: null } },
 		githubActivity: {

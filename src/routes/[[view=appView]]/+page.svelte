@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, type Snippet } from 'svelte';
 	import { beforeNavigate, goto, snapshot } from '$app/navigation';
 	import { page } from '$app/state';
 	import { APP_VIEWS, appViewForPath, type AppViewId } from '../../lib/app-views';
@@ -8,9 +8,20 @@
 	import { createCalendarSync, type SyncState } from '../../lib/calendar-sync';
 	import type { PageData } from './$types';
 	import TimelineGrid from '../../lib/components/TimelineGrid.svelte';
-	import DayDetail from '../../lib/components/DayDetail.svelte';
 	import DayPanel from '../../lib/components/DayPanel.svelte';
 	import DayWidgets from '../../lib/components/DayWidgets.svelte';
+	import DayEras from '../../lib/components/DayEras.svelte';
+	import EraStack from '../../lib/components/EraStack.svelte';
+	import EraSelector from '../../lib/components/EraSelector.svelte';
+	import WidgetIcon from '../../lib/components/WidgetIcon.svelte';
+	import {
+		datesToMark,
+		eraPalette,
+		eraValueLabel,
+		setEraMarks,
+		setEraValue,
+		type Era
+	} from '../../lib/eras';
 	import { setWidgetSettings } from '../../lib/widgets';
 	import LayoutManager from '../../lib/components/LayoutManager.svelte';
 	import RemindersManager from '../../lib/components/RemindersManager.svelte';
@@ -25,8 +36,11 @@
 	import { removeMeasure, type Measure } from '../../lib/measures';
 	import {
 		addDays,
+		asDate,
 		daysInRange,
 		eraToday,
+		formatDate,
+		isDateKey,
 		relativeDay,
 		yearOf,
 		type DateKey
@@ -69,9 +83,158 @@
 		reminders = $derived(calendarData.reminders),
 		measures = $derived(calendarData.measures);
 	const section = $derived(activeView.section);
+	const sidebarTabs = [
+		{ id: 'day', label: 'Day', accessibleLabel: 'Selected day' },
+		{ id: 'eras', label: 'Eras', accessibleLabel: 'Eras stack' }
+	] as const;
+	type SidebarTab = (typeof sidebarTabs)[number]['id'];
+	const eraId = $derived(page.url.searchParams.get('era'));
+	let sidebarTab = $state<SidebarTab>(
+		untrack(() => (eraId && !page.url.searchParams.has('day') ? 'eras' : 'day'))
+	);
+	const routeEra = $derived(
+		activeView.id === 'eras' ? calendarData.eras.find(({ id }) => id === eraId) : undefined
+	);
+	let eraVisibility = $state<Set<string>>();
+	const visibleEras = $derived.by(() => {
+		if (activeView.id !== 'eras') return;
+		if (eraVisibility) return calendarData.eras.filter(({ id }) => eraVisibility?.has(id));
+		return routeEra ? [routeEra] : calendarData.eras;
+	});
+	const visibleEraIds = $derived(new Set(visibleEras?.map(({ id }) => id)));
+	const selectedEra = $derived(visibleEras?.length === 1 ? visibleEras[0] : undefined);
+	const markableEras = $derived(calendarData.eras.filter((era) => !era.archived));
+	let rangePicking = $state(false);
+	let rangeAnchor = $state<DateKey>();
+	let rangeEnd = $state<DateKey>();
+	let rangeEraId = $state('');
+	let recentMark = $state<{ id: string; dates: DateKey[]; marked: boolean }>();
+	const markRange = $derived<readonly [DateKey, DateKey] | undefined>(
+		rangeAnchor && rangeEnd
+			? rangeAnchor <= rangeEnd
+				? [rangeAnchor, rangeEnd]
+				: [rangeEnd, rangeAnchor]
+			: rangeAnchor
+				? [rangeAnchor, rangeAnchor]
+				: undefined
+	);
+	let hoveredDay = $state<DateKey>();
+	let focusedDay = $state<DateKey>();
+	let eraTimelineWidth = $state(0);
+	let eraFilterWidth = $state(0);
+	let sidebarWidth = $state<number>();
+	let sidebar = $state<HTMLElement>();
+	let measuredSidebarWidth = $state(0);
+	const sidebarWidthKey = 'era.sidebar-width';
+
+	function cancelMarkRange() {
+		rangePicking = false;
+		rangeAnchor = rangeEnd = undefined;
+	}
+
+	function startMarkRange() {
+		rangePicking = true;
+		rangeAnchor = rangeEnd = undefined;
+		rangeEraId = visibleEras?.find((era) => !era.archived)?.id ?? markableEras[0]?.id ?? '';
+	}
+
+	function pickGridDay(day: DateKey, extend = false) {
+		if (mode === 'horizontal' && (rangePicking || extend) && markableEras.length) {
+			if (!rangePicking || rangeEnd) startMarkRange();
+			if (rangeAnchor) rangeEnd = day;
+			else rangeAnchor = day;
+			return;
+		}
+		selectDay(day);
+	}
+
+	function applyMarkRange(marked: boolean) {
+		if (!markRange || !rangeEnd || !markableEras.some(({ id }) => id === rangeEraId)) return;
+		const dates = datesToMark(...markRange)!.filter(
+			(day) => Boolean(calendarData.eraDays[day]?.[rangeEraId]?.marked) !== marked
+		);
+		if (dates.length) {
+			if (!changeEraMarks(rangeEraId, marked ? dates : [], marked ? [] : dates)) return;
+			recentMark = { id: rangeEraId, dates, marked };
+		}
+		cancelMarkRange();
+	}
+
+	function undoMarkRange() {
+		if (!recentMark) return;
+		const { id, dates, marked } = recentMark;
+		if (changeEraMarks(id, marked ? [] : dates, marked ? dates : [])) recentMark = undefined;
+	}
+
+	function previewTarget(target: EventTarget | null) {
+		const key = target instanceof Element ? target.closest('.day')?.id.slice(4) : undefined;
+		return isDateKey(key) ? key : undefined;
+	}
+
+	function resizeSidebar(width: number) {
+		sidebarWidth = Math.min(sidebarMax, Math.max(280, Math.round(width)));
+	}
+
+	const sidebarMax = $derived(
+		Math.max(280, Math.min(620, Math.floor((eraTimelineWidth + measuredSidebarWidth) * 0.55)))
+	);
+
+	function saveSidebarWidth() {
+		try {
+			if (sidebarWidth !== undefined) localStorage.setItem(sidebarWidthKey, String(sidebarWidth));
+		} catch {}
+	}
+
+	function startSidebarResize(event: PointerEvent) {
+		if (event.button !== 0) return;
+		event.currentTarget instanceof HTMLElement &&
+			event.currentTarget.setPointerCapture(event.pointerId);
+	}
+
+	function moveSidebarResize(event: PointerEvent) {
+		if (
+			event.currentTarget instanceof HTMLElement &&
+			event.currentTarget.hasPointerCapture(event.pointerId) &&
+			sidebar
+		)
+			resizeSidebar(sidebar.getBoundingClientRect().right - event.clientX);
+	}
+
+	function resizeSidebarWithKey(event: KeyboardEvent) {
+		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+		event.preventDefault();
+		resizeSidebar((sidebar?.offsetWidth ?? 320) + (event.key === 'ArrowLeft' ? 24 : -24));
+		saveSidebarWidth();
+	}
+
+	function toggleEraVisibility(id: string) {
+		const next = new Set(visibleEraIds);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		eraVisibility = next;
+	}
+
+	function isolateEra(id: string) {
+		eraVisibility = new Set([id]);
+	}
+
+	function resetEraVisibility() {
+		if (eraId === null) eraVisibility = undefined;
+		else void goto('/eras', { reset: false });
+	}
+
+	const latestEraDay = $derived.by(() => {
+		if (!routeEra) return;
+		let latest: DateKey | undefined;
+		for (const [date, eras] of Object.entries(calendarData.eraDays)) {
+			if (eras[routeEra.id] && (latest === undefined || date > latest)) latest = date;
+		}
+		return latest;
+	});
 	const cellSize = $derived((24 * zoom) / 100);
 	const zoomIndex = $derived(ZOOM_LEVELS.indexOf(zoom));
-	let viewport: HTMLDivElement;
+	let viewport = $state<HTMLDivElement>();
+	let eraDayPanel = $state<HTMLDivElement>();
 	let saveTimer: ReturnType<typeof setTimeout> | undefined;
 	const today = $derived(browserToday ?? data.today);
 	const firstYear = $derived(rangeStart ?? yearOf(today) - 5);
@@ -87,6 +250,18 @@
 		return overrides;
 	});
 	const displayedEmojis = $derived({ ...emojis, ...reminderEmojis });
+	const previewDay = $derived(hoveredDay ?? focusedDay ?? selected);
+	const previewDateFormat = new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC'
+	});
+	const previewEras = $derived(
+		calendarData.eras.flatMap((era) => {
+			const entry = calendarData.eraDays[previewDay]?.[era.id];
+			return entry ? [{ era, value: eraValueLabel(era.linkedValue, entry) }] : [];
+		})
+	);
 
 	let views: Partial<Record<ViewMode, SavedView>> = {};
 	let positioning = 0;
@@ -118,11 +293,10 @@
 
 	async function positionView(view?: SavedView) {
 		const ticket = ++positioning;
-		restored = false;
 		clearTimeout(saveTimer);
 		if (view) applyView(view);
 		await tick();
-		if (ticket !== positioning) return;
+		if (ticket !== positioning || !viewport) return;
 		restorePosition(
 			viewport,
 			view?.position ?? { day: selected, x: -cellSize / 2, y: -cellSize / 2 }
@@ -132,16 +306,17 @@
 	}
 
 	snapshot({
-		id: 'timeline-v4',
+		id: 'timeline-v5',
 		capture: () => {
 			saveView();
-			return { views, mode };
+			return { views, mode, sidebarTab, visibleEraIds: eraVisibility && [...eraVisibility] };
 		},
 		restore: (value) => {
 			historyRestored = true;
+			sidebarTab = value.sidebarTab;
+			eraVisibility = value.visibleEraIds && new Set(value.visibleEraIds);
 			views = value.views;
 			mode = activeView.section === 'calendar' ? activeView.mode : value.mode;
-			// Hidden calendars have no layout. Position them when opened instead.
 			const view = views[mode];
 			if (section === 'calendar') void positionView(view);
 			else {
@@ -152,11 +327,11 @@
 		reset: activateRoute
 	});
 
-	beforeNavigate(() => {
+	beforeNavigate(({ from, to }) => {
 		saveView();
 		positioning++;
 		clearTimeout(saveTimer);
-		restored = false;
+		if (from?.url.pathname !== '/eras' || to?.url.pathname !== '/eras') restored = false;
 	});
 
 	function scheduleSave() {
@@ -173,6 +348,17 @@
 		if (restored) saveView();
 	});
 
+	$effect(() => {
+		const element = viewport;
+		if (!element) return;
+		const observer = new ResizeObserver(() => {
+			const view = views[mode];
+			if (restored && viewport === element && view) restorePosition(element, view.position);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	});
+
 	onMount(() => {
 		const minuteMs = 60_000;
 		let timer: number | undefined;
@@ -187,6 +373,8 @@
 		let saved = null;
 		try {
 			saved = parseSavedView(localStorage.getItem(VIEW_STORAGE_KEY));
+			const storedWidth = Number(localStorage.getItem(sidebarWidthKey));
+			if (storedWidth >= 280 && storedWidth <= 620) sidebarWidth = storedWidth;
 		} catch {
 			/* Use today. */
 		}
@@ -197,13 +385,6 @@
 			}
 			activateRoute();
 		}
-		const resizeObserver = new ResizeObserver(() => {
-			if (restored && section === 'calendar' && views[mode]) {
-				restorePosition(viewport, views[mode]!.position);
-			}
-		});
-		resizeObserver.observe(viewport);
-
 		window.addEventListener('focus', refreshToday);
 		document.addEventListener('visibilitychange', refreshToday);
 		window.addEventListener('pagehide', saveView);
@@ -211,7 +392,6 @@
 			saveView();
 			disconnectSync();
 			positioning++;
-			resizeObserver.disconnect();
 			clearTimeout(saveTimer);
 			window.clearTimeout(timer);
 			window.removeEventListener('focus', refreshToday);
@@ -221,18 +401,21 @@
 	});
 
 	async function changeRange(direction: number) {
+		const element = viewport;
+		if (!element) return;
 		// Preserve month/day and viewport position when browsing another decade.
 		const nextYear = yearOf(selected) + direction * 10;
-		let next = nextYear + selected.slice(4);
-		if (new Date(next + 'T00:00:00Z').toISOString().slice(0, 10) !== next)
-			next = nextYear + '-02-28';
-		const top = viewport.scrollTop;
-		const left = viewport.scrollLeft;
+		const prefix = String(nextYear).padStart(4, '0');
+		let next = prefix + selected.slice(4);
+		if (new Date(next + 'T00:00:00Z').toISOString().slice(0, 10) !== next) next = prefix + '-02-28';
+		const top = element.scrollTop;
+		const left = element.scrollLeft;
 		rangeStart = firstYear + direction * 10;
 		selection = next;
 		await tick();
-		viewport.scrollTop = top;
-		viewport.scrollLeft = left;
+		if (viewport !== element) return;
+		element.scrollTop = top;
+		element.scrollLeft = left;
 		saveView();
 	}
 
@@ -251,23 +434,79 @@
 
 	async function goToToday() {
 		if (yearOf(today) < firstYear || yearOf(today) > lastYear) rangeStart = yearOf(today) - 5;
-		selection = today;
+		selectDay(today, true);
 		await focusDay(today, true);
 	}
 
 	async function navigateDay(key: DateKey, offset: number, focus = true) {
 		const next = addDays(key, offset);
-		if (yearOf(next) < firstYear || yearOf(next) > lastYear) return;
-		selection = next;
+		if (!isDateKey(next) || yearOf(next) < firstYear || yearOf(next) > lastYear) return;
+		hoveredDay = undefined;
+		selectDay(next);
 		await focusDay(next, false, focus);
 	}
 
+	function selectDay(day: DateKey, openDay = false) {
+		selection = day;
+		if (mode === 'horizontal') {
+			if (openDay) sidebarTab = 'day';
+			void tick().then(() => {
+				if (eraDayPanel) eraDayPanel.scrollTop = 0;
+			});
+		}
+	}
+
+	async function openSelectedDay() {
+		selectDay(selected, true);
+		await tick();
+		document.getElementById('sidebar-tab-day')?.focus({ preventScroll: true });
+	}
+
+	async function navigateSidebar(event: KeyboardEvent) {
+		switch (event.key) {
+			case 'ArrowLeft':
+			case 'ArrowRight':
+				sidebarTab = sidebarTab === 'day' ? 'eras' : 'day';
+				break;
+			case 'Home':
+				sidebarTab = 'day';
+				break;
+			case 'End':
+				sidebarTab = 'eras';
+				break;
+			default:
+				return;
+		}
+		event.preventDefault();
+		await tick();
+		document.getElementById('sidebar-tab-' + sidebarTab)?.focus();
+	}
+
 	function activateRoute() {
+		eraVisibility = undefined;
+		cancelMarkRange();
 		if (activeView.section !== 'calendar') {
 			restored = true;
 			return;
 		}
 		mode = activeView.mode;
+		const requestedDay = page.url.searchParams.get('day');
+		if (mode === 'horizontal' && eraId && !requestedDay) sidebarTab = 'eras';
+		const day = requestedDay ?? latestEraDay;
+		if (isDateKey(day)) {
+			const year = yearOf(day);
+			if (year < firstYear || year > lastYear) rangeStart = Math.max(1, Math.min(9990, year - 5));
+			if (requestedDay) {
+				selectDay(day, true);
+				if (mode === 'horizontal') {
+					void tick().then(() => {
+						eraDayPanel?.querySelector('.panel-date')?.scrollIntoView({ block: 'nearest' });
+					});
+				}
+			} else selection = day;
+			void positionView();
+			return;
+		}
 		const view = views[mode];
 		void positionView(
 			view && view.firstYear === firstYear && view.zoom === zoom ? { ...view, selected } : undefined
@@ -281,6 +520,20 @@
 	}
 	const showLayout = () => showView('layout');
 	const showReminders = () => showView('reminders');
+
+	function saveEra(era: Era) {
+		const { eras } = calendarData;
+		return save(
+			'eras',
+			eras.some(({ id }) => id === era.id)
+				? eras.map((item) => (item.id === era.id ? era : item))
+				: [...eras, era]
+		);
+	}
+
+	function changeEraMarks(id: string, mark: DateKey[], unmark: DateKey[]) {
+		return save('eraDays', setEraMarks(calendarData.eraDays, id, mark, unmark));
+	}
 
 	async function navigateTabs(event: KeyboardEvent) {
 		const index = APP_VIEWS.findIndex((view) => view.id === activeView.id);
@@ -326,21 +579,20 @@
 	}
 
 	async function setZoom(next: ZoomLevel) {
-		if (zoom === next) return;
+		const element = viewport;
+		if (zoom === next || !element) return;
 		clearTimeout(saveTimer);
-		const bounds = viewport.getBoundingClientRect();
-		const grid = viewport
-			.querySelector('.vertical-days, .horizontal-days')
-			?.getBoundingClientRect();
+		const bounds = element.getBoundingClientRect();
+		const grid = element.querySelector('.vertical-days, .horizontal-days')?.getBoundingClientRect();
 		let anchor: Element | null = null;
 		if (grid) {
 			const x = Math.max(
 				grid.left + 6,
-				Math.min(bounds.left + viewport.clientWidth / 2, grid.right - 6)
+				Math.min(bounds.left + element.clientWidth / 2, grid.right - 6)
 			);
 			const y = Math.max(
 				grid.top + 6,
-				Math.min(bounds.top + viewport.clientHeight / 2, grid.bottom - 6)
+				Math.min(bounds.top + element.clientHeight / 2, grid.bottom - 6)
 			);
 			for (const [dx, dy] of [
 				[0, 0],
@@ -350,7 +602,7 @@
 				[-4, -4]
 			]) {
 				const candidate = document.elementFromPoint(x + dx, y + dy)?.closest('.day');
-				if (candidate?.classList.contains('day') && viewport.contains(candidate)) {
+				if (candidate?.classList.contains('day') && element.contains(candidate)) {
 					anchor = candidate;
 					break;
 				}
@@ -359,10 +611,11 @@
 		const before = anchor?.getBoundingClientRect();
 		zoom = next;
 		await tick();
+		if (viewport !== element) return;
 		if (anchor && before) {
 			const after = anchor.getBoundingClientRect();
-			viewport.scrollTop += after.top - before.top;
-			viewport.scrollLeft += after.left - before.left;
+			element.scrollTop += after.top - before.top;
+			element.scrollLeft += after.left - before.left;
 		}
 		saveView();
 	}
@@ -388,7 +641,51 @@
 	<meta name="description" content="Personal day timeline." />
 </svelte:head>
 
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key === 'Escape' && rangePicking) cancelMarkRange();
+	}}
+/>
+
+{#snippet timeline()}
+	<div
+		class={['timeline-scroll', mode]}
+		style:visibility={restored ? 'visible' : 'hidden'}
+		id="timeline-panel"
+		role="group"
+		aria-label="Timeline grid"
+		bind:this={viewport}
+		onscroll={scheduleSave}
+		onpointerover={(event) => {
+			if (mode === 'horizontal' && event.pointerType === 'mouse')
+				hoveredDay = previewTarget(event.target);
+		}}
+		onpointerleave={() => (hoveredDay = undefined)}
+		onfocusin={(event) => {
+			if (mode === 'horizontal') focusedDay = previewTarget(event.target);
+		}}
+		onfocusout={(event) => (focusedDay = previewTarget(event.relatedTarget))}
+	>
+		<TimelineGrid
+			{firstYear}
+			{lastYear}
+			dayLimit={data.timelineDayLimit}
+			{today}
+			{selected}
+			{mode}
+			{cellSize}
+			emojis={displayedEmojis}
+			eras={visibleEras}
+			eraDays={calendarData.eraDays}
+			{markRange}
+			onSelect={pickGridDay}
+			onNavigate={navigateDay}
+		/>
+	</div>
+{/snippet}
+
 {#snippet dayEditor(day: DateKey, label: string, navigation = false)}
+	{@const eraEntries = calendarData.eraDays[day] ?? {}}
 	<DayPanel
 		selected={day}
 		{today}
@@ -403,11 +700,20 @@
 		onCompleteReminder={(id, completed) => completeReminder(day, id, completed)}
 		onAddReminder={(text) => saveReminder(createReminder(text, day))}
 	>
+		<DayEras
+			eras={calendarData.eras}
+			entries={eraEntries}
+			onmark={(id, marked) => changeEraMarks(id, marked ? [day] : [], marked ? [] : [day])}
+		/>
 		<DayWidgets
 			data={calendarData}
 			{day}
+			eras={calendarData.eras}
+			{eraEntries}
+			onEraValue={(id, kind, value) =>
+				save('eraDays', setEraValue(calendarData.eraDays, day, id, kind, value))}
 			remoteRevision={(section === 'today' && day === today) ||
-			(section === 'calendar' && mode === 'vertical' && day === selected)
+			(section === 'calendar' && day === selected)
 				? syncState.remoteRevision
 				: 0}
 			onmanage={showLayout}
@@ -416,7 +722,13 @@
 	</DayPanel>
 {/snippet}
 
-<main class="app" aria-label="Era timeline" aria-busy={!restored} style:--cell={cellSize + 'px'}>
+<main
+	class="app"
+	aria-label="Era timeline"
+	aria-busy={!restored}
+	style:--cell={cellSize + 'px'}
+	style:--timeline-color={calendarData.timelineColor}
+>
 	<header class="toolbar">
 		<h1>Era</h1>
 		<nav class="range-controls" aria-label="Timeline range" hidden={section !== 'calendar'}>
@@ -444,7 +756,7 @@
 					id={'tab-' + view.id}
 					onkeydown={navigateTabs}
 					aria-selected={activeView.id === view.id}
-					aria-controls={view.section === 'calendar' ? 'timeline-panel' : view.id + '-panel'}
+					aria-controls={view.section === 'calendar' ? 'calendar-panel' : view.id + '-panel'}
 					tabindex={activeView.id === view.id ? 0 : -1}
 					onclick={(event) => {
 						if (
@@ -497,36 +809,184 @@
 					onclick={sync.dismiss}>Dismiss</button
 				>{/if}
 		</p>{/if}
-	<div class="calendar-content" hidden={section !== 'calendar'}>
-		{#if mode === 'horizontal'}<DayDetail {selected} {today} />{/if}
-		<div class={['view-workspace', { 'with-day-panel': mode === 'vertical' }]}>
+	{#if section === 'calendar'}
+		<div
+			class="calendar-content"
+			id="calendar-panel"
+			role="tabpanel"
+			aria-labelledby={'tab-' + (mode === 'horizontal' ? 'eras' : 'vertical')}
+		>
 			<div
-				class={['timeline-scroll', mode]}
-				style:visibility={restored ? 'visible' : 'hidden'}
-				id="timeline-panel"
-				bind:this={viewport}
-				onscroll={scheduleSave}
-				role="tabpanel"
-				aria-labelledby={'tab-' + mode}
+				style:--era-sidebar-width={sidebarWidth !== undefined ? sidebarWidth + 'px' : undefined}
+				class={[
+					'view-workspace',
+					{
+						'with-day-panel': mode === 'vertical',
+						'with-era-workspace': mode === 'horizontal'
+					}
+				]}
 			>
-				<TimelineGrid
-					{firstYear}
-					{lastYear}
-					{today}
-					{selected}
-					{mode}
-					{cellSize}
-					emojis={displayedEmojis}
-					onSelect={(key) => (selection = key)}
-					onNavigate={navigateDay}
-				/>
+				{#if mode === 'vertical'}
+					{@render timeline()}
+					{@render dayEditor(selected, 'Selected day', true)}
+				{:else if activeView.id === 'eras'}
+					<div class="era-timeline" bind:clientWidth={eraTimelineWidth}>
+						<div class="era-grid-toolbar">
+							{#if markableEras.length}
+								<button
+									class="era-mark-range"
+									type="button"
+									aria-label="Mark range"
+									aria-expanded={rangePicking}
+									onclick={() => (rangePicking ? cancelMarkRange() : startMarkRange())}
+									title="Mark range (or Shift-click two days)"
+								>
+									<WidgetIcon
+										icon={{
+											paths: [
+												{ d: 'M4 5h16v15H4ZM8 3v4m8-4v4M4 9h16' },
+												{ d: 'M8 14h8m-8-2v4m8-4v4' }
+											]
+										}}
+									/>
+								</button>
+							{/if}
+							<div class="era-filter-row" bind:clientWidth={eraFilterWidth}>
+								<EraSelector
+									eras={calendarData.eras}
+									availableWidth={eraFilterWidth}
+									visibleIds={visibleEraIds}
+									{selectedEra}
+									onreset={resetEraVisibility}
+									ontoggle={toggleEraVisibility}
+									onisolate={isolateEra}
+								/>
+							</div>
+							<div class="era-day-preview" role="group" aria-label="Day preview">
+								<time class="preview-date" datetime={previewDay} title={formatDate(previewDay)}
+									>{displayedEmojis[previewDay] ?? ''}
+									{previewDateFormat.format(asDate(previewDay))}</time
+								>
+								{#each previewEras as { era, value } (era.id)}
+									<span class="preview-era" style:--preview-era={eraPalette(era).faint}>
+										{era.name}{value ? ' · ' + value : ''}
+									</span>
+								{/each}
+							</div>
+						</div>
+						{#if rangePicking || recentMark}
+							<div class="era-grid-feedback">
+								{#if rangePicking}
+									<div class="era-range-tools" role="group" aria-label="Mark grid date range">
+										<span role="status"
+											>{rangeEnd && markRange
+												? formatDate(markRange[0]) + ' – ' + formatDate(markRange[1])
+												: rangeAnchor
+													? 'Choose the other end'
+													: 'Choose two days'}</span
+										>
+										<select aria-label="Era to mark" bind:value={rangeEraId}>
+											{#each markableEras as era (era.id)}<option value={era.id}>{era.name}</option
+												>{/each}
+										</select>
+										<button type="button" disabled={!rangeEnd} onclick={() => applyMarkRange(true)}
+											>Mark days</button
+										>
+										<button type="button" disabled={!rangeEnd} onclick={() => applyMarkRange(false)}
+											>Unmark days</button
+										>
+										<button type="button" onclick={cancelMarkRange}>Cancel</button>
+									</div>
+								{/if}
+								{#if recentMark}
+									<div class="era-range-tools">
+										<span role="status"
+											>{recentMark.marked ? 'Marked' : 'Unmarked'}
+											{recentMark.dates.length}
+											{recentMark.dates.length === 1 ? 'day' : 'days'}</span
+										>
+										<button type="button" onclick={undoMarkRange}>Undo</button>
+									</div>
+								{/if}
+							</div>
+						{/if}
+						{@render timeline()}
+					</div>
+					<aside
+						class="era-sidebar"
+						aria-label="Timeline sidebar"
+						bind:this={sidebar}
+						bind:clientWidth={measuredSidebarWidth}
+					>
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (A resizable separator is focusable and supports arrow keys.) -->
+						<div
+							class="era-sidebar-resize"
+							role="separator"
+							aria-label="Resize timeline sidebar"
+							aria-orientation="vertical"
+							aria-valuemin={280}
+							aria-valuemax={sidebarMax}
+							aria-valuenow={Math.max(280, Math.min(sidebarMax, measuredSidebarWidth || 320))}
+							tabindex="0"
+							onpointerdown={startSidebarResize}
+							onpointermove={moveSidebarResize}
+							onlostpointercapture={saveSidebarWidth}
+							onkeydown={resizeSidebarWithKey}
+						></div>
+						<div class="era-sidebar-tabs" role="tablist" aria-label="Timeline sidebar views">
+							{#each sidebarTabs as { id, label, accessibleLabel } (id)}
+								<button
+									type="button"
+									role="tab"
+									id={'sidebar-tab-' + id}
+									aria-label={accessibleLabel}
+									aria-controls={'sidebar-panel-' + id}
+									aria-selected={sidebarTab === id}
+									tabindex={sidebarTab === id ? 0 : -1}
+									onkeydown={navigateSidebar}
+									onclick={() => (sidebarTab = id)}>{label}</button
+								>
+							{/each}
+							{#if sidebarTab === 'eras'}
+								<button class="open-era-day" type="button" onclick={openSelectedDay}
+									>Open day</button
+								>
+							{/if}
+						</div>
+						<div
+							class="era-sidebar-panel"
+							id="sidebar-panel-day"
+							role="tabpanel"
+							aria-labelledby="sidebar-tab-day"
+							bind:this={eraDayPanel}
+							hidden={sidebarTab !== 'day'}
+						>
+							{@render dayEditor(selected, 'Selected day', true)}
+						</div>
+						<div
+							class="era-sidebar-panel"
+							id="sidebar-panel-eras"
+							role="tabpanel"
+							aria-labelledby="sidebar-tab-eras"
+							hidden={sidebarTab !== 'eras'}
+						>
+							<EraStack
+								eraDays={calendarData.eraDays}
+								eras={calendarData.eras}
+								{emojis}
+								notes={calendarData.notes}
+								unavailable={eraId !== null && !routeEra}
+								{today}
+								onsave={saveEra}
+								onmark={changeEraMarks}
+								onshow={isolateEra}
+							/>
+						</div>
+					</aside>
+				{/if}
 			</div>
-			{#if mode === 'vertical'}
-				{@render dayEditor(selected, 'Selected day', true)}
-			{/if}
 		</div>
-	</div>
-	{#if section === 'today'}
+	{:else if section === 'today'}
 		<div class="today-view" id="today-panel" role="tabpanel" aria-labelledby="tab-today">
 			<div class="today-workspace">
 				{#each [-1, 0, 1] as offset (offset)}
@@ -559,6 +1019,13 @@
 		/>
 	{/if}
 	{#if section === 'settings'}
-		<SettingsPanel {today} {readExport} {previewImport} {importBackup} />
+		<SettingsPanel
+			{today}
+			{readExport}
+			{previewImport}
+			{importBackup}
+			timelineColor={calendarData.timelineColor}
+			onTimelineColor={(color) => save('timelineColor', color)}
+		/>
 	{/if}
 </main>

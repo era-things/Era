@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 
 const views = [
 	['Grid', '/'],
-	['Weekdays', '/weekdays'],
+	['Eras', '/eras'],
 	['Today', '/today'],
 	['Layout', '/layout'],
 	['Reminders', '/reminders'],
@@ -27,9 +27,11 @@ test('each view opens directly and Today survives reload at its own URL', async 
 				'true'
 			);
 		}
-		if (label === 'Grid') await expect(page.locator('.vertical-days')).toBeVisible();
-		if (label === 'Weekdays') await expect(page.locator('.horizontal-days')).toBeVisible();
+		if (label === 'Grid') await expect(page.locator('.vertical-days .day')).toHaveCount(100);
+		else if (label === 'Eras') await expect(page.locator('.horizontal-days .day')).toHaveCount(100);
+		else await expect(page.locator('#timeline-panel')).toHaveCount(0);
 	}
+	expect((await page.request.get('/weekdays')).status()).toBe(404);
 	expect((await page.request.get('/unknown-view')).status()).toBe(404);
 	expect((await page.request.get('/%74oday')).status()).toBe(200);
 });
@@ -70,9 +72,9 @@ test('tab links create history entries and keyboard navigation follows the URL',
 	const settings = page.getByRole('tab', { name: 'Settings', exact: true });
 	await settings.focus();
 	await settings.press('Home');
-	await expect(page).toHaveURL('/weekdays');
-	await expect(page.getByRole('tab', { name: 'Weekdays', exact: true })).toBeFocused();
-	await page.getByRole('tab', { name: 'Weekdays', exact: true }).press('End');
+	await expect(page).toHaveURL('/eras');
+	await expect(page.getByRole('tab', { name: 'Eras', exact: true })).toBeFocused();
+	await page.getByRole('tab', { name: 'Eras', exact: true }).press('End');
 	await expect(page).toHaveURL('/settings');
 	const historyLength = await page.evaluate(() => history.length);
 	await settings.click();

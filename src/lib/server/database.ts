@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { CalendarData } from '../data-export';
+import { addDays, type DateKey } from '../calendar';
 import { isRecord } from '../validation';
 import { changes, decode, records, type Change } from '../calendar-records';
 import { normalizeReminders } from '../reminders';
@@ -17,10 +18,19 @@ import { normalizeTime } from '../time';
 import { normalizeScreenApps } from '../screen-apps';
 import { normalizeGitHubActivity } from '../github-activity';
 import { normalizeAutomatedValues, WIDGETS } from '../widgets';
+import { normalizeEras, normalizeEraDays, type Era } from '../eras';
+import { currentEraDay } from './era-day';
+import { DEFAULT_TIMELINE_COLOR, isTimelineColor } from '../timeline-color';
 
 export function validate(data: unknown): asserts data is CalendarData {
 	if (!isRecord(data)) throw new Error('Invalid calendar data');
+	const eras = normalizeEras(data.eras);
 	const canonical = {
+		timelineColor: isTimelineColor(data.timelineColor)
+			? data.timelineColor
+			: DEFAULT_TIMELINE_COLOR,
+		eras,
+		eraDays: normalizeEraDays(data.eraDays, eras),
 		notes: normalizeDayNotes(data.notes),
 		emojis: normalizeDayEmojis(data.emojis),
 		measures: normalizeMeasures(data.measures),
@@ -48,7 +58,7 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 		};
 		if (version === 0) {
 			db.exec(
-				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=3'
+				'CREATE TABLE records (key TEXT PRIMARY KEY, value TEXT NOT NULL CHECK(json_valid(value))); PRAGMA user_version=4'
 			);
 		} else if (version === 2) {
 			const get = db.query<{ value: string }, [string]>('SELECT value FROM records WHERE key=?');
@@ -68,8 +78,23 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 					);
 				remove.run(pinnedKey, archivedKey);
 			}
-			db.exec('PRAGMA user_version=3');
-		} else if (version !== 3) throw new Error('Unknown database version');
+		} else if (version !== 3 && version !== 4) throw new Error('Unknown database version');
+		if (version === 2 || version === 3) {
+			db.exec(`
+				UPDATE records AS era
+				SET value = json_set(value, '$.linkedValue', CASE WHEN EXISTS (
+					SELECT 1 FROM records AS timer
+					WHERE json_extract(timer.key, '$[0]') = 'era-time'
+					  AND json_extract(timer.key, '$[2]') = json_extract(era.key, '$[1]')
+				) THEN 'hours' ELSE 'none' END)
+				WHERE json_extract(key, '$[0]') = 'era';
+				UPDATE records
+				SET key = json_array('era-value', json_extract(key, '$[1]'), json_extract(key, '$[2]')),
+				    value = json_object('hours', json(value))
+				WHERE json_extract(key, '$[0]') = 'era-time';
+				PRAGMA user_version=4;
+			`);
+		}
 	}).immediate();
 	const list = db.query<{ key: string; value: string }, []>(
 		'SELECT key,value FROM records ORDER BY rowid'
@@ -79,6 +104,13 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 		'INSERT INTO records(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value'
 	);
 	const remove = db.query('DELETE FROM records WHERE key=?');
+	const dueEras = db.query<{ key: string; value: string }, [DateKey]>(
+		`SELECT key,value FROM records
+		 WHERE key LIKE '["era",%' AND json_extract(value, '$.autoMarkedThrough') < ?`
+	);
+	const markDay = db.query(
+		'INSERT INTO records(key,value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING'
+	);
 	const read = () => decode(list.all());
 	const listeners = new Set<() => void>();
 	const totalChanges = db.query<{ count: number }, []>('SELECT total_changes() AS count');
@@ -119,6 +151,17 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 		apply(changes(current, next));
 		return next;
 	});
+	const markActiveEraDays = db.transaction((today: DateKey) => {
+		for (const { key, value } of dueEras.all(today)) {
+			const era = JSON.parse(value) as Era;
+			let date = era.autoMarkedThrough!;
+			while (date < today) {
+				date = addDays(date, 1);
+				markDay.run(JSON.stringify(['era-mark', date, era.id]), 'true');
+			}
+			put.run(key, JSON.stringify({ ...era, autoMarkedThrough: today }));
+		}
+	});
 	return {
 		db,
 		read,
@@ -131,8 +174,19 @@ export function openCalendar(path = process.env.ERA_DB ?? 'data/era.sqlite') {
 		apply: (edits: Change[]) => commit(() => apply.immediate(edits)),
 		update: (mutate: (data: CalendarData) => CalendarData) =>
 			commit(() => update.immediate(mutate)),
+		markActiveEraDays: (today: DateKey) => commit(() => markActiveEraDays.immediate(today)),
 		transaction: <T>(write: () => T): T => commit(() => db.transaction(write).immediate())
 	};
 }
 let connection: ReturnType<typeof openCalendar>;
-export const calendar = () => (connection ??= openCalendar());
+let lastEraDay: DateKey | undefined;
+
+export function calendar() {
+	const store = (connection ??= openCalendar());
+	const { date } = currentEraDay();
+	if (lastEraDay !== date) {
+		store.markActiveEraDays(date);
+		lastEraDay = date;
+	}
+	return store;
+}

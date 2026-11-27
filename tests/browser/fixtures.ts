@@ -5,11 +5,20 @@ import { productionOrigins, usesDevServer } from './servers';
 
 export { expect } from '@playwright/test';
 
-export const test = base.extend<{ resetCalendar: void }>({
+export const test = base.extend<{ resetCalendar: void; timelineDays: number | 'full' }>({
+	timelineDays: [100, { option: true }],
 	baseURL: async ({ baseURL }, use, testInfo) => {
 		const origin = usesDevServer ? baseURL : productionOrigins[testInfo.parallelIndex];
 		if (!origin) throw new Error('No Era test server is configured for this worker.');
 		await use(origin);
+	},
+	context: async ({ context, baseURL, timelineDays }, use) => {
+		if (timelineDays !== 100) {
+			await context.addCookies([
+				{ name: 'era-verify-timeline', value: String(timelineDays), url: baseURL }
+			]);
+		}
+		await use(context);
 	},
 	resetCalendar: [
 		async ({ request }, use) => {

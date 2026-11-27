@@ -50,7 +50,7 @@
 				type="button"
 				aria-label="Previous day"
 				title="Previous day"
-				disabled={selected <= firstYear + '-01-01'}
+				disabled={selected <= String(firstYear).padStart(4, '0') + '-01-01'}
 				onclick={() => onNavigate(selected, -1)}
 			>
 				<Chevron direction="left" />
@@ -59,7 +59,7 @@
 				type="button"
 				aria-label="Next day"
 				title="Next day"
-				disabled={selected >= lastYear + '-12-31'}
+				disabled={selected >= String(lastYear).padStart(4, '0') + '-12-31'}
 				onclick={() => onNavigate(selected, 1)}
 			>
 				<Chevron />

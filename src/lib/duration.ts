@@ -22,3 +22,7 @@ export function formatDurationPart(duration: number | null, unit: DurationUnit):
 	if (duration === null) return '';
 	return String(parts(duration)[unit]).padStart(unit === 'minutes' ? 2 : 1, '0');
 }
+
+export function formatDuration(minutes: number): string {
+	return formatDurationPart(minutes, 'hours') + 'h ' + formatDurationPart(minutes, 'minutes') + 'm';
+}

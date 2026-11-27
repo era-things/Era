@@ -6,6 +6,7 @@ if (!ERA_VERIFY_URL || !ERA_VERIFY_HEALTH)
 
 const url = new URL(ERA_VERIFY_URL);
 process.env.ERA_DB = ':memory:';
+process.env.ERA_VERIFY_TIMELINE = '1';
 const server = await createServer({
 	server: { host: '127.0.0.1', port: Number(url.port), strictPort: true },
 	plugins: [

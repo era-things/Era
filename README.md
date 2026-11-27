@@ -5,9 +5,9 @@ A personal calendar with a SvelteKit UI and a Bun server. Notes, emojis, measure
 UI conventions and widget patterns are documented in [DESIGN.md](DESIGN.md).
 Widget registries and API extension points are described in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Tabs have their own URLs: Grid `/`, Weekdays `/weekdays`, Today `/today`,
+The tabs have their own URLs. Use Grid `/`, Eras `/eras`, Today `/today`,
 Layout `/layout`, Reminders `/reminders`, and Settings `/settings`. Refresh keeps
-the selected view; Back and Forward restore views and their calendar positions.
+the selected view. Back and Forward restore views and their calendar positions.
 
 The [HTTP API](docs/API.md) supports widget discovery and settings, daily values,
 custom measures, emojis, and reminders. The app uses these same resource endpoints.
@@ -26,23 +26,31 @@ Restore returns a hidden widget to Available.
 
 Use Bun 1.4.4. Run `bun install --frozen-lockfile`, then `bun run dev`.
 
-Run verification with Node.js 20 or later. The script checks the Bun version in
+Run verification with Node.js 20 or later. Use the full unit suite and select
+browser tests that cover your change. The script checks the Bun version in
 `package.json` and uses the local Bun executable when available.
 
 ```sh
-node scripts/verify.mjs unit tests/widget-registry.test.ts
+node scripts/verify.mjs unit
 node scripts/verify.mjs browser time.spec.ts
 node scripts/verify.mjs scenario time-widgets
 node scripts/verify.mjs scenario counters
-node scripts/verify.mjs full
 ```
 
 `unit` without filenames runs all Bun tests. `browser` runs the selected spec
 against Vite, and `scenario` seeds and captures a named UI state. Both use isolated
-test data and print artifact paths. `full` runs the unit and type checks, builds
-once, and runs the browser suite against that build. The production browser suite
+test data and print artifact paths. When the full browser suite is explicitly requested,
+`node scripts/verify.mjs full` runs the unit and type checks, builds once, and runs
+the browser suite against that build. The production browser suite
 uses two workers, each with its own Bun server and in-memory SQLite database.
 The calendar resets before each test.
+
+Browser tracing is off by default. Add `--trace on` when rerunning a browser
+test to collect a trace for diagnosis.
+
+Verification servers render 100 timeline days by default. Browser specs that
+exercise longer ranges can set `test.use({ timelineDays: 300 })` or
+`test.use({ timelineDays: 'full' })` through the shared test fixture.
 
 For repeated checks, keep `node scripts/verify.mjs serve` running in a separate
 terminal and add `--warm` after `browser` or `scenario`. The next run starts with
@@ -73,12 +81,14 @@ merge. For a live database backup use SQLite's online backup facility or
 ## Initial scope
 
 - Ten-year overview centered around the current year (five before, four after).
-- Two view tabs: Weekdays is a continuous horizontal timeline with Monday-first
-  week columns; Grid is a vertical rectangle of consecutive dates that wraps to
-  the available width, without weekday alignment or blank calendar cells.
+- Eras is a continuous horizontal timeline with Monday-first week columns.
+  The chips filter which eras color the grid. Default shows every era, and
+  overlapping eras divide a day into equal slices. The sidebar holds the day
+  editor and era cards. Grid wraps consecutive dates to the available width,
+  without weekday alignment or blank calendar cells.
 - Squares default to 24px, with toolbar zoom controls from 50% to 200% in both
   views. Click the percentage to reset to 100%. Zoom is remembered on return.
-- Year colors, faded past days, and a distinct marker for today.
+- Alternating year shades from the grid color in Settings, with a distinct marker for today.
 - Click to select a day and see its date in a compact readout.
 - Browse the previous or next ten years; return to today.
 - Keyboard navigation follows each view's layout: arrows move to adjacent rows
@@ -178,8 +188,7 @@ Set `ERA_TIME_ZONE` to an IANA timezone on the server to change it. The app and
 - `src/lib/calendar.ts`: date-only calendar operations.
 - `src/lib/components/TimelineGrid.svelte`: continuous horizontal and vertical layouts.
 - `src/lib/components/DaySquare.svelte`: day appearance, selection, and keyboard input.
-- `src/lib/components/DayDetail.svelte`: compact selected-day readout.
-- `src/lib/components/DayPanel.svelte`: selected-day sidebar in Grid view.
+- `src/lib/components/DayPanel.svelte` renders the day editor in Today, Grid, and Eras.
 - `src/lib/components/EmojiSelector.svelte`: reusable emoji button and full picker dialog.
 - `src/lib/widgets.ts`: widget definitions, typed settings, defaults, and day lifecycle.
 - `src/lib/components/DayWidgets.svelte`: day widget rendering and add menu.

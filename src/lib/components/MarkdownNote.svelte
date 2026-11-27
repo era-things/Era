@@ -1,11 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { MarkdownEditor } from '../markdown-editor';
+	import type { MarkdownEditor, MarkdownEditorOptions } from '../markdown-editor';
 	let {
 		value,
 		readonly,
-		onchange
-	}: { value: string; readonly: boolean; onchange: (value: string) => void } = $props();
+		onchange = () => {},
+		options,
+		compact = false,
+		regionLabel = 'Day notes'
+	}: {
+		value: string;
+		readonly: boolean;
+		onchange?: (value: string) => void;
+		options?: MarkdownEditorOptions;
+		compact?: boolean;
+		regionLabel?: string;
+	} = $props();
 	let host: HTMLDivElement;
 	let editor = $state<MarkdownEditor | null>(null);
 	let error = $state('');
@@ -14,10 +24,10 @@
 		void import('../markdown-editor')
 			.then(({ createMarkdownEditor }) => {
 				if (disposed) return;
-				editor = createMarkdownEditor(host, value, onchange, readonly);
+				editor = createMarkdownEditor(host, value, onchange, readonly, options);
 			})
 			.catch(() => {
-				if (!disposed) error = 'Could not load the note editor.';
+				if (!disposed) error = 'Could not load Markdown.';
 			});
 		return () => {
 			disposed = true;
@@ -29,7 +39,7 @@
 	});
 </script>
 
-<section class="note" aria-label="Day notes">
+<section class="note" class:compact class:preview={compact && readonly} aria-label={regionLabel}>
 	<div bind:this={host}></div>
 	{#if error}<p role="alert">{error}</p>{/if}
 </section>
@@ -90,5 +100,23 @@
 	}
 	.note :global(.sd-task-checkbox) {
 		accent-color: var(--accent);
+	}
+	.compact {
+		min-height: 0;
+	}
+	.compact :global(.cm-editor),
+	.compact :global(.cm-scroller) {
+		min-height: 56px;
+	}
+	.preview :global(.cm-editor),
+	.preview :global(.cm-scroller) {
+		min-height: 0;
+		background: transparent;
+	}
+	.preview :global(.cm-scroller) {
+		resize: none;
+	}
+	.preview :global(.cm-content) {
+		padding: 0;
 	}
 </style>

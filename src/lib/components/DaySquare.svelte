@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { formatDate, relativeDay, yearOf, type CalendarDay, type DateKey } from '../calendar';
+	import { eraOverlapFill, type EraDayColor } from '../timeline-eras';
 	let {
 		day,
 		today,
 		selected,
 		emoji = '',
+		eraColors,
+		inRange = false,
 		horizontalStep,
 		verticalStep,
 		onSelect,
@@ -14,12 +17,32 @@
 		today: DateKey;
 		selected: DateKey;
 		emoji?: string;
+		eraColors?: EraDayColor[];
 		horizontalStep: number;
 		verticalStep: number;
-		onSelect: (key: DateKey) => void;
+		inRange?: boolean;
+		onSelect: (key: DateKey, extend?: boolean) => void;
 		onNavigate: (key: DateKey, offset: number) => void;
 	} = $props();
-	const colors = ['#829e91', '#a0a47f', '#a38b7f', '#8998af', '#a08da5'];
+	const dateLabel = $derived(formatDate(day.key));
+	const future = $derived(day.key > today);
+	const overlap = $derived(eraColors !== undefined && eraColors.length > 1);
+	const eraColor = $derived(eraColors?.[0]);
+	const eraState = $derived(
+		!eraColor
+			? undefined
+			: overlap
+				? 'overlap'
+				: eraColor.intensity === 0
+					? 'marked'
+					: eraColor.intensity === 1
+						? 'bold'
+						: 'graded'
+	);
+	const eraDetail = $derived(eraColors?.map(({ detail }) => detail).join(' · '));
+	const overlapFill = $derived(
+		overlap && eraColors ? eraOverlapFill(eraColors, future) : undefined
+	);
 
 	function navigate(event: KeyboardEvent) {
 		const offsets: Record<string, number> = {
@@ -44,22 +67,27 @@
 	class={[
 		'day',
 		{
-			past: day.key < today,
+			future,
+			'dark-year': yearOf(day.key) % 2 === 0,
 			today: day.key === today,
 			selected: day.key === selected,
+			'range-day': inRange,
 			'has-emoji': Boolean(emoji)
 		}
 	]}
-	style:--year-color={colors[yearOf(day.key) % colors.length]}
-	aria-label={formatDate(day.key) +
+	data-era-state={eraState}
+	style:--era-fill={overlap ? undefined : eraColor?.color}
+	style:--era-overlap-fill={overlapFill}
+	aria-label={dateLabel +
 		' · ' +
 		relativeDay(day.key, today) +
-		(emoji ? ' · ' + emoji : '')}
+		(emoji ? ' · ' + emoji : '') +
+		(eraDetail ? ' · ' + eraDetail : '')}
 	aria-pressed={day.key === selected}
 	aria-current={day.key === today ? 'date' : undefined}
-	title={formatDate(day.key)}
+	title={dateLabel + (eraDetail ? ' · ' + eraDetail : '')}
 	tabindex={day.key === selected ? 0 : -1}
-	onclick={() => onSelect(day.key)}
+	onclick={(event) => onSelect(day.key, event.shiftKey)}
 	onkeydown={navigate}
 	>{#if emoji}<span class="day-emoji" aria-hidden="true">{emoji}</span>{/if}</button
 >

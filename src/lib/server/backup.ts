@@ -3,6 +3,7 @@ import { changes, decode, emptyCalendar, records } from '../calendar-records';
 import type { BackupPreview, CalendarData } from '../data-export';
 import { isRecord } from '../validation';
 import { validate, type openCalendar } from './database';
+import { currentEraDay } from './era-day';
 
 export class InvalidBackup extends Error {}
 export class BackupChanged extends Error {
@@ -27,17 +28,23 @@ function backupRecords(backup: unknown) {
 		throw new InvalidBackup('The file contains invalid Era data.');
 	}
 	// Exports explicitly include defaults for every widget when layout is present.
-	return records(data, { includeDefaultSettings: Object.hasOwn(sections, 'layout') });
+	return records(data, {
+		includeDefaultSettings: Object.hasOwn(sections, 'layout'),
+		includeDefaultTimelineColor: Object.hasOwn(sections, 'timelineColor')
+	});
 }
 
 function planImport(current: CalendarData, incoming: Map<string, string>) {
-	const rows = records(current, { includeDefaultSettings: true });
+	const rows = records(current, {
+		includeDefaultSettings: true,
+		includeDefaultTimelineColor: true
+	});
 	const days = new Set<string>();
 	const overwrittenDays = new Set<string>();
 	let overwritesOtherData = false;
 	for (const [key, value] of incoming) {
 		const [kind, date] = JSON.parse(key) as string[];
-		const daily = kind !== 'widget' && kind !== 'measure' && kind !== 'reminder';
+		const daily = !['widget', 'measure', 'reminder', 'era', 'timeline-color'].includes(kind);
 		const previous = rows.get(key);
 		const overwrites =
 			previous !== undefined &&
@@ -81,6 +88,7 @@ export function restoreBackup(
 		store.apply(changes(current, merged));
 		const restored = store.read();
 		if (!isDeepStrictEqual(restored, merged)) throw new Error('Import did not round-trip');
-		return restored;
+		store.markActiveEraDays(currentEraDay().date);
+		return store.read();
 	});
 }

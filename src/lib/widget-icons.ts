@@ -19,6 +19,9 @@ export type WidgetIcon = {
 };
 
 export const WIDGET_ICONS = {
+	clock: {
+		paths: [{ d: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 7v5l3 2' }]
+	},
 	phone: {
 		paths: [{ d: 'M10 5h4M11 19h2' }, { d: 'M9 9h6v6H9Z', 'stroke-opacity': '.45' }],
 		rects: [{ x: '6', y: '2', width: '12', height: '20', rx: '2.5' }]

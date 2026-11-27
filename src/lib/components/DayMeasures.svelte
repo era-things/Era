@@ -1,27 +1,25 @@
+<script module lang="ts">
+	import type { Measure, MeasureValue } from '../measures';
+
+	export type DayMeasure = Omit<Measure, 'type'> & {
+		type: Measure['type'] | 'number';
+		value: MeasureValue;
+		onchange: (value: MeasureValue) => void;
+		onremove: () => void;
+	};
+</script>
+
 <script lang="ts">
 	import Chevron from './Chevron.svelte';
-	import { paletteFor, type Measure, type MeasureValue } from '../measures';
+	import { paletteFor } from '../measures';
 	import { highlightRemote, pop, reflow } from '../widget-motion';
-	let {
-		measures,
-		values,
-		remoteRevision,
-		onchange,
-		onremove
-	}: {
-		measures: Measure[];
-		values: Record<string, MeasureValue>;
-		remoteRevision: number;
-		onchange: (id: string, value: MeasureValue) => void;
-		onremove: (id: string) => void;
-	} = $props();
+	let { measures, remoteRevision }: { measures: DayMeasure[]; remoteRevision: number } = $props();
 	const inputId = $props.id();
-	function numberInput(event: Event, id: string) {
-		const input = event.currentTarget as HTMLInputElement;
+	function updateCount(input: HTMLInputElement, measure: DayMeasure) {
 		input.setCustomValidity('');
 		if (input.validity.badInput) return;
 		if (!input.value) {
-			onchange(id, null);
+			measure.onchange(null);
 			return;
 		}
 		const value = input.valueAsNumber;
@@ -29,9 +27,9 @@
 			input.setCustomValidity('Enter a non-negative whole number.');
 			return;
 		}
-		onchange(id, value);
+		measure.onchange(value);
 	}
-	function adjustNumber(event: MouseEvent, id: string, direction: number) {
+	function adjustNumber(event: MouseEvent, measure: DayMeasure, direction: number) {
 		const input = (event.currentTarget as HTMLButtonElement)
 			.closest('.number-control')!
 			.querySelector('input')!;
@@ -40,7 +38,7 @@
 		const next = current + direction;
 		if (!Number.isSafeInteger(next) || next < 0) return;
 		input.value = String(next);
-		onchange(id, next);
+		measure.onchange(next);
 	}
 </script>
 
@@ -52,7 +50,7 @@
 			style:--measure-faint={p.faint}
 			style:--measure-bright={p.bright}
 			aria-label={measure.name}
-			use:highlightRemote={{ revision: remoteRevision, value: values[measure.id] }}
+			use:highlightRemote={{ revision: remoteRevision, value: measure.value }}
 			transition:pop
 		>
 			<div class="card-heading" class:boolean-heading={measure.type === 'boolean'}>
@@ -61,8 +59,8 @@
 						<input
 							id={inputId + '-' + measure.id}
 							type="checkbox"
-							checked={values[measure.id] === true}
-							onchange={(event) => onchange(measure.id, event.currentTarget.checked)}
+							checked={measure.value === true}
+							onchange={(event) => measure.onchange(event.currentTarget.checked)}
 						/>
 						<span>{measure.name}</span>
 					</label>
@@ -73,39 +71,47 @@
 					type="button"
 					aria-label={'Remove ' + measure.name + ' from day'}
 					title="Remove from day"
-					onclick={() => onremove(measure.id)}>×</button
+					onclick={measure.onremove}>×</button
 				>
 			</div>
-			{#if measure.type === 'uint'}
+			{#if measure.type !== 'boolean'}
 				<div class="number-control">
 					<input
 						id={inputId + '-' + measure.id}
 						type="number"
-						min="0"
-						max={Number.MAX_SAFE_INTEGER}
-						step="1"
-						inputmode="numeric"
+						class:count={measure.type === 'uint'}
+						min={measure.type === 'uint' ? 0 : undefined}
+						max={measure.type === 'uint' ? Number.MAX_SAFE_INTEGER : undefined}
+						step={measure.type === 'uint' ? '1' : 'any'}
+						inputmode={measure.type === 'uint' ? 'numeric' : undefined}
 						placeholder="—"
-						value={values[measure.id] ?? ''}
-						oninput={(event) => numberInput(event, measure.id)}
-						onchange={(event) => event.currentTarget.reportValidity()}
+						value={measure.value ?? ''}
+						oninput={(event) => {
+							if (measure.type === 'uint') updateCount(event.currentTarget, measure);
+						}}
+						onchange={({ currentTarget: input }) => {
+							if (input.reportValidity() && measure.type === 'number') {
+								const value = input.value === '' ? null : input.valueAsNumber;
+								if (value === null || Number.isFinite(value)) measure.onchange(value);
+							}
+						}}
 					/>
-					<div class="step-controls">
-						{#each [1, -1] as direction}
-							<button
-								type="button"
-								class="step-button"
-								aria-label={(direction > 0 ? 'Increase ' : 'Decrease ') + measure.name}
-								aria-controls={inputId + '-' + measure.id}
-								disabled={direction > 0
-									? values[measure.id] === Number.MAX_SAFE_INTEGER
-									: Number(values[measure.id] ?? 0) <= 0}
-								onclick={(event) => adjustNumber(event, measure.id, direction)}
-							>
-								<Chevron direction={direction > 0 ? 'up' : 'down'} size={12} />
-							</button>
-						{/each}
-					</div>
+					{#if measure.type === 'uint'}<div class="step-controls">
+							{#each [1, -1] as direction}
+								<button
+									type="button"
+									class="step-button"
+									aria-label={(direction > 0 ? 'Increase ' : 'Decrease ') + measure.name}
+									aria-controls={inputId + '-' + measure.id}
+									disabled={direction > 0
+										? measure.value === Number.MAX_SAFE_INTEGER
+										: Number(measure.value ?? 0) <= 0}
+									onclick={(event) => adjustNumber(event, measure, direction)}
+								>
+									<Chevron direction={direction > 0 ? 'up' : 'down'} size={12} />
+								</button>
+							{/each}
+						</div>{/if}
 				</div>
 			{/if}
 		</article>
@@ -200,9 +206,12 @@
 		border: 1px solid transparent;
 		border-radius: 3px;
 		color: var(--ink);
-		padding: 2px 28px 2px 8px;
+		padding: 2px 8px;
 		text-align: left;
 		background: rgb(255 255 255 / 45%);
+	}
+	input.count {
+		padding-right: 28px;
 	}
 	input[type='number']::-webkit-inner-spin-button,
 	input[type='number']::-webkit-outer-spin-button {

@@ -15,22 +15,52 @@
 	import { paletteFor, setDayMeasure, type MeasureValue } from '../measures';
 	import { highlightRemote, pop, reflow } from '../widget-motion';
 	import BuiltInWidget from './BuiltInWidget.svelte';
-	import DayMeasures from './DayMeasures.svelte';
+	import DayMeasures, { type DayMeasure } from './DayMeasures.svelte';
 	import GitHubActivityWidget from './GitHubActivityWidget.svelte';
+	import TimeWidget from './TimeWidget.svelte';
+	import { eraPalette, type Era, type EraDay, type EraValueKind, type EraValues } from '../eras';
 	let {
 		data,
 		day,
 		remoteRevision,
 		onchange,
-		onmanage
+		onmanage,
+		eras,
+		eraEntries,
+		onEraValue
 	}: {
 		data: WidgetData & Pick<CalendarData, 'githubActivity'>;
 		day: DateKey;
 		remoteRevision: number;
 		onchange: (data: WidgetData) => boolean;
 		onmanage: () => void;
+		eras: Era[];
+		eraEntries: Record<string, EraDay>;
+		onEraValue: <K extends EraValueKind>(
+			id: string,
+			kind: K,
+			value: EraValues[K] | null
+		) => boolean;
 	} = $props();
 	let choosing = $state(false);
+	let draftTimers = $state<string[]>([]);
+	let draftNumbers = $state<string[]>([]);
+	const eraTimers = $derived(
+		eras.filter(
+			({ id, linkedValue }) =>
+				linkedValue === 'hours' &&
+				(eraEntries[id]?.values?.hours !== undefined || draftTimers.includes(id))
+		)
+	);
+	function changeEraTime(id: string, minutes: number | null) {
+		const accepted = onEraValue(id, 'hours', minutes);
+		if (accepted && draftTimers.includes(id))
+			draftTimers = draftTimers.filter((item) => item !== id);
+		return accepted;
+	}
+	function focusDraft(node: HTMLElement, draft: boolean) {
+		if (draft) node.querySelector('input')?.focus();
+	}
 	const visible = $derived(WIDGETS.filter(({ id }) => isVisible(data, day, id)));
 	const timeWidgets = $derived(visible.filter(({ placement }) => placement === 'time'));
 	const mainWidgets = $derived(visible.filter(({ placement }) => placement === 'main'));
@@ -58,12 +88,56 @@
 		return previousNutritionItems(nutrition, day);
 	});
 	const measureValues = $derived(data.measures.days[day] ?? {});
-	const attached = $derived(
-		data.measures.definitions.filter(({ id }) => Object.hasOwn(measureValues, id))
+	const attached = $derived<DayMeasure[]>(
+		data.measures.definitions
+			.filter(({ id }) => Object.hasOwn(measureValues, id))
+			.map((measure) => ({
+				...measure,
+				id: 'measure-' + measure.id,
+				value: measureValues[measure.id],
+				onchange: (value) => changeMeasure(measure.id, value),
+				onremove: () => changeMeasure(measure.id)
+			}))
 	);
 	function changeMeasure(id: string, value?: MeasureValue) {
 		onchange({ ...data, measures: setDayMeasure(data.measures, day, id, value) });
 	}
+	const eraMeasures = $derived.by(() => {
+		const cards: DayMeasure[] = [];
+		const choices: { id: string; name: string; color: string; add: () => void }[] = [];
+		for (const { id, linkedValue: kind, name, archived, palette } of eras) {
+			if (kind !== 'boolean' && kind !== 'number') continue;
+			const cardId = 'era-' + kind + '-' + id;
+			const color = eraPalette({ palette });
+			const value = eraEntries[id]?.values?.[kind];
+			if (value !== undefined || (kind === 'number' && draftNumbers.includes(id))) {
+				const change = (next: MeasureValue) => {
+					if (onEraValue(id, kind, next) && kind === 'number' && draftNumbers.includes(id))
+						draftNumbers = draftNumbers.filter((draft) => draft !== id);
+				};
+				cards.push({
+					id: cardId,
+					name,
+					type: kind,
+					palette: color.id,
+					value: value ?? null,
+					onchange: change,
+					onremove: () => change(null)
+				});
+			} else if (!archived) {
+				choices.push({
+					id: cardId,
+					name,
+					color: color.bright,
+					add: () => {
+						if (kind === 'number') draftNumbers = [...draftNumbers, id];
+						else onEraValue(id, 'boolean', false);
+					}
+				});
+			}
+		}
+		return { cards, choices };
+	});
 	const choices = $derived([
 		...WIDGETS.filter(({ id }) => canAttachWidget(data, day, id)).map(({ id, name }) => ({
 			id: 'widget-' + id,
@@ -71,6 +145,15 @@
 			color: '',
 			add: () => onchange(attachWidget(data, day, id))
 		})),
+		...eras
+			.filter((era) => era.linkedValue === 'hours' && !era.archived && !eraTimers.includes(era))
+			.map((era) => ({
+				id: 'era-timer-' + era.id,
+				name: era.name + ' timer',
+				color: eraPalette(era).bright,
+				add: () => (draftTimers = [...draftTimers, era.id])
+			})),
+		...eraMeasures.choices,
 		...data.measures.definitions
 			.filter(({ id }) => !Object.hasOwn(measureValues, id))
 			.map((measure) => ({
@@ -113,6 +196,22 @@
 					{@render widget(definition.id)}
 				</div>
 			{/each}
+			{#each eraTimers as era (era.id)}
+				<div
+					class="time-widget-row"
+					use:focusDraft={draftTimers.includes(era.id)}
+					use:highlightRemote={{
+						revision: remoteRevision,
+						value: eraEntries[era.id]?.values?.hours
+					}}
+				>
+					<TimeWidget
+						era={{ ...era, remove: () => changeEraTime(era.id, null) }}
+						value={eraEntries[era.id]?.values?.hours ?? null}
+						onchange={(minutes) => changeEraTime(era.id, minutes)}
+					/>
+				</div>
+			{/each}
 		</div>
 		{#if gitHubActivity}
 			<div
@@ -127,13 +226,7 @@
 			</div>
 		{/if}
 	</div>
-	<DayMeasures
-		measures={attached}
-		values={measureValues}
-		{remoteRevision}
-		onchange={changeMeasure}
-		onremove={(id) => changeMeasure(id)}
-	/>
+	<DayMeasures measures={[...attached, ...eraMeasures.cards]} {remoteRevision} />
 	{#each footerWidgets as definition (definition.id)}
 		<div transition:pop>{@render widget(definition.id)}</div>
 	{/each}
@@ -163,6 +256,7 @@
 <style>
 	.day-widget-stack {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 10px;
 		margin-top: 10px;
 	}
@@ -171,6 +265,9 @@
 		flex-wrap: wrap;
 		gap: 10px;
 		margin-top: 14px;
+	}
+	:global(.day-eras) + .day-widget-stack .day-widgets {
+		margin-top: 0;
 	}
 	.full-widget,
 	.time-widget-block {

@@ -7,6 +7,9 @@ import { apiRequests } from '../src/lib/api-client';
 import { setWidgetValue, setWidgetSettings } from '../src/lib/widgets';
 import { createReminder } from '../src/lib/reminders';
 import { currentEraDay } from '../src/lib/server/era-day';
+import { DEFAULT_TIMELINE_COLOR } from '../src/lib/timeline-color';
+import { eraIntensity, eraNumberRange } from '../src/lib/eras';
+import { addDays } from '../src/lib/calendar';
 
 function client() {
 	const store = openCalendar(':memory:');
@@ -43,6 +46,75 @@ test('the API reports the current Era date without caching it', async () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect([before, currentEraDay()]).toContainEqual(await response.json());
+	} finally {
+		store.db.close();
+	}
+});
+
+test('activating an era starts marking on the next day and archiving stops it', async () => {
+	const { store, call } = client();
+	try {
+		const path = 'eras/project';
+		await call(path, 'PUT', {
+			name: 'Project',
+			description: '',
+			archived: false,
+			linkedValue: 'none'
+		});
+		expect((await call(path, 'PATCH', { active: 'true' })).status).toBe(400);
+		const enabled = await call(path, 'PATCH', { active: true });
+		expect(enabled.status).toBe(200);
+		const { autoMarkedThrough: start } = await enabled.json();
+		expect(start).toBe(currentEraDay().date);
+		store.markActiveEraDays(start);
+		expect(store.read().eraDays).toEqual({});
+		const tomorrow = addDays(start, 1);
+		store.markActiveEraDays(tomorrow);
+		await call(path, 'PATCH', { description: 'Keep going', active: true });
+		expect(store.read().eras[0].autoMarkedThrough).toBe(tomorrow);
+		await call(path, 'PATCH', { archived: true });
+		await call(path, 'PATCH', { archived: false });
+		store.markActiveEraDays(addDays(tomorrow, 1));
+		expect(store.read().eras[0].autoMarkedThrough).toBeUndefined();
+		expect(store.read().eraDays).toEqual({ [tomorrow]: { project: { marked: true } } });
+	} finally {
+		store.db.close();
+	}
+});
+
+test('era shading uses the recorded number range and saturates hours at eight', () => {
+	const low = { values: { number: -5 } };
+	const mid = { values: { number: 0 } };
+	const high = { values: { number: 5 } };
+	const range = eraNumberRange([low, mid, high, { marked: true }]);
+	expect([low, mid, high].map((entry) => eraIntensity('number', entry, range))).toEqual([
+		0, 0.5, 1
+	]);
+	expect(eraIntensity('boolean', { values: { boolean: false } })).toBe(0);
+	expect(eraIntensity('boolean', { values: { boolean: true } })).toBe(1);
+	expect([0, 240, 480, 720].map((hours) => eraIntensity('hours', { values: { hours } }))).toEqual([
+		0, 0.5, 1, 1
+	]);
+	expect(eraIntensity('none', { values: { hours: 480 } })).toBe(0);
+});
+
+test('grid color is validated and included in backup merging', async () => {
+	const { store, call } = client();
+	try {
+		const path = 'settings/timeline-color';
+		expect((await call(path, 'PUT', { color: '#abc' })).status).toBe(400);
+		expect(store.read().timelineColor).toBe(DEFAULT_TIMELINE_COLOR);
+		expect((await call(path, 'PUT', { color: '#406C99' })).status).toBe(200);
+		const backup = JSON.parse(serializeDataExport(store.read()));
+		expect(backup.timelineColor).toBe('#406c99');
+		expect((await call(path, 'PUT', { color: DEFAULT_TIMELINE_COLOR })).status).toBe(200);
+		expect(await (await call('data/import/preview', 'POST', backup)).json()).toEqual({
+			days: 0,
+			overwrittenDays: 0,
+			overwritesOtherData: true
+		});
+		expect((await call('data/import', 'POST', backup)).status).toBe(200);
+		expect(store.read().timelineColor).toBe('#406c99');
 	} finally {
 		store.db.close();
 	}

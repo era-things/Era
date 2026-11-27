@@ -4,6 +4,8 @@ import { BackupChanged, InvalidBackup, previewBackup, restoreBackup } from './ba
 import {
 	ApiError,
 	fail,
+	invalid,
+	object,
 	reply,
 	type ApiContext,
 	type ApiRoute,
@@ -16,6 +18,16 @@ import { measureRoutes } from './api/measures';
 import { reminderRoutes } from './api/reminders';
 import { nutritionItemRoutes } from './api/nutrition-items';
 import { activityItemRoutes } from './api/activity-items';
+import { eraRoutes } from './api/eras';
+import { isTimelineColor } from '../timeline-color';
+
+function setTimelineColor({ store, body }: ApiContext) {
+	const { color } = object(body, ['color'], ['color']);
+	const timelineColor = typeof color === 'string' ? color.toLowerCase() : color;
+	if (!isTimelineColor(timelineColor)) invalid('Use a six-digit hex color.', 'color');
+	store.update((data) => ({ ...data, timelineColor }));
+	return reply({ color: timelineColor });
+}
 
 function backupResponse(run: () => unknown) {
 	try {
@@ -50,6 +62,7 @@ function importData({ store, body, headers }: ApiContext) {
 const routes: ApiRoute[] = [
 	{ pattern: /^today$/, methods: { GET: () => reply(currentEraDay()) } },
 	{ pattern: /^data$/, methods: { GET: ({ store }) => reply(store.read()) } },
+	{ pattern: /^settings\/timeline-color$/, methods: { PUT: setTimelineColor } },
 	{ pattern: /^data\/import$/, methods: { POST: importData } },
 	{
 		pattern: /^data\/import\/preview$/,
@@ -60,7 +73,8 @@ const routes: ApiRoute[] = [
 	...nutritionItemRoutes,
 	...activityItemRoutes,
 	...measureRoutes,
-	...reminderRoutes
+	...reminderRoutes,
+	...eraRoutes
 ];
 export async function handleApi(
 	request: Request,
