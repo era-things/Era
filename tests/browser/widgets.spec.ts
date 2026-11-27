@@ -42,5 +42,6 @@ test('custom measures share the day add menu and preserve numeric and boolean ed
 	for (const name of ['Test water', 'Test reading']) {
 		await page.getByRole('button', { name: 'Delete ' + name, exact: true }).click();
 		await page.getByRole('button', { name: 'Delete measure', exact: true }).click();
+		await expect(page.getByRole('button', { name: 'Delete measure', exact: true })).toHaveCount(0);
 	}
 });
